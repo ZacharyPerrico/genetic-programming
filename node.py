@@ -3,14 +3,32 @@ import numpy as np
 import sympy as sp
 import random
 import math
-
-from sympy.strategies.branch import condition
+from math import sin
 
 
 class Node:
-    """A Node"""
+    """A basic class for genetic programming. A Node holds a single value and points to zero or more children Nodes."""
 
-    ops = ('+', '-', '*', '/')
+    # All possible values for a node and the number of children it can have
+    ops = {
+        '+': 2,
+        '-': 2,
+        '*': 2,
+        '/': 2,
+        # '**': 2,
+        'min': 2,
+        'max': 2,
+        'abs': 1,
+        'if_then_else': 3,
+        '&': 2,
+        '|': 2,
+        '%': 2,
+        'sin': 1,
+    }
+
+    terminals = [
+        'x',
+    ]
 
     def __init__(self, value, children=None):
         self.parent = None
@@ -19,6 +37,7 @@ class Node:
         if type(value) == Node:
             self.children = value.copy().children
             self.value = value.value
+        # Cast int to a Node containing only valid terminals
         # elif type(value) == int:
         #     # Copy values from the const Node into self
         #     int_node = Node.const(value)
@@ -43,17 +62,10 @@ class Node:
             child.parent = self
         self._children = children
 
-    def __len__(self):
-        return len(self.children)
-
-    def __getitem__(self, i):
-        return self.children[i]
-
-    def __setitem__(self, i, value):
-        self.children[i] = value
-
-    def __iter__(self):
-        yield from self.children
+    def __len__(self): return len(self.children)
+    def __getitem__(self, i): return self.children[i]
+    def __setitem__(self, i, value): self.children[i] = value
+    def __iter__(self): yield from self.children
 
     def nodes(self, node_list=None):
         """Returns a list of all nodes"""
@@ -68,10 +80,11 @@ class Node:
 
     def root(self):
         """Returns the root of the tree"""
-        if self.parent is None:
-            return self
-        else:
-            return self.parent.root()
+        return self if self.parent is None else self.parent.root()
+        # if self.parent is None:
+        #     return self
+        # else:
+        #     return self.parent.root()
 
     def replace(self, new_node):
         """Replaces this node and all children with a new branch"""
@@ -91,7 +104,7 @@ class Node:
         return new_node.root()
 
     #
-    # Evaluation and native Python operations
+    # Evaluation
     #
 
     def __call__(self, x, algebraic=False):
@@ -99,70 +112,40 @@ class Node:
 
         # Simplify algebraically before evaluation
         if algebraic:
-            # The Node's value is not a string, return it
-            if type(self.value) != str:
-                return sp.Number(self.value)
-            # The Node's value is a variable, return  of x
-            if self.value == 'x':
-                return sp.Symbol('x')
-            # The node has children, recursively evaluate them
-            return_value = None
-            match self.value:
-                case '+':  return_value = self[0](None, algebraic) +  self[1](None, algebraic)
-                case '-':  return_value = self[0](None, algebraic) -  self[1](None, algebraic)
-                case '*':  return_value = self[0](None, algebraic) *  self[1](None, algebraic)
-                case '**': return_value = self[0](None, algebraic) ** self[1](None, algebraic)
-                case '/':
-                    # Return 1 if dividing by zero
-                    if self[1](None, algebraic) == 0:
-                        return_value = sp.Number(1)
-                    else:
-                        return_value = self[0](None, algebraic) / self[1](None, algebraic)
-            if x is None:
-                return return_value
-            else:
-                return return_value.evalf(subs={'x': x})
+            return self.simplify().evalf(subs={'x': x})
 
         # Evaluate as is
         else:
-            if type(self.value) != str:
-                return self.value
-            # The Node's value is a variable, return the value of x
-            elif self.value == 'x':
-                return x
-            # The node has children, recursively evaluate them
             match self.value:
-                case '+':  return self[0](x, algebraic) +  self[1](x, algebraic)
-                case '-':  return self[0](x, algebraic) -  self[1](x, algebraic)
-                case '*':  return self[0](x, algebraic) *  self[1](x, algebraic)
-                case '**': return self[0](x, algebraic) ** self[1](x, algebraic)
-                case '/':
-                    if self[1](x, algebraic) == 0:
-                        return 1
-                    else:
-                        # print('HERE', self[0](x, algebraic))
-                        return self[0](x, algebraic) / self[1](x, algebraic)
+                case 'x': return x
+                case '+': return self[0](x) +  self[1](x)
+                case '-': return self[0](x) -  self[1](x)
+                case '*': return self[0](x) *  self[1](x)
+                case '**': return self[0](x) ** self[1](x)
+                case '/': return 1 if self[1](x) == 0 else self[0](x) / self[1](x)
+                case '|': return self[0](x) or self[1](x)
+                case '&': return self[0](x) and self[1](x)
+                case 'min': return min(self[0](x), self[1](x))
+                case 'max': return max(self[0](x), self[1](x))
+                case 'abs': return abs(self[0](x))
+                case 'if_then_else': return self[1](x) if self[0](x) else self[2](x)
+                case 'if_then_else': return sin(self[0](x))
+            return self.value
 
     #
     # Utils
     #
 
-    @staticmethod
-    def const(n):
-        # return n
-        if n == 0:
-            return x - x
-        elif n > 0:
-            # return sum([x]*(n-1),x)/x
-            return sum([x / (x - x)] * (n - 1), x / (x - x))
-        else:
-            return sum([x] * (n - 1), x) / (x - x - x)
+    def simplify(self):
+        return sp.sympify(self(sp.Symbol('x')))
 
     def __str__(self):
-        if len(self) == 2:
+        if len(self) == 0:
+            return str(self.value)
+        elif self.value in ['+','-','*','/','**','&','|']:
             return f'({self[0]}{self.value}{self[1]})'
         else:
-            return str(self.value)
+            return self.value + '(' + ','.join([str(c) for c in self]) + ')'
 
     def __repr__(self):
         """String representation"""
@@ -173,8 +156,19 @@ class Node:
         return Node(self.value, [child.copy() for child in self])
 
     #
-    # Basic Operations
+    # Native Python Conversion
     #
+
+    @staticmethod
+    def const(n):
+        return n
+        if n == 0:
+            return x - x
+        elif n > 0:
+            # return sum([x]*(n-1),x)/x
+            return sum([x / (x - x)] * (n - 1), x / (x - x))
+        else:
+            return sum([x] * (n - 1), x) / (x - x - x)
 
     @staticmethod
     def op(operation, *operands):
@@ -201,23 +195,20 @@ class Node:
     def __rtruediv__(self, other): return Node.op('/',  other, self)
     def     __rpow__(self, other): return Node.op('**', other, self)
 
-    #
-    # Advanced Operations
-    #
-
-    def __and__(self, other): return self * other
+    def  __and__(self, other): return self * other
     def __rand__(self, other): return other * self
-    def __or__(self, other): return self + other
-    def __ror__(self, other): return other + self
+    def   __or__(self, other): return self + other
+    def  __ror__(self, other): return other + self
+    def   __eq__(self, other): return Node.const(0) / (self - other)
+    def  __abs__(self): return (self * self) ** (Node.const(1) / Node.const(2))
+    def   __lt__(self, other): return (Node.const(1) - abs(self - other) / (self - other)) / Node.const(2)
+    def   __gt__(self, other): return (Node.const(1) - abs(other - self) / (other - self)) / Node.const(2)
+    def   __le__(self, other): return (abs(other - self) / (other - self) + Node.const(1)) / Node.const(2)
+    def   __ge__(self, other): return (abs(self - other) / (self - other) + Node.const(1)) / Node.const(2)
 
-    def __eq__(self, other): return Node.const(0) / (self - other)
-
-    def __abs__(self): return (self * self) ** (Node.const(1) / Node.const(2))
-
-    def __lt__(self, other): return (Node.const(1) - abs(self - other) / (self - other)) / Node.const(2)
-    def __gt__(self, other): return (Node.const(1) - abs(other - self) / (other - self)) / Node.const(2)
-    def __le__(self, other): return (abs(other - self) / (other - self) + Node.const(1)) / Node.const(2)
-    def __ge__(self, other): return (abs(self - other) / (self - other) + Node.const(1)) / Node.const(2)
+    def __mod__(self, other):
+        if other == 2:
+            return (1 - (-1) ** self) / 2
 
     @staticmethod
     def min(*args): return args[0] * (args[0] < args[1]) + args[1] * (args[0] >= args[1])
@@ -230,68 +221,15 @@ class Node:
             return cond * if_true
         else:
             return cond * if_true + (Node.const(1) - cond) * if_false
-    # def __min__(self,other):
-
-    # def if_else(self, cond, if_false):
-    #     if if_false is None:
-    #         return cond * self
-    #     else:
-    #         return cond * self + (1 - cond) * if_false
-
-    # @staticmethod
-    # def min():
-
-
-
-
-
-
-def plot(node, x_linspace=(-10,10,21), algebraic=False):
-  xs = np.linspace(*x_linspace)
-  plt.scatter(xs, [node(i, algebraic=algebraic) for i in xs])
-  plt.plot(xs, [node(i, algebraic=algebraic) for i in xs])
-  plt.show()
-
-def sign(g): return abs(g)/g
-
 
 
 x = Node('x')
-# y = Node('y')
-y = sp.Symbol('y')
 
-n = 2
 
-g = x - n
 
-# s = (g*g)**(const(1)/const(2))
-
-# f = x < 2
-
-# f = Node.min(x, 0)
-
-# f = x*(0.5 - 0.5*(x**2)**0.5/x)
-
-# f = Node.if_then(
-#     ((0 <= x) & (x <= 2)) | (x > 7),
-#     x,
-#     x * x
-# )
-
-# f = Node.if_then(
-#     x > 1,
-#     x,
-#     x * x
-# )
 
 # x*(0.5 + 0.5*(x**2)**0.5/x)
-f = Node.if_then(
-    x >= 0,
-    x
-)
-
-# x*(0.5 + 0.5*(x**2)**0.5/x)
-f = Node.max(0, x)
+# f = Node.max(0, x)
 
 # f = Node.const()
 
@@ -303,11 +241,39 @@ f = Node.max(0, x)
 # for i in range(2,9):
 #     f = f + (x==-i)
 
-# if __name__ == '__main__':
-    # print(f)
-    # print(f(sp.Symbol('x'), True))
-    # plot(f, (-2,2))
-    #
-    #
+if __name__ == '__main__':
 
+    # ReLu
+    f = Node.if_then(
+        x >= 0,
+        x
+    )
+    # x*(0.5 + 0.5*(x**2)**0.5/x)
+
+    # Collatz Conjecture
+    f = Node.if_then(
+        x % 2,
+        3 * x + 1,
+        x / 2,
+    )
+
+    # f = Divide[1,4] (2 + 7 x - Power[\(40)-1\(41),x] (2 + 5 x))
+    # f = x*((-1)**x/2 + 1/2)/2 + (1/2 - (-1)**x/2)*(3*x + 1)
+
+    print(f)
+    print(f.simplify())
+
+
+    i = 9
+
+    # for _ in range(10):
+
+    while i != 1:
+        print(i)
+        i = f(i)
+
+    # print(f(1))
+    # print(f(3, True))
+    # print(f(sp.Symbol('x'), True))
+    # plot_nodes([f], (-2,2))
 

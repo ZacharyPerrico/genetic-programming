@@ -1,66 +1,94 @@
-#@title Default kwargs
-from gp import *
+from evolve import run_sims
+from basic import *
 from utils import *
 
 # Default kwargs
 kwargs = {
-  # The random seed to use for random and Numpy.random
-  'seed': 1,
+    # The random seed to use for random and Numpy.random
+    'seed': None,
 
-  # Initial max depth of a tree
-  'tree_depth': 4,
+    'function': lambda x: x**5 - 2*x**3 + x,
+    'fitness_func': fitness_func,
 
-  # Population size
-  'M': 600,
+    'target': 'PROGRAMMING',
 
-  # Number of randomly chosen parents for each tournanet
-  'k': 4,
+    'num_runs': 10,
 
-  # Probability of crossover
-  'p_c': 0.9,
+    'gen_individual': gen_individual,
 
-  'max_crossover_depth': 4,
+    'init_tree_depth': 4,
 
-  'max_depth': 400,
+    'pop_size': 600,
 
-  # Function used to create next generation
-  'crossover_func': crossover,
+    # Number of randomly chosen parents for each tournament
+    'k': 4,
 
-  # Probability of a bit mutating
-  'p_m': 0.5,
+    # Probability of crossover
+    'p_c': 0.9,
 
-  # Function used to create next generation
-  'mutate_func': subtree_mutation,
+    # Must be even
+    'keep_parents': 4,
 
-  # Generations before timeout
-  'T_max': 1,
+    'max_subtree_depth': 4,
+    'max_tree_depth': 400,
 
-  # Print changes and updates
-  'verbose': 1,
+    # Function used to create next generation
+    'crossover_func': crossover,
 
-  # Simplify algebraicly before evaluating
-  'algebraic': False,
+    # Probability of a bit mutating
+    'p_m': 0.5,
 
-  # The domain of the problem expressed using np.linspace
-  'x_linspace': (-1,1,21),
+    # Function used to create next generation
+    'mutate_func': subtree_mutation,
 
-  # The valid leaves of the tree
-  'leaves': ['x'],
+    # Generations before timeout
+    'max_gen': 2,
+
+    # Print changes and updates
+    'verbose': 1,
+
+    # Simplify algebraicly before evaluating
+    'algebraic': False,
+
+    # The domain of the problem expressed using np.linspace
+    'x_linspace': (-1,1,21),
+
+    # The valid leaves of the tree
+    'terminals': ['x'],
 }
 
+if __name__ == '__main__':
 
+    # kwargs['label_title'] = 'Types of Terminals'
+    # kwargs['key'] = 'terminals'
+    # kwargs['labels'] = ['$x$ and -5 to 5', '$x$ only']
+    # kwargs['values'] = [['x',-5,-4,-3,-2,-1,0,1,2,3,4,5], ['x']]
 
-#@title Types of Leaves
-kwargs['label_title'] = 'Types of Leaves'
-kwargs['key'] = 'leaves'
-kwargs['labels'] = ['$x$ and -5 to 5', '$x$ only']
-kwargs['values'] = [['x',-5,-4,-3,-2,-1,0,1,2,3,4,5], ['x']]
+    kwargs['label_title'] = 'Types of Terminals'
+    kwargs['labels'] = ['Basic', 'Advanced']
+    kwargs['key'] = 'ops'
+    kwargs['values'] = [
+        {
+            '+': 2,
+            '-': 2,
+            '*': 2,
+            '/': 2,
+        },{
+            '+': 2,
+            '-': 2,
+            '*': 2,
+            '/': 2,
+            # '**': 2,
+            'min': 2,
+            'max': 2,
+            'abs': 1,
+            'if_then_else': 3,
+            '&': 2,
+            '|': 2,
+        }
+    ]
 
-# Run simulation
-all_pops, all_fits = run_sims(**kwargs)
-
-np.save('saves/fits', all_fits)
-np.save('saves/pops', all_pops)
-np.save('saves/kwargs', np.array([kwargs]))
-
-plot_sims(all_pops, all_fits, **kwargs)
+    # Run simulation
+    all_pops, all_fits = run_sims(**kwargs)
+    # save_all(all_fits, all_pops, kwargs)
+    plot_sims(all_pops, all_fits, **kwargs)
