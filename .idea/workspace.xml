@@ -10,10 +10,14 @@
   <component name="ChangeListManager">
     <list default="true" id="1be11103-b19a-4186-ab16-0c56b5278741" name="Changes" comment="Separated GP and non-GP">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/basic.py" beforeDir="false" afterPath="$PROJECT_DIR$/basic.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/evolve.py" beforeDir="false" afterPath="$PROJECT_DIR$/evolve.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gp.py" beforeDir="false" afterPath="$PROJECT_DIR$/gp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/node.py" beforeDir="false" afterPath="$PROJECT_DIR$/node.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/saves/fits.npy" beforeDir="false" afterPath="$PROJECT_DIR$/saves/fits.npy" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/saves/kwargs.npy" beforeDir="false" afterPath="$PROJECT_DIR$/saves/kwargs.npy" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/saves/pops.npy" beforeDir="false" afterPath="$PROJECT_DIR$/saves/pops.npy" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/saves/fits.npy" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/saves/kwargs.npy" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/saves/pops.npy" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -91,23 +95,8 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/utils.py</url>
-          <line>26</line>
-          <option name="timeStamp" value="6" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/utils.py</url>
-          <line>46</line>
-          <option name="timeStamp" value="7" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/node.py</url>
-          <line>320</line>
-          <option name="timeStamp" value="9" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/node.py</url>
-          <line>356</line>
+          <line>351</line>
           <option name="timeStamp" value="13" />
         </line-breakpoint>
       </breakpoints>

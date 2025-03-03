@@ -1,8 +1,10 @@
 import os
-
+import gp
 import numpy as np
 from matplotlib import pyplot as plt
 import sympy as sp
+import pickle
+import json
 
 # All functions relevant to saving, loading, and plotting.
 
@@ -34,14 +36,13 @@ def plot_min(all_pops, all_fits, labels, title, label_title, **kwargs):
     plt.show()
 
 
-
 def plot_size(all_pops, all_fits, labels, title, label_title, **kwargs):
     """Display the history"""
     fig, ax = plt.subplots()
     all_fits = np.array(all_fits)
     x = np.array(range(all_fits.shape[2]))
 
-    all_fits = np.vectorize(lambda x: x.depth())
+    all_fits = np.vectorize(lambda x: x.height())
     all_fits = all_fits()
 
     for test in range(all_fits.shape[0]):
@@ -64,16 +65,16 @@ def plot_size(all_pops, all_fits, labels, title, label_title, **kwargs):
 def plot_nodes(nodes, fitness_func, title=None, label_title=None, labels=None, **kwargs):
     """Plot all given nodes"""
     x = np.linspace(*kwargs['x_linspace'])
-    label = f'${str(kwargs['function'](sp.Symbol("x"))).replace("**","^")}$'
-    plt.scatter(x, kwargs['function'](x), label=label)
-    plt.plot(x, kwargs['function'](x))
+    label = f'${str(kwargs['target_func'](sp.Symbol("x"))).replace("**","^")}$'
+    plt.scatter(x, kwargs['target_func'](x), label=label)
+    plt.plot(x, kwargs['target_func'](x))
     for i,node in enumerate(nodes):
         if labels is None:
             label = f'${str(node(sp.Symbol("x"))).replace("**","^")}$'
         else:
             label = f'\"{labels[i]}\", Fitness = {fitness_func([node], **kwargs)[0]:.3f}'
-        plt.scatter(x, [node(i, algebraic=False) for i in x], label=label)
-        plt.plot(x, [node(i, algebraic=False) for i in x])
+        plt.scatter(x, [node(i) for i in x], label=label)
+        plt.plot(x, [node(i) for i in x])
     plt.title(title)
     plt.legend(title=label_title)
     plt.show()
@@ -103,7 +104,6 @@ def plot_best(all_pops, all_fits, run=None, gen=slice(None), **kwargs):
 
 def plot_sims(all_pops, all_fits, **kwargs):
     """Create all plots"""
-    # Display the current histories
     plot_min(all_pops, all_fits, title='', **kwargs)
     plot_best(all_pops, all_fits, title='Best Overall', **kwargs)
     # plot_size(all_pops, all_fits, title='Best Overall', **kwargs)
@@ -114,7 +114,12 @@ def save_all(all_pops, all_fits, kwargs):
     os.makedirs(path, exist_ok=True)
     np.save(path + 'pops', all_pops)
     np.save(path + 'fits', all_fits)
-    np.save(path + 'kwargs', np.array([kwargs]))
+    kwargs = kwargs.copy()
+    for kwarg in kwargs:
+        if kwarg.endswith('_func'):
+            kwargs[kwarg] = kwargs[kwarg].__name__
+    with open(path + 'kwargs.json', 'w') as f:
+        json.dump(kwargs, f, indent=4)
 
 
 def load_all(name):
@@ -122,14 +127,15 @@ def load_all(name):
     all_pops = np.load(path + 'pops.npy', allow_pickle=True)
     all_fits = np.load(path + 'fits.npy')
     # kwargs = np.load(path + 'kwargs.npy', allow_pickle=True)[0]
-    kwargs = None
+    with open(path + 'kwargs.json', 'rb') as f:
+        kwargs = json.load(f)
+    for kwarg in kwargs:
+        if kwarg.endswith('_func'):
+            kwargs[kwarg] = getattr(gp, kwargs[kwarg])
     return all_pops, all_fits, kwargs
 
 
 if __name__ == '__main__':
-    name = 'mod2'
-    import gp
+    name = 'const2'
     all_pops, all_fits, kwargs = load_all(name)
-    kwargs = gp.kwargs
-    print('Loaded Data')
     plot_sims(all_pops, all_fits, **kwargs)

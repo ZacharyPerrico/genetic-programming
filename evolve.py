@@ -8,9 +8,9 @@ import numpy as np
 # Initialization
 #
 
-def gen_pop(pop_size, gen_individual, **kwargs):
+def init_pop(pop_size, init_individual_func, **kwargs):
     """Generate a random population"""
-    return [gen_individual(**kwargs) for _ in range(pop_size)]
+    return [init_individual_func(**kwargs) for _ in range(pop_size)]
 
 #
 # Reproduction
@@ -90,7 +90,7 @@ def run_sim(**kwargs):
         np.random.seed(kwargs['seed'])
 
     # Initial
-    pop = gen_pop(**kwargs)
+    pop = init_pop(**kwargs)
     all_pops = [pop]
     all_fits = []
 
@@ -98,10 +98,8 @@ def run_sim(**kwargs):
         if kwargs['verbose'] > 0:
             print(f'Generation {generation} of {kwargs["num_gens"]}')
 
-        # Next generation
+        # Next generation and previous fitness
         pop, fit = next_pop(pop=pop, **kwargs)
-
-        # Save results
         all_fits.append(fit)
         all_pops.append(pop)
 
@@ -111,21 +109,33 @@ def run_sim(**kwargs):
     return all_pops, all_fits
 
 
-def run_sims(key, values, num_runs, **kwargs):
-    """Run multiple runs"""
+def run_sims(key, values, num_reps, **kwargs):
+    """Run multiple tests with different hyperparameters"""
 
-    # [test] [run] [gen] [individual]
-    # All values of all chromosomes of all generations of all runs
     # This can be saved as a 4D array for easy manipulation and access
-    all_pops = np.empty((len(values), num_runs, kwargs['num_gens'] + 1, kwargs['pop_size']), dtype=object)
-    all_fits = np.empty((len(values), num_runs, kwargs['num_gens'] + 1, kwargs['pop_size']))
+    # [test] [replicant] [generation] [individual]
+    all_pops = np.empty((len(values), num_reps, kwargs['num_gens'] + 1, kwargs['pop_size']), dtype=object)
+    all_fits = np.empty((len(values), num_reps, kwargs['num_gens'] + 1, kwargs['pop_size']))
 
     # Tests
     for test, value in enumerate(values):
         kwargs[key] = value
-        for run in range(num_runs):
+        for rep in range(num_reps):
+
+    i = 0
+    while True:
+        for test in tests:
             pops, fits = run_sim(**kwargs)
-            all_pops[test, run] = pops
-            all_fits[test, run] = fits
+            all_pops[test, rep] = pops
+            all_fits[test, rep] = fits
+
+        key =
+
+        kwargs[key] = value
+    for key in
+
+            pops, fits = run_sim(**kwargs)
+            all_pops[test, rep] = pops
+            all_fits[test, rep] = fits
 
     return all_pops, all_fits

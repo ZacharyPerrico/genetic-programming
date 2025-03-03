@@ -9,7 +9,7 @@ from utils import *
 # Initialization
 #
 
-def gen_individual(target, **kwargs):
+def init_individual(target, **kwargs):
     return ''.join(random.choices(string.ascii_uppercase, k=len(target)))
 
 #
@@ -34,13 +34,13 @@ def mutation_func(individual, p_m, verbose=0, **kwargs):
 
 kwargs = {
     'seed': None,
-    'num_runs': 10,
+    'num_reps': 10,
     'num_gens': 200,
     'pop_size': 1,
     'verbose': 2,
     'lambda': 20,
     'keep_parents': True,
-    'gen_individual': gen_individual,
+    'init_individual': init_individual,
     'fitness_func': fitness_func,
     'target': 'PROGRAMMING',
     'mutate_func': mutation_func,

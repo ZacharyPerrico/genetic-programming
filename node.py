@@ -5,7 +5,6 @@ import random
 import math
 from math import sin
 import networkx as nx
-from matplotlib import patheffects
 
 
 
@@ -51,8 +50,8 @@ class Node:
         # If the value is already a node use its value so that Nodes can be cast to a Node
         # This also allows for copies of a Node to be made through casting
         if type(value) == Node:
-            # self.children = value.copy().children
-            self.children = value.children
+            self.children = value.copy().children
+            # self.children = value.children
             self.value = value.value
         else:
             self.value = value
@@ -71,6 +70,7 @@ class Node:
         """Setting a child also sets the parent of the child"""
         for child in children:
             child.parent = self
+            child.parents.append(self) #FIXME remove unused parents
         self._children = children
 
     def __len__(self): return len(self.children)
@@ -89,14 +89,16 @@ class Node:
             child.nodes(node_list)
         return node_list
 
-    def depth(self):
-        return max([0] + [1 + child.depth() for child in self.children])
+    def height(self):
+        """Longest distance to a leaf"""
+        return max([0] + [1 + child.height() for child in self.children])
 
-    def node_depth(self):
-        return 0 if self.parent is None else self.parent.node_depth() + 1
+    def depth(self):
+        """Longest distance to the root"""
+        return max([1] + [1 + parent.depth() for parent in self.parents])
 
     def root(self):
-        """Returns the root or parent of the tree"""
+        """Returns the root Node of the tree"""
         return self if self.parent is None else self.parent.root()
 
     def replace(self, new_node):
@@ -288,71 +290,65 @@ class Node:
     #     return Node.op('if_then_else', cond, if_true, if_false)
 
 
-    def disp(self, x0=0, x1=1, y=0, initial=True, verts=None, edges=None, pos=None):
+    def disp(self, theta0=0, theta1=1, r=0, initial=True, verts=None, edges=None, pos=None, verts2=None):
 
-        edges = [] if edges is None else edges
-        verts = [self] if verts is None else verts
-        pos = [(0,0)] if pos is None else pos
+        edges = [] if initial else edges
+        verts = [self] if initial else verts
+        verts2 = [[0]] if initial else verts2
+        pos = [(0,0)] if initial else pos
         index = [index for index,n in enumerate(verts) if n is self][0]
 
-        x = x0 + 0.5 * (x1 - x0)
+        theta = theta0 + 0.5 * (theta1 - theta0)
 
-        xx = math.cos(math.pi * 2 * x) * y
-        yy = math.sin(math.pi * 2 * x) * y
-
+        # xx = math.cos(math.pi * 2 * theta) * r
+        # yy = math.sin(math.pi * 2 * theta) * r
 
         if len(self) > 0:
-            sub_y = y + 1
+            sub_r = r + 1
             for i, child in enumerate(self):
                 # Check if the node already exists in the plot
                 sub = [index for index,n in enumerate(verts) if n is child]
                 if len(sub) > 0:
-                    # plt.plot((xx, sub[0][1]), (yy, sub[0][2]), c='b')
-                    # sub_xx = math.cos(math.pi * 2 * pos[child_index][0]) * pos[child_index][1]
-                    # sub_yy = math.sin(math.pi * 2 * pos[child_index][0]) * pos[child_index][1]
-                    # # Number of times the node is a child of this parent
-                    # pars = len([p for p in sub[0][0].parents if p is self])
-                    # if pars == 0:
-                    #     plt.plot((xx, sub_xx), (yy, sub_yy), c='b', lw=200)
-                    #     print(sub_xx, sub_yy)
-                    # else:
-                    #     plt.plot((xx, sub_xx), (yy, sub_yy), c='b', lw=200)
                     child_index = sub[0]
                     edges.append((index, child_index))
-                # Plot children
                 else:
                     child_index = len(verts)
                     verts.append(child)
-                    pos.append(None)
-                    # Position
-                    sub_x0 = x0 +  i    / (len(self)) * (x1 - x0)
-                    sub_x1 = x0 + (i+1) / (len(self)) * (x1 - x0)
-                    sub_x, sub_y = child.disp(sub_x0, sub_x1, sub_y, False, verts, edges, pos)
-                    sub_xx = math.cos(math.pi * 2 * sub_x) * sub_y
-                    sub_yy = math.sin(math.pi * 2 * sub_x) * sub_y
-                    # points
-                    # x_points = xx, (sub_xx + xx) / 2, sub_xx
-                    # y_points = yy, (sub_yy + yy) / 2, sub_yy
-                    # plt.plot(x_points, y_points, marker='>', c='k')
 
-                    pos[child_index] = (sub_xx, sub_yy)
+                    d = self.depth()
+                    if len(verts2) == d: verts2.append([])
+                    verts2[d].append(child_index)
+
+                    pos.append(None)
+                    # Call recursively
+                    sub_theta0 = theta0 + i / (len(self)) * (theta1 - theta0)
+                    sub_theta1 = theta0 + (i + 1) / (len(self)) * (theta1 - theta0)
+                    sub_theta, sub_r = child.disp(sub_theta0, sub_theta1, sub_r, False, verts, edges, pos, verts2)
+                    sub_x = math.cos(math.pi * 2 * sub_theta) * sub_r
+                    sub_y = math.sin(math.pi * 2 * sub_theta) * sub_r
+                    # Update position
+                    pos[child_index] = (sub_x, sub_y)
                     edges.append((index, child_index))
 
         # plt.scatter(xx, yy, c='k', s=200)
         # plt.text(xx, yy, str(self.value), horizontalalignment='center', verticalalignment='center', color='white')
 
         if not initial:
-            return x, y
+            return theta, r
         else:
-            # print(len(saved))
-            # plt.show()
+
+            for r in range(len(verts2)):
+                for i in range(len(verts2[r])):
+                    theta = i / len(verts2[r])
+                    x = math.cos(math.pi * 2 * theta) * r
+                    y = math.sin(math.pi * 2 * theta) * r
+                    pos[verts2[r][i]] = (x, y)
 
             fig, ax = plt.subplots()
             # Create networkxs graph
             G = nx.MultiDiGraph()
             G.add_nodes_from(range(len(verts)))
             G.add_edges_from(edges)
-            nx.set_node_attributes(G, {key: str(node.value) for key,node in enumerate(verts)}, 'label')
             G.nodes(data=True)
 
             # pos = nx.kamada_kawai_layout(G)
@@ -431,17 +427,26 @@ x = Node('x')
 
 if __name__ == '__main__':
     y = Node('y')
-
-
     x = Node('x')
-    f0 = x + 1
-    f1 = f0 - 1
-    f2 = f1 * f1
-    f3 = f2 / f1
-    f4 = f3 ** f2
-    f = f4.copy()
+
+
+    # f0 = x + 1
+    # f1 = f0 - 1
+    # f2 = f1 * f1
+    # f3 = f2 / f1
+    # f4 = f3 ** f2
+    # f = f4.copy()
     # f = f4
 
+    # f0 = x + 1
+    # f1 = f0 - f0
+    # f2 = f1 * f1
+    # f3 = f2 / f2
+    # f4 = f3 ** f3
+    # f = f4.copy()
+
+    f = x % 16
+    f = f.copy()
 
     # f = x + x
 
@@ -491,10 +496,18 @@ if __name__ == '__main__':
     # plt.plot()
     # plt.show()
 
+    f = (((((x-x)+(x+x))**((x+x)/x))*(x+x))/((x+x)-x))
+
+    f = (((x+x)*((((((((x+x)*(x/x))*x)+(((x-(x*(x+x)))*x)+(x*x)))+((((x-((x*(((((x-x)-x)/x)+x)/x))/x))/x)*x)*x))+x)/((x-x)+x))-((x+x)*(0-x))))/((x+((x+(((((((((((x/((0/(x-x))*(((x+((x/x)-(x*x)))+(x+((x/x)*x)))*x)))+((x+x)/x))-(((((x/(x-x))+x)/(((((x+x)/x)-((x-x)+x))+x)/x))*x)*(x/x)))+x)+x)/x)-x)/(x*x))/x)-x)+x))/x))-x))
+    # f = ((((x+x)**(((((x/x)+x)+x)+x)/x))-x)/((x+x)-x))
+    # (((max((if_then_else(x,x,((x*(if_then_else((x|x),abs(x),x)|(abs(x)-(x+x))))|abs(x)))*x),abs(((((min(x,x)+((if_then_else(x,x,x)|(x-x))&x))+x)|x)+max((max((abs(((min(x,x)+max(((((x+min(x,x))|x)|x)+(x&x)),x))+(((((if_then_else(0,x,x)&(x/x))+min(if_then_else(x,x,x),min(x,x)))&(x+x))+abs(x))|(x|x))))+min(x,x)),x)+if_then_else((x-x),x,x)),x))))-x)-min(x,x))*x)
+
+
+    print(f.simplify())
 
 
     # plt.gca().set_yscale('log')
-    f.disp()
+    # f.disp()
 
 
     # print(f)
