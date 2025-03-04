@@ -121,19 +121,6 @@ def run_sims(key, values, num_reps, **kwargs):
     for test, value in enumerate(values):
         kwargs[key] = value
         for rep in range(num_reps):
-
-    i = 0
-    while True:
-        for test in tests:
-            pops, fits = run_sim(**kwargs)
-            all_pops[test, rep] = pops
-            all_fits[test, rep] = fits
-
-        key =
-
-        kwargs[key] = value
-    for key in
-
             pops, fits = run_sim(**kwargs)
             all_pops[test, rep] = pops
             all_fits[test, rep] = fits

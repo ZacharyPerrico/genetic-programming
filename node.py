@@ -7,10 +7,6 @@ from math import sin
 import networkx as nx
 
 
-
-from utils import plot_nodes
-
-
 class Node:
     """A basic class for genetic programming. A Node holds a single value and points to zero or more children Nodes."""
 
@@ -44,6 +40,7 @@ class Node:
     def __init__(self, value, children=None):
         self.parent = None
         self.parents = []
+        self._index = None # Used when creating a list of all nodes to prevent repeats.
         # Cast int to a Node containing only valid terminals
         # if type(value) == int:
         #     value = Node.const(value)
@@ -78,15 +75,22 @@ class Node:
     def __setitem__(self, i, value): self.children[i] = value
     def __iter__(self): yield from self.children
 
+    def reset_index(self):
+        if self._index is not None:
+            self._index = None
+            for child in self.children:
+                child.reset_index()
+
     def nodes(self, node_list=None):
         """Returns a list of all nodes"""
-        if node_list is None: node_list = []
-        err = [s for s in node_list if s is self]
-        if err:
-            print('ERROR', self, node_list, err)
-        node_list.append(self)
-        for child in self:
-            child.nodes(node_list)
+        if node_list is None:
+            node_list = []
+            self.reset_index()
+        if self._index is None:
+            self._index = len(node_list)
+            node_list.append(self)
+            for child in self:
+                child.nodes(node_list)
         return node_list
 
     def height(self):
@@ -101,6 +105,35 @@ class Node:
         """Returns the root Node of the tree"""
         return self if self.parent is None else self.parent.root()
 
+    def copy(self):
+        return Node.from_lists(*self.to_lists())
+
+    def expanded_copy(self):
+        """Returns a recursive deepcopy of all Nodes"""
+        return Node(self.value, [child.copy() for child in self])
+
+    def to_lists(self, verts=None, edges=None):
+        """Returns lists representing the vertices and edges"""
+        if verts is None:
+            self.reset_index()
+            verts, edges = [], []
+        if self._index is None:
+            self._index = len(verts)
+            verts.append(self.value)
+            for child in self.children:
+                child.to_lists(verts, edges)
+                edges.append((self._index, child._index))
+        return verts, edges
+
+    @staticmethod
+    def from_lists(verts, edges):
+        """Returns a Node tree from lists representing the vertices and edges"""
+        nodes = [Node(vert) for vert in verts]
+        for edge in edges:
+            nodes[edge[0]]._children.append(nodes[edge[1]])
+            nodes[edge[1]].parents.append(nodes[edge[0]])
+        return nodes[0]
+
     def replace(self, new_node):
         """Replaces this node and all children with a new branch"""
         # Create a copy of the new node
@@ -108,7 +141,7 @@ class Node:
         # Return the new node if self is the root of the tree
         if self.parent is None: return new_node
         # Parent's index for self
-        parent_index = self.parent.children.index(self)
+        parent_index = self.parent.children._index(self)
         # Replace the parent's reference to self
         self.parent[parent_index] = new_node
         # Replace the new Node's reference to parent
@@ -166,6 +199,9 @@ class Node:
                 case _: return x[int(''.join([s for s in self.value if s.isdigit()]))]
         return self.value
 
+    def simplify(self):
+        return sp.sympify(self(sp.Symbol('x')))
+
     #
     # Utils
     #
@@ -180,13 +216,6 @@ class Node:
 
     def __repr__(self):
         return str(self)
-
-    def simplify(self):
-        return sp.sympify(self(sp.Symbol('x')))
-
-    def copy(self):
-        """Returns a recursive deepcopy of all Nodes"""
-        return Node(self.value, [child.copy() for child in self])
 
     #
     # Native Python Conversion
@@ -255,8 +284,6 @@ class Node:
             k = int(math.log2(other))
             return (((self >> k-1) % 2) << k-1) + (self % 2**(k-1))
 
-
-
     @staticmethod
     def min(*args): return args[0] * (args[0] < args[1]) + args[1] * (args[0] >= args[1])
     @staticmethod
@@ -288,6 +315,7 @@ class Node:
     # @staticmethod
     # def if_then_else(cond, if_true, if_false=None):
     #     return Node.op('if_then_else', cond, if_true, if_false)
+
 
 
     def disp(self, theta0=0, theta1=1, r=0, initial=True, verts=None, edges=None, pos=None, verts2=None):
@@ -336,7 +364,6 @@ class Node:
         if not initial:
             return theta, r
         else:
-
             for r in range(len(verts2)):
                 for i in range(len(verts2[r])):
                     theta = i / len(verts2[r])
@@ -394,6 +421,8 @@ class Node:
 
 
 
+
+
 def plot_node(node, x_linspace, **kwargs):
     """Plot all given nodes"""
     xs = np.linspace(*x_linspace)
@@ -422,21 +451,19 @@ def plot_nodes(nodes, x_linspace, **kwargs):
 
 
 
-x = Node('x')
-
 
 if __name__ == '__main__':
-    y = Node('y')
+
     x = Node('x')
+    y = Node('y')
 
-
-    # f0 = x + 1
-    # f1 = f0 - 1
-    # f2 = f1 * f1
-    # f3 = f2 / f1
-    # f4 = f3 ** f2
+    f0 = x + 1
+    f1 = f0 - x
+    f2 = f1 * f1
+    f3 = f2 / f1
+    f4 = f3 ** f2
     # f = f4.copy()
-    # f = f4
+    f = f4
 
     # f0 = x + 1
     # f1 = f0 - f0
@@ -445,8 +472,15 @@ if __name__ == '__main__':
     # f4 = f3 ** f3
     # f = f4.copy()
 
-    f = x % 16
+    # f = x
+
+    # f = f.copy()
+
+    print(f.nodes())
+
     f = f.copy()
+
+    print(f.nodes())
 
     # f = x + x
 
@@ -496,14 +530,14 @@ if __name__ == '__main__':
     # plt.plot()
     # plt.show()
 
-    f = (((((x-x)+(x+x))**((x+x)/x))*(x+x))/((x+x)-x))
+    # f = (((((x-x)+(x+x))**((x+x)/x))*(x+x))/((x+x)-x))
 
-    f = (((x+x)*((((((((x+x)*(x/x))*x)+(((x-(x*(x+x)))*x)+(x*x)))+((((x-((x*(((((x-x)-x)/x)+x)/x))/x))/x)*x)*x))+x)/((x-x)+x))-((x+x)*(0-x))))/((x+((x+(((((((((((x/((0/(x-x))*(((x+((x/x)-(x*x)))+(x+((x/x)*x)))*x)))+((x+x)/x))-(((((x/(x-x))+x)/(((((x+x)/x)-((x-x)+x))+x)/x))*x)*(x/x)))+x)+x)/x)-x)/(x*x))/x)-x)+x))/x))-x))
+    # f = (((x+x)*((((((((x+x)*(x/x))*x)+(((x-(x*(x+x)))*x)+(x*x)))+((((x-((x*(((((x-x)-x)/x)+x)/x))/x))/x)*x)*x))+x)/((x-x)+x))-((x+x)*(0-x))))/((x+((x+(((((((((((x/((0/(x-x))*(((x+((x/x)-(x*x)))+(x+((x/x)*x)))*x)))+((x+x)/x))-(((((x/(x-x))+x)/(((((x+x)/x)-((x-x)+x))+x)/x))*x)*(x/x)))+x)+x)/x)-x)/(x*x))/x)-x)+x))/x))-x))
     # f = ((((x+x)**(((((x/x)+x)+x)+x)/x))-x)/((x+x)-x))
     # (((max((if_then_else(x,x,((x*(if_then_else((x|x),abs(x),x)|(abs(x)-(x+x))))|abs(x)))*x),abs(((((min(x,x)+((if_then_else(x,x,x)|(x-x))&x))+x)|x)+max((max((abs(((min(x,x)+max(((((x+min(x,x))|x)|x)+(x&x)),x))+(((((if_then_else(0,x,x)&(x/x))+min(if_then_else(x,x,x),min(x,x)))&(x+x))+abs(x))|(x|x))))+min(x,x)),x)+if_then_else((x-x),x,x)),x))))-x)-min(x,x))*x)
 
 
-    print(f.simplify())
+    # print(f.simplify())
 
 
     # plt.gca().set_yscale('log')

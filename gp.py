@@ -34,10 +34,15 @@ def fitness_helper(node, xs, y_true):
     fit = node
     return fit
 
-def fitness_func(pop, target_func, x_linspace, **kwargs):
+def fitness_func(pop, target_func, domains, **kwargs):
     """Calculate the fitness value of all chromosomes in a population"""
-    xs = np.linspace(*x_linspace)
-    y_true = target_func(xs)
+    # xs = np.linspace(*x_linspace)
+    xs = [np.linspace(*domain) for domain in domains]
+
+    xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
+
+    # y_true =
+    y_true = [target_func(*list(x)) for x in xs]
     fits = np.empty(len(pop))
     for i,node in enumerate(pop):
         y_node = [node(x) for x in xs]
@@ -128,7 +133,7 @@ def crossover(a, b, max_subtree_depth, max_tree_depth, verbose, **kwargs):
 # Problems
 #
 
-def target_func(x): return 10 * x**2 + x
+def logical_or(*x): return bool(x[0]) or bool(x[1])
 
 #
 # Default kwargs
@@ -149,7 +154,6 @@ kwargs = {
     'p_branch': 0.5,
     'init_tree_depth': 4,
     'fitness_func': fitness_func,
-    'target_func': target_func,
     'x_linspace': (0, 15, 16),  # The domain of the problem expressed using np.linspace
     'crossover_func': crossover,
     'k': 4, # Number of randomly chosen parents for each tournament
@@ -161,7 +165,25 @@ kwargs = {
 
 if __name__ == '__main__':
 
-    kwargs['name'] = 'const2'
+    # kwargs['name'] = 'const2'
+    # kwargs['label_title'] = 'Types of Operations'
+    # kwargs['labels'] = [
+    #     '4-ops',
+    #     '5-ops',
+    #     'all-ops'
+    # ]
+    # kwargs['key'] = 'ops'
+    # kwargs['values'] = [
+    #     ['+', '-', '*', '/'],
+    #     ['+', '-', '*', '/', '**'],
+    #     ['+', '-', '*', '/', '**', 'min', 'max', 'abs', 'if_then_else', '&', '|']
+    # ]
+
+    kwargs['name'] = 'logical_or'
+    kwargs['target_func'] = logical_or
+    kwargs['terminals'] = ('x_0', 'x_1')
+    kwargs['domains'] = ((0,1,2), (0,1,2))
+    kwargs['num_gens'] = 10
     kwargs['label_title'] = 'Types of Operations'
     kwargs['labels'] = [
         '4-ops',
@@ -176,6 +198,12 @@ if __name__ == '__main__':
     ]
 
     # Run simulation
-    all_pops, all_fits = run_sims(**kwargs)
-    plot_sims(all_pops, all_fits, **kwargs)
-    save_all(all_pops, all_fits, kwargs)
+    # all_pops, all_fits = run_sims(**kwargs)
+    # plot_sims(all_pops, all_fits, **kwargs)
+    # save_all(all_pops, all_fits, kwargs)
+
+
+    x_0, x_1 = Node('x_0'), Node('x_1')
+    y = fitness_func([x_0], **kwargs)
+
+    print(y)
