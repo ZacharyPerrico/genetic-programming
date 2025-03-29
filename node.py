@@ -4,7 +4,7 @@ from math import sin, cos
 import numpy as np
 import sympy as sp
 
-from plot import plot_nodes, plot_tree
+from plot import plot_nodes, plot_graph
 
 
 class Node:
@@ -41,7 +41,6 @@ class Node:
     def __init__(self, value, children=None):
         self.parent = None
         self.parents = []
-        self.temp_index = None # Used when creating a list of all nodes to prevent repeats.
         # If the value is already a node use its value so that Nodes can be cast to a Node
         # This also allows for copies of a Node to be made through casting
         if type(value) == Node:
@@ -51,6 +50,10 @@ class Node:
         else:
             self.value = value
             self.children = children if children is not None else []
+        # Used when creating a list of all nodes to prevent repeats.
+        # None indicates that all children also have a temp_index of None
+        # Setting this to -1 and then resetting results in it being None
+        self.temp_index = -1
 
     #
     # Children and Parents
@@ -335,20 +338,20 @@ class Node:
     def __rtruediv__(self, other): return Node.op('/',  other, self)
     def      __pow__(self, other): return Node.op('**', self, other)
     def     __rpow__(self, other): return Node.op('**', other, self)
-    def  __neg__(self): return Node.op('neg',  self)
-    def  __and__(self, other): return Node.op('&',  self, other)
-    def __rand__(self, other): return Node.op('&',  other, self)
-    def   __or__(self, other): return Node.op('|',  self, other)
-    def  __ror__(self, other): return Node.op('|',  other, self)
-    def   __eq__(self, other): return Node.op('==',  self, other)
-    def  __abs__(self): return Node.op('abs',  self)
-    def   __lt__(self, other): return Node.op('<',  self, other)
-    def   __gt__(self, other): return Node.op('>',  self, other)
-    def   __le__(self, other): return Node.op('<=',  self, other)
-    def   __ge__(self, other): return Node.op('>=',  self, other)
-    def __lshift__(self, other): return Node.op('<<',  self, other)
-    def __rshift__(self, other): return Node.op('>>',  self, other)
-    def __mod__(self, other): return Node.op('%',self, other)
+    def      __neg__(self       ): return Node.op('neg',self       )
+    def      __and__(self, other): return Node.op('&',  self, other)
+    def     __rand__(self, other): return Node.op('&',  other, self)
+    def       __or__(self, other): return Node.op('|',  self, other)
+    def      __ror__(self, other): return Node.op('|',  other, self)
+    def       __eq__(self, other): return Node.op('==', self, other)
+    def      __abs__(self       ): return Node.op('abs',self       )
+    def       __lt__(self, other): return Node.op('<',  self, other)
+    def       __gt__(self, other): return Node.op('>',  self, other)
+    def       __le__(self, other): return Node.op('<=', self, other)
+    def       __ge__(self, other): return Node.op('>=', self, other)
+    def   __lshift__(self, other): return Node.op('<<', self, other)
+    def   __rshift__(self, other): return Node.op('>>', self, other)
+    def      __mod__(self, other): return Node.op('%',  self, other)
 
     @staticmethod
     def max(*args): return Node.op('max', *args)
@@ -358,12 +361,12 @@ class Node:
     def sin(arg): return Node.op('sin', arg)
     @staticmethod
     def cos(arg): return Node.op('cos', arg)
-    @staticmethod
-    def get_bit(*args): return Node.op('get_bit', *args)
+    # @staticmethod
+    # def get_bit(*args): return Node.op('get_bit', *args)
     @staticmethod
     def get_bits(f, start, length): return Node.op('get_bits', f, start, length)
     @staticmethod
-    def if_then_else(cond, if_true, if_false=None):
+    def if_then_else(cond, if_true, if_false):
         return Node.op('if_then_else', cond, if_true, if_false)
 
     #
@@ -393,9 +396,9 @@ class Node:
                 case '*': return self[0].limited() * self[1].limited()
                 case '/': return self[0].limited() / self[1].limited()
                 case '**': return self[0].limited() ** self[1].limited()
+                case 'neg': return 0 - self[0].limited()
                 case '|': return self[0].limited() ** 0 ** self[1].limited()
                 case '&': return self[0].limited() * self[1].limited()
-                case 'neg': return 0 - self[0].limited()
                 case '==': return 0 / (self[0].limited() - self[1].limited())
                 case 'abs':
                     s0 = self[0].limited()
@@ -442,6 +445,12 @@ class Node:
                     # i = (-Node(1)) ** (Node(1) / Node(2))
                     i = Node('i')
                     return (e ** (i * s0) - e ** (-i * s0)) / (2 * i)
+                case 'cos':
+                    s0 = self[0].limited()
+                    e = Node('e')
+                    # i = (-Node(1)) ** (Node(1) / Node(2))
+                    i = Node('i')
+                    return (e ** (i * s0) - e ** (-i * s0)) / (2 * i)
                 case 'get_bits':
                     s0 = self[0]
                     s1 = self[1].value
@@ -449,6 +458,7 @@ class Node:
                     return ((s0 >> s1) % (2 ** s2)).limited()
                 case _: return self
         else:
+            # Convert non-strings into constants
             return Node.const(self.value)
 
 
@@ -456,10 +466,12 @@ class Node:
 
 
 
+x = Node('x')
+i = Node('i')
+e = Node('e')
 
 if __name__ == '__main__':
 
-    x = Node('x')
 
 
     # f = Node.if_then_else(
@@ -474,14 +486,27 @@ if __name__ == '__main__':
 
     # l = f.limited()
 
-    print(f(4, eval_method='zero'))
+    x = Node('x')
 
-    plot_nodes(
-        [f],
-        domains=((0,15,16),),
-        eval_method='zero'
-    )
-    # plot_tree(f.limited(), 1)
+    f1 = x + 1
+    g = f1.copy()
+    f2 = f1 - f1
+    # f = g
+    f = f2
+
+    f = (x % 4).limited()
+
+    # print(f.to_lists())
+    plot_graph(f)
+
+    # print(f(4, eval_method='zero'))
+    #
+    # plot_nodes(
+    #     [f],
+    #     domains=((0,15,16),),
+    #     eval_method='zero'
+    # )
+    # plot_graph(f.limited(), 1)
 
     # print(l)
 

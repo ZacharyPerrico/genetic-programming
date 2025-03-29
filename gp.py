@@ -13,7 +13,7 @@ from math import sin, cos
 """Functions relevant to implementing genetic programming"""
 
 #
-# Initialization
+# Initialization Functions
 #
 
 def random_tree(init_tree_depth, ops, terminals, p_branch=0.5, init_call=True, **kwargs):
@@ -28,14 +28,14 @@ def random_tree(init_tree_depth, ops, terminals, p_branch=0.5, init_call=True, *
         return Node(random.choice(terminals))
 
 #
-# Evaluation
+# Fitness Functions
 #
 
 def fitness_helper(id, node, xs, y_target):
+    """Used for parallel computing"""
     y_actual = [node(*x) for x in xs]
     fit = (sum((abs(y_target - y_actual)) ** 2) / len(xs)) ** (1 / 2)
     return fit
-
 
 def mse(pop, target_func, domains, **kwargs):
     """Calculate the fitness value of all chromosomes in a population"""
@@ -55,7 +55,7 @@ def mse(pop, target_func, domains, **kwargs):
 
 
 def correlation(pop, target_func, domains, **kwargs):
-    """Calculate the fitness value of all chromosomes in a population"""
+    """Calculate the fitness value of all individuals in a population"""
     xs = [np.linspace(*domain) for domain in domains]
     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
     y_target = np.array([target_func(*list(x)) for x in xs])
@@ -100,33 +100,8 @@ def final_correlation(pop, target_func, domains, **kwargs):
     fits = np.nan_to_num(fits, nan=1000000, posinf=1000000)
     return fits
 
-# def mse_post(pop, target_func, domains, **kwargs):
-#     """Calculate the fitness value of all chromosomes in a population"""
-#     xs = [np.linspace(*domain) for domain in domains]
-#     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
-#     y_target = np.array([target_func(*list(x)) for x in xs])
-#     fits = np.empty(len(pop))
 #
-#     for i,node in enumerate(pop):
-#         # Post processing
-#         y_actual = np.array([node(*x) for x in xs])
-#         def min_f(a): return np.sum(np.abs(y_target - (a[1] * y_actual + a[0])))
-#         res = minimize(min_f, [0, 0], method='Nelder-Mead', tol=1e-6)
-#         new_node = (float(res.x[1]) * node.copy()) + float(res.x[0])
-#         pop[i] = new_node
-#         # MSE
-#         y_actual = [node(*x) for x in xs]
-#         fit = (sum((abs(y_target - y_actual)) ** 2) / len(xs)) ** (1 / 2)
-#
-#         fits[i] = fit
-#     fits = np.nan_to_num(fits, nan=1000000, posinf=1000000)
-#
-#     return fits
-
-
-
-#
-# Mutation
+# Mutation Functions
 #
 
 def subtree_mutation(a, p_m, verbose, **kwargs):
@@ -146,12 +121,29 @@ def subtree_mutation(a, p_m, verbose, **kwargs):
         a = new_a
     return a
 
-def pointer_mutation(a, p_m):
 
+def split_mutation(a, p_m, verbose, **kwargs):
+    """Preform a mutation with a probability of p_m"""
+    # Probability of mutation
+    if random.random() < p_m:
+        a = a.copy()
+        # List of all nodes with no children
+        a_nodes = [n for n in a.nodes() if len(n) == 0]
+        old_branch = random.choice(a_nodes)
+        if verbose > 1:
+            old_a = a.copy()
+        new_branch = old_branch.copy()
+        new_a = old_branch.replace(new_branch)
+        if verbose > 1:
+            print(f'Mutation: {old_a} replaces {old_branch} with {new_branch} returns {new_a}')
+        a = new_a
     return a
 
+# def pointer_mutation(a, p_m):
+#     return a
+
 #
-# Reproduction
+# Crossover Functions
 #
 
 def subtree_crossover(a, b, max_subtree_depth, max_tree_depth, verbose, **kwargs):
@@ -176,12 +168,16 @@ def subtree_crossover(a, b, max_subtree_depth, max_tree_depth, verbose, **kwargs
     # Swap the two nodes
     a_parent_node.replace(b_parent_node.copy())
     b_parent_node.replace(a_parent_node.copy())
+
+    # a_new.prev_fit = a_parent
+    # b_new.prev_fit = b_parent
+
     if verbose > 1:
         print(f'Crossover: {a}  &  {b}  ->  {a_new}  &  {b_new}')
     return a_new, b_new
 
 #
-# Problems
+# Target Functions
 #
 
 def logical_or(*x): return bool(x[0]) or bool(x[1])
@@ -218,27 +214,27 @@ kwargs = {
 
     'num_reps': 1,
     'num_gens': 100,
-    'pop_size': 600, #Default 600
-    'max_tree_depth': 200, #Default 400
+    'pop_size': 600, # Default: 600
+    'max_tree_depth': 200, # Default: 400
     'max_subtree_depth': 4,
 
     'eval_method': None,
 
     'init_individual_func': random_tree,
-    'terminals': ('x',),
-    'ops': ('+','-','*','/','**'),
+    'terminals': ['x'],
+    'ops': ['+','-','*','/','**'],
     'p_branch': 0.5,
     'init_tree_depth': 4,
 
-    'final_fitness_func': final_correlation,
-    'result_fitness_func': mse, #
     'fitness_func': correlation,
+    'final_fitness_func': final_correlation, # Fitness function with post-processing
+    'result_fitness_func': mse, # Fitness to compare results
     'domains': ((0, 1, 50),),  # The domain of the problem expressed using np.linspace
 
     'crossover_func': subtree_crossover,
     'k': 4, # Number of randomly chosen parents for each tournament
     'p_c': 0.9, # Probability of crossover
-    'keep_parents': 4, # Must be even
+    'keep_parents': 4, # Elitism, must be even
 
     'mutate_func': subtree_mutation,
     'p_m': 0.5, # Probability of mutation
@@ -259,18 +255,18 @@ if __name__ == '__main__':
     #         for p_c in np.arange(5,7,2) / 10
     # ]
 
-    kwargs['name'] = 'cos'
-    kwargs['target_func'] = cos
-    # kwargs['fitness_func'] = correlation
-    kwargs['terminals'] = ('x','e','i',)
-    kwargs['domains'] = ((0, 2*math.pi, 31),)
-    kwargs['num_gens'] = 50
-    kwargs['pop_size'] = 400
-    kwargs['test_kwargs'] = [
-        ['labels', 'init_individual_func', 'fitness_func'],
-        ['random_cor', random_tree, correlation],
-        # ['random_mse', random_tree, mse],
-    ]
+    # kwargs['name'] = 'cos'
+    # kwargs['target_func'] = cos
+    # # kwargs['fitness_func'] = correlation
+    # kwargs['terminals'] = ('x','e','i',)
+    # kwargs['domains'] = ((0, 2*math.pi, 31),)
+    # kwargs['num_gens'] = 50
+    # kwargs['pop_size'] = 400
+    # kwargs['test_kwargs'] = [
+    #     ['labels', 'init_individual_func', 'fitness_func'],
+    #     ['random_cor', random_tree, correlation],
+    #     # ['random_mse', random_tree, mse],
+    # ]
 
     # kwargs['name'] = 'logical_or'
     # kwargs['target_func'] = logical_or
@@ -367,14 +363,35 @@ if __name__ == '__main__':
     #            result_fitness_func=mse, #correlation,
     #            domains=[[0, 2*np.pi, 31]])
 
-
-    x = Node('x')
-
-    f = x + 1
-
-    plot_nodes([f], mse_f, domains=((0,15,16),))
-
     # Run simulation
     # all_pops, all_fits = run_sims(**kwargs)
     # save_all(all_pops, all_fits, kwargs)
     # plot_results(all_pops, all_fits, **kwargs)
+
+
+
+
+
+
+    x = Node('x')
+
+    f1 = x + 1
+    f2 = f1 - f1.copy()
+    f = f2
+
+    # f1 = x + 1
+    # f2 = f1 - x
+    # f3 = f1 * f2
+    # f4 = f3 / f3.copy()
+    # # f4 = f3.copy() / f3.copy()
+    # f = f4
+    # f = f.copy()
+
+    # g1 = x / 1
+
+    # (f[0][0]).replace(g1.copy())
+
+    # f = split_mutation(f, 1, 1)
+
+    plot_graph(f)
+

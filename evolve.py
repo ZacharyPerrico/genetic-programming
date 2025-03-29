@@ -24,8 +24,8 @@ def tournament_selection(pop, fits, k, **kwargs):
     # Sort all parents by fitness
     parent = sorted(parent)
     # Get the chromosome of the first element
-    parent = tourn[parent[0][1]]
-    return parent
+    parent, fit = tourn[parent[0][1]], parent[0][0]
+    return parent, fit
 
 #
 # Simulation and Iteration
@@ -67,11 +67,15 @@ def next_pop(pop, **kwargs):
         # Repeat until the new population is the same size as the old
         while len(new_pop) < len(pop):
             # Selection
-            c0 = tournament_selection(**kwargs)
-            c1 = tournament_selection(**kwargs)
+            c0, f0 = tournament_selection(**kwargs)
+            c1, f1 = tournament_selection(**kwargs)
+            prev_fit = np.mean(kwargs['fitness_func'](pop=[c0,c1], **kwargs))
             # Crossover
             if random.random() < kwargs['p_c']:
                 c0, c1 = kwargs['crossover_func'](c0, c1, **kwargs)
+
+                cc0.prev_fit
+
             # Mutate children
             c0 = kwargs['mutate_func'](c0, **kwargs)
             c1 = kwargs['mutate_func'](c1, **kwargs)
