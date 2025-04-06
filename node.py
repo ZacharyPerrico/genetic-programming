@@ -3,8 +3,9 @@ from math import sin, cos
 
 import numpy as np
 import sympy as sp
+from numpy.ma.core import ones_like
 
-from plot import plot_nodes, plot_graph
+from plot import plot_effective
 
 
 class Node:
@@ -54,6 +55,7 @@ class Node:
         # None indicates that all children also have a temp_index of None
         # Setting this to -1 and then resetting results in it being None
         self.temp_index = -1
+        self.returned_value = -1
 
     #
     # Children and Parents
@@ -89,17 +91,6 @@ class Node:
             child.parents.append(self)
             child.set_parents()
 
-    #
-    # Utility
-    #
-
-    def reset_index(self):
-        """Set the temp_index of all nodes to None"""
-        if self.temp_index is not None:
-            self.temp_index = None
-            for child in self.children:
-                child.reset_index()
-
     def nodes(self, node_list=None):
         """Returns a list of all nodes"""
         if node_list is None:
@@ -111,6 +102,24 @@ class Node:
             for child in self:
                 child.nodes(node_list)
         return node_list
+
+    #
+    # Utility
+    #
+
+    def reset_returned_value(self):
+        """Set the returned_value of all nodes to None"""
+        if self.returned_value is not None:
+            self.returned_value = None
+            for child in self.children:
+                child.reset_index()
+
+    def reset_index(self):
+        """Set the temp_index of all nodes to None"""
+        if self.temp_index is not None:
+            self.temp_index = None
+            for child in self.children:
+                child.reset_index()
 
     def index_in(self, l):
         """Returns the first index of this object in the given iterable. The `in` keyword and `index` method will not work for Nodes"""
@@ -138,6 +147,54 @@ class Node:
         """Returns the root Node of the tree"""
         return self if self.parent is None else self.parent.root()
 
+    def num_neutral(self):
+        """Count the operations that always return the same operand (identity or absorbing)"""
+        if type(self.value) is str:
+            match self.value:
+                case '+':
+                    s0 = self[1].simplify()
+                    s1 = self[0].simplify()
+                    if s0 == 0 or s1 == 0:
+                        return 1 + self[0].num_neutral() + self[1].num_neutral()
+                case '-':
+                    s1 = self[0].simplify()
+                    if s1 == 0:
+                        return 1 + self[0].num_neutral() + self[1].num_neutral()
+                case '*':
+                    s0 = self[1].simplify()
+                    s1 = self[0].simplify()
+                    if s0 == 0 or s1 == 0 or s0 == 1 or s1 == 1:
+                        return 1 + self[0].num_neutral() + self[1].num_neutral()
+                case '/':
+                    s0 = self[1].simplify()
+                    s1 = self[0].simplify()
+                    if s0 == 0 or s1 == 1 or (s0 == 1 and s1 == 0):
+                        return 1 + self[0].num_neutral() + self[1].num_neutral()
+                case '**':
+                    s0 = self[1].simplify()
+                    s1 = self[0].simplify()
+                    if (s1 == 1) or (s0 == 0 and s1 != 0) or (s0 == 1 and s1 == 0):
+                        return 1 + self[0].num_neutral() + self[1].num_neutral()
+        return sum([c.num_neutral() for c in self])
+
+    def effective_code(self, a=None):
+        """The effective code of the last evaluation"""
+        if a is None:
+            init = True
+            a = []
+        else:
+            init = False
+        for c in self:
+            c.effective_code(a)
+            # a.append(self.returned_value - c.returned_value)
+            a.append(np.linalg.norm(self.returned_value - c.returned_value))
+        if init:
+            # return a
+            # return np.mean(a)
+            eff = np.sum(np.bool(a)) / (len(self.nodes()) - 1)
+            eff = np.nan_to_num(eff, nan=0)
+            return eff
+
     #
     # String Representation
     #
@@ -152,6 +209,9 @@ class Node:
 
     def __repr__(self):
         return str(self)
+
+    def latex(self):
+        return sp.latex(self.simplify())
 
     #
     # Modification
@@ -177,23 +237,6 @@ class Node:
         root.reset_parents()
         root.set_parents()
         return root
-
-    # def old_replace(self, new_node):
-    #     """Replaces this node and all children with a new branch"""
-    #     # Create a copy of the new node
-    #     new_node = new_node.copy()
-    #     # Return the new node if self is the root of the tree
-    #     if self.parent is None: return new_node
-    #     # Parent's index for self
-    #     parent_index = self.parent.children.temp_index(self)
-    #     # Replace the parent's reference to self
-    #     self.parent[parent_index] = new_node
-    #     # Replace the new Node's reference to parent
-    #     new_node.parent = self.parent
-    #     # Remove self reference to parent
-    #     self.parent = None
-    #     # Return the full new tree
-    #     return new_node.root()
 
     #
     # Conversion
@@ -229,7 +272,7 @@ class Node:
     # Evaluation
     #
 
-    def __call__(self, *x, eval_method=None):
+    def __call__(self, *x, eval_method=None, **kwargs):
         """Calling evaluates the value of the entire tree"""
 
         match eval_method:
@@ -255,63 +298,78 @@ class Node:
 
             # Default evaluation
             case _:
-                if type(self.value) is str:
+                if type(self.value) is not str:
+                    return_value = self.value
+                else:
                     match self.value:
                         # Operations
-                        case '+': return self[0](*x) + self[1](*x)
-                        case '-': return self[0](*x) - self[1](*x)
+                        case '+': return_value = self[0](*x, **kwargs) + self[1](*x, **kwargs)
+                        case '-': return_value = self[0](*x, **kwargs) - self[1](*x, **kwargs)
                         case '*':
-                            s0 = self[0](*x)
-                            if s0 == 0:
-                                return 0
-                            else:
-                                return s0 * self[1](*x)
-                        case '**':
-                            s0, s1 = self[0](*x), self[1](*x)
-                            if s0 == 0 and (np.isreal(s1) or np.real(s1) < 0):
-                                return 1
-                            else:
-                                # Prevent large exponents using numpy
-                                return np.power(1.0*s0, s1)
+                            # s0 = self[0](*x, **kwargs)
+                            # if s0 == 0:
+                            #     return_value = 0
+                            # else:
+                            #     return_value = s0 * self[1](*x, **kwargs)
+                            return_value = self[0](*x, **kwargs) * self[1](*x, **kwargs)
+
                         case '/':
-                            s0, s1 = self[0](*x), self[1](*x)
-                            return 1 if s1 == 0 else s0 / s1
-                        case '|': return self[0](*x) or self[1](*x)
-                        case '&': return self[0](*x) and self[1](*x)
-                        case '<': return self[0](*x) < self[1](*x)
-                        case '>': return self[0](*x) > self[1](*x)
-                        case '<=': return self[0](*x) <= self[1](*x)
-                        case '>=': return self[0](*x) >= self[1](*x)
-                        case '==': return self[0](*x) == self[1](*x)
-                        case 'min': return min(self[0](*x), self[1](*x))
-                        case 'max': return max(self[0](*x), self[1](*x))
-                        case 'abs': return abs(self[0](*x))
-                        case 'if_then_else': return self[1](*x) if self[0](*x) else self[2](*x)
-                        case '%':  return self[0](*x) % self[1](*x)
-                        case '>>': return self[0](*x) >> self[1](*x)
-                        case '<<': return self[0](*x) << self[1](*x)
-                        case 'sin': return sin(self[0](*x))
-                        case 'cos': return cos(self[0](*x))
-                        case 'neg': return -self[0](*x)
-                        case 'get_bit': return (int(self[0](*x)) >> self[1](*x)) & 1
+                            s0, s1 = self[0](*x, **kwargs), self[1](*x, **kwargs)
+                            return_value = np.nan_to_num(s0 / s1, nan=1)
+                            # return_value = 1 if s1 == 0 else s0 / s1
+
+                        case '**':
+                            # for ind in range(x.shape):
+                            s0, s1 = self[0](*x, **kwargs), self[1](*x, **kwargs)
+
+                            # if s0 == 0 and (np.isreal(s1) or np.real(s1) < 0):
+                            #     return_value = 1
+                            # else:
+                                # Prevent large exponents using numpy
+                                # return_value = np.power(1.0*s0, s1)
+
+                            return_value = ones_like(s0)
+                            ind = (s0 == 0) & (np.isreal(s1) | (np.real(s1) < 0))
+                            return_value[ind] = np.power(s0[ind], s1[ind])
+
+                        case 'neg': return_value = -self[0](*x, **kwargs)
+                        case '|': return_value = self[0](*x, **kwargs) or self[1](*x, **kwargs)
+                        case '&': return_value = self[0](*x, **kwargs) and self[1](*x, **kwargs)
+                        case '<': return_value = self[0](*x, **kwargs) < self[1](*x, **kwargs)
+                        case '>': return_value = self[0](*x, **kwargs) > self[1](*x, **kwargs)
+                        case '<=': return_value = self[0](*x, **kwargs) <= self[1](*x, **kwargs)
+                        case '>=': return_value = self[0](*x, **kwargs) >= self[1](*x, **kwargs)
+                        case '==': return_value = self[0](*x, **kwargs) == self[1](*x, **kwargs)
+                        case 'min': return_value = min(self[0](*x, **kwargs), self[1](*x, **kwargs))
+                        case 'max': return_value = max(self[0](*x, **kwargs), self[1](*x, **kwargs))
+                        case 'abs': return_value = abs(self[0](*x, **kwargs))
+                        case 'if_then_else': return_value = self[1](*x, **kwargs) if self[0](*x, **kwargs) else self[2](*x, **kwargs)
+                        case '%':  return_value = self[0](*x, **kwargs) % self[1](*x, **kwargs)
+                        case '>>': return_value = self[0](*x, **kwargs) >> self[1](*x, **kwargs)
+                        case '<<': return_value = self[0](*x, **kwargs) << self[1](*x, **kwargs)
+                        case 'sin': return_value = sin(self[0](*x, **kwargs))
+                        case 'cos': return_value = cos(self[0](*x, **kwargs))
+                        case 'get_bit': return_value = (int(self[0](*x, **kwargs)) >> self[1](*x, **kwargs)) & 1
                         case 'get_bits':
-                            s0, s1, s2 = self[0](*x), self[1](*x), self[2](*x)
-                            return (int(s0) >> s1) % (2 ** s2)
+                            s0, s1, s2 = self[0](*x, **kwargs), self[1](*x, **kwargs), self[2](*x, **kwargs)
+                            return_value = (int(s0) >> s1) % (2 ** s2)
                         # Terminals and constants
-                        case 'x': return x[0]
-                        case 'y': return x[1]
-                        case 'z': return x[2]
-                        case 'e': return math.e
-                        case 'i': return 1j
+                        case 'x': return_value = x[0]
+                        case 'y': return_value = x[1]
+                        case 'z': return_value = x[2]
+                        case 'e': return_value = kwargs['e'] if 'e' in kwargs else np.e * np.ones_like(x[0])
+                        case 'i': return_value = kwargs['i'] if 'i' in kwargs else 1j * np.ones_like(x[0])
                         # Arbitrary Variable
-                        case _: return x[int(''.join([s for s in self.value if s.isdigit()]))]
-                return self.value
+                        case _: return_value = x[int(''.join([s for s in self.value if s.isdigit()]))]
+
+                self.returned_value = return_value
+                return return_value
 
     def simplify(self):
-        return sp.sympify(self(sp.Symbol('x')))
+        return sp.sympify(self(sp.Symbol('x'), e=sp.E, i=sp.I))
 
     #
-    # Native Python Conversion
+    # Construction From Native Python Operations
     #
 
     @staticmethod
@@ -326,7 +384,10 @@ class Node:
             # else:
                 # operands[i] = operands[i].copy()
         # Return a new Node with the operands as the children
-        return Node(operation, operands)
+        new_node = Node(operation, operands)
+        if hasattr(operands[0], 'prev_fit'):
+            new_node.prev_fit = operands[0].prev_fit
+        return new_node
 
     def      __add__(self, other): return Node.op('+',  self, other)
     def     __radd__(self, other): return Node.op('+',  other, self)
@@ -370,7 +431,7 @@ class Node:
         return Node.op('if_then_else', cond, if_true, if_false)
 
     #
-    # Limited
+    # Limited Equivalence
     #
 
     @staticmethod
@@ -486,18 +547,35 @@ if __name__ == '__main__':
 
     # l = f.limited()
 
-    x = Node('x')
+    # f1 = x + 1
+    # g = f1.copy()
+    # f2 = f1 - f1
+    # # f = g
+    # f = f2
 
-    f1 = x + 1
-    g = f1.copy()
-    f2 = f1 - f1
-    # f = g
-    f = f2
+    # f = 0 * x * x * x * x
+    # f = x * x * x * x * 0
 
-    f = (x % 4).limited()
+    # print(f.num_neutral())
+
+    # f = (x + 1) + 2
+    f = (x + 1)
+    xs = np.array([2,3])
+    # xs = 1
+    print(f(xs))
+    ec = f.effective_code()
+    print(ec)
+    print(np.sum(ec, axis=0))
+
+    # all_pops = np.empty((1,1,1,1))
+    # all_pops[:] = f
+
+    # plot_effective(all_pops)
+
+    # f = (x % 4).limited()
 
     # print(f.to_lists())
-    plot_graph(f)
+    # plot_graph(f)
 
     # print(f(4, eval_method='zero'))
     #

@@ -43,15 +43,17 @@ def mse(pop, target_func, domains, **kwargs):
     xs = [np.linspace(*domain) for domain in domains]
     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
     y_target = np.array([target_func(*list(x)) for x in xs])
+    xs = xs.swapaxes(0, 1)
     fits = np.empty(len(pop))
     for i,node in enumerate(pop):
-        y_actual = [node(*x, eval_method=kwargs['eval_method']) for x in xs]
+        # y_actual = [node(*x, eval_method=kwargs['eval_method']) for x in xs]
+        y_actual = node(*xs, eval_method=kwargs['eval_method'])
         fit = (sum((abs(y_target - y_actual)) ** 2) / len(xs)) ** (1/2)
         fits[i] = fit
     # args = [(id, node, xs, y_target) for id,node in enumerate(pop)]
     # with multiprocessing.Pool(processes=4) as pool:
     #     fits = pool.starmap(fitness_helper, args)
-    fits = np.nan_to_num(fits, nan=1000000, posinf=1000000)
+    fits = np.nan_to_num(fits, nan=np.inf, posinf=np.inf)
     return fits
 
 
@@ -60,10 +62,12 @@ def correlation(pop, target_func, domains, **kwargs):
     xs = [np.linspace(*domain) for domain in domains]
     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
     y_target = np.array([target_func(*list(x)) for x in xs])
+    xs = xs.swapaxes(0,1)
     y_target_mean = np.mean(y_target)
     fits = np.empty(len(pop))
     for i,node in enumerate(pop):
-        y_actual = np.array([node(*x, eval_method=kwargs['eval_method']) for x in xs])
+        # y_actual = np.array([node(*x, eval_method=kwargs['eval_method']) for x in xs])
+        y_actual = node(*xs, eval_method=kwargs['eval_method'])
         y_actual_mean = np.mean(y_actual)
         sum_target_actual = sum((y_target - y_target_mean) * np.conjugate(y_actual - y_actual_mean))
         sum_target_2 = sum(abs((y_target - y_target_mean))**2)
@@ -72,7 +76,7 @@ def correlation(pop, target_func, domains, **kwargs):
         fit = 1 - R * np.conjugate(R)
         fits[i] = fit
     # Replace inf and nan to arbitrary large values
-    fits = np.nan_to_num(fits, nan=1000000, posinf=1000000)
+    fits = np.nan_to_num(fits, nan=np.inf, posinf=np.inf)
     return fits
 
 def final_correlation(pop, target_func, domains, **kwargs):
@@ -80,10 +84,12 @@ def final_correlation(pop, target_func, domains, **kwargs):
     xs = [np.linspace(*domain) for domain in domains]
     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
     y_target = np.array([target_func(*list(x)) for x in xs])
+    xs = xs.swapaxes(0, 1)
     y_target_mean = np.mean(y_target)
     fits = np.empty(len(pop))
     for i,node in enumerate(pop):
-        y_actual = np.array([node(*x) for x in xs])
+        # y_actual = np.array([node(*x) for x in xs])
+        y_actual = node(*xs, eval_method=kwargs['eval_method'])
         y_actual_mean = np.mean(y_actual)
         sum_target_actual = sum((y_target - y_target_mean) * np.conjugate(y_actual - y_actual_mean))
         sum_target_2 = sum(abs((y_target - y_target_mean))**2)
@@ -92,10 +98,11 @@ def final_correlation(pop, target_func, domains, **kwargs):
         fit = 1 - R * np.conjugate(R)
         fits[i] = fit
 
-        # Post processing
+        # Post-processing
+        # if len(pop) == kwargs['num_gens'] + 1:
         def min_f(a): return np.sum(np.abs(y_target - (a[1] * y_actual + a[0])))
         res = minimize(min_f, [0,0], method='Nelder-Mead', tol=1e-6)
-        new_node = (float(res.x[1]) * node.copy()) + float(res.x[0])
+        new_node = (node * float(res.x[1])) + float(res.x[0])
         pop[i] = new_node
     # Replace inf and nan to arbitrary large values
     fits = np.nan_to_num(fits, nan=1000000, posinf=1000000)
@@ -105,70 +112,107 @@ def final_correlation(pop, target_func, domains, **kwargs):
 # Mutation Functions
 #
 
+def randomize_mutation(a, p_m, verbose, **kwargs):
+    """Preform a mutation with a probability of p_m"""
+    return kwargs['init_individual_func'](**kwargs)
+
 def subtree_mutation(a, p_m, verbose, **kwargs):
     """Preform a mutation with a probability of p_m"""
     # Probability of mutation
-    if random.random() < p_m:
-        a = a.copy()
-        # List of all nodes with no children
-        a_nodes = [n for n in a.nodes() if len(n) == 0]
-        old_branch = random.choice(a_nodes)
-        if verbose > 1:
-            old_a = a.copy()
-        new_branch = kwargs['init_individual_func'](**kwargs)
-        new_a = old_branch.replace(new_branch)
-        if verbose > 1:
-            print(f'Mutation: {old_a} replaces {old_branch} with {new_branch} returns {new_a}')
-        a = new_a
+    # if random.random() < p_m:
+    a = a.copy()
+    # List of all nodes with no children
+    a_nodes = [n for n in a.nodes() if len(n) == 0]
+    old_branch = random.choice(a_nodes)
+    if verbose > 1:
+        old_a = a.copy()
+    new_branch = kwargs['init_individual_func'](**kwargs)
+    new_a = old_branch.replace(new_branch)
+    if verbose > 1:
+        print(f'\tsubtree_mutation: {old_a} replaces {old_branch} with {new_branch} returns {new_a}')
+    a = new_a
     return a
 
-def ancestor_split_mutation(a, p_m, verbose, **kwargs):
-    """Only the direct parent may """
-    # Probability of mutation
-    if random.random() < p_m:
-        a = a.copy()
-        # List of all nodes with multiple parents
-        a_nodes = [n for n in a.nodes() if len(n.parents) > 1]
-        old_branch = random.choice(a_nodes)
-        if verbose > 1:
-            old_a = a.copy()
-        new_branch = old_branch.copy()
-        old_branch.replace(new_branch)
-        a.reset_parents()
-        a.set_parents()
-        if verbose > 1:
-            print(f'Mutation: {old_a} replaces {old_branch} with {new_branch} returns {a}')
-    return a
-
-def split_mutation(a, p_m, verbose, **kwargs):
-    """Only the direct parent may """
-    # Probability of mutation
-    if random.random() < p_m:
-        a = a.copy()
-        # List of all nodes with multiple parents
-        a_nodes = [n for n in a.nodes() if len(n.parents) > 1]
-        node = random.choice(a_nodes)
-        if verbose > 1:
-            old_a = a.copy()
-        for parent in node.parents:
-            index = node.index_in(parent)
-            new_node = Node(node.value, node.children)
-            parent[index] = new_node
-
-        a.reset_parents()
-        a.set_parents()
-        if verbose > 1:
-            print(f'Mutation: {old_a} splits {node} returns {a}')
-    return a
-
-# def pointer_mutation(a, p_m):
+# def ancestor_split_mutation(a, p_m, verbose, **kwargs):
+#     """Only the direct parent may """
+#     # Probability of mutation
+#     if random.random() < p_m:
+#         a = a.copy()
+#         # List of all nodes with multiple parents
+#         a_nodes = [n for n in a.nodes() if len(n.parents) > 1]
+#         old_branch = random.choice(a_nodes)
+#         if verbose > 1:
+#             old_a = a.copy()
+#         new_branch = old_branch.copy()
+#         old_branch.replace(new_branch)
+#         a.reset_parents()
+#         a.set_parents()
+#         if verbose > 1:
+#             print(f'\t\tMutation: {old_a} replaces {old_branch} with {new_branch} returns {a}')
 #     return a
+
+def split_mutation(a, p_m, **kwargs):
+    """Only the direct parent may """
+    # Probability of mutation
+    # if random.random() < p_m:
+    a = a.copy()
+    # List of all nodes with multiple parents
+    a_nodes = [n for n in a.nodes() if len(n.parents) > 1]
+    # Mutation failed
+    if len(a_nodes) == 0:
+        print(f'\tsplit_mutation: failed for {a}')
+        return a
+
+    node = random.choice(a_nodes)
+    if kwargs['verbose'] > 1:
+        old_a = a.copy()
+    for parent in node.parents:
+        index = node.index_in(parent)
+        new_node = Node(node.value, node.children)
+        parent[index] = new_node
+    a.reset_parents()
+    a.set_parents()
+
+    if kwargs['verbose'] > 1:
+        print(f'\tsplit_mutation: {old_a} splits {node} returns {a}')
+    return a
+
+def pointer_mutation(root, **kwargs):
+    old_root = root
+    root = root.copy()
+    # List of all nodes with multiple parents
+    possible_parents = [n for n in root.nodes() if len(n.parents) > 0 and len(n.children) > 0]
+
+    if len(possible_parents) == 0:
+        if kwargs['verbose'] > 1:
+            print(f'\tpointer_mutation: failed for {root}')
+        return root
+
+    parent = random.choice(possible_parents)
+    child_index = np.random.randint(len(parent))
+    child = parent[child_index]
+
+    # descendants = parent.nodes()
+
+    # possible_new_child = [n for n in root.nodes() if n.index_in(descendants) == -1]
+
+    possible_new_child = [n for n in root.nodes() if parent.index_in(n.nodes()) == -1]
+
+    new_child = random.choice(possible_new_child)
+    parent[child_index] = new_child
+
+    root.reset_parents()
+    root.set_parents()
+
+    if kwargs['verbose'] > 1:
+        print(f'\tpointer_mutation: {old_root} replaces {child} with {new_child} returns {root}')
+    return root
 
 #
 # Crossover Functions
 #
 
-def subtree_crossover(a, b, max_subtree_depth, max_tree_depth, verbose, **kwargs):
+def subtree_crossover(a, b, max_subtree_depth, max_tree_depth, **kwargs):
     # Copy original trees
     a_new = a.copy()
     b_new = b.copy()
@@ -191,11 +235,8 @@ def subtree_crossover(a, b, max_subtree_depth, max_tree_depth, verbose, **kwargs
     a_parent_node.replace(b_parent_node.copy())
     b_parent_node.replace(a_parent_node.copy())
 
-    # a_new.prev_fit = a_parent
-    # b_new.prev_fit = b_parent
-
-    if verbose > 1:
-        print(f'Crossover: {a}  &  {b}  ->  {a_new}  &  {b_new}')
+    if kwargs['verbose'] > 1:
+        print(f'\tsubtree_crossover: {a} and {b} produce {a_new} and {b_new}')
     return a_new, b_new
 
 #
@@ -220,175 +261,16 @@ def init_indiv(**kwargs):
     f = f.limited()
     return f
 
-def init_sin(**kwargs):
-    x = Node('x')
-    f = Node.sin(x)
-    f = f.limited()
-    return f
+def init_sin(**kwargs): return Node.sin(Node('x')).limited()
 
 #
-# Default kwargs
+# Debug
 #
-
-kwargs = {
-    'seed': None,
-    'verbose': 1, # 0: no updates, 1: generation updates, 2: all updates
-
-    'num_reps': 1,
-    'num_gens': 100,
-    'pop_size': 600, # Default: 600
-    'max_tree_depth': 200, # Default: 400
-    'max_subtree_depth': 4,
-
-    'eval_method': None,
-
-    'init_individual_func': random_tree,
-    'terminals': ['x'],
-    'ops': ['+','-','*','/','**'],
-    'p_branch': 0.5,
-    'init_tree_depth': 4,
-
-    'fitness_func': correlation,
-    'final_fitness_func': final_correlation, # Fitness function with post-processing
-    'result_fitness_func': mse, # Fitness to compare results
-    'domains': ((0, 1, 50),),  # The domain of the problem expressed using np.linspace
-
-    'crossover_func': subtree_crossover,
-    'k': 4, # Number of randomly chosen parents for each tournament
-    'p_c': 0.9, # Probability of crossover
-    'keep_parents': 4, # Elitism, must be even
-
-    # 'mutate_func': subtree_mutation,
-    'mutate_funcs': [
-        [subtree_mutation, 0.3]
-    ],
-    'p_m': 0.5, # Probability of mutation
-}
 
 if __name__ == '__main__':
-
-    # kwargs['name'] = 'const_32'
-    # kwargs['target_func'] = const_32
-    # # kwargs['fitness_func'] = correlation
-    # # kwargs['result_fitness_func'] = mse_post
-    # kwargs['terminals'] = ('x',)
-    # kwargs['domains'] = ((-5,5,50),)
-    # kwargs['num_gens'] = 10
-    # kwargs['test_kwargs'] = [
-    #     ['labels','p_c','p_m']] + [[f'{p_c}c {p_m}m', p_c, p_m]
-    #         for p_m in np.arange(5,7,2) / 10
-    #         for p_c in np.arange(5,7,2) / 10
-    # ]
-
-    # kwargs['name'] = 'cos'
-    # kwargs['target_func'] = cos
-    # # kwargs['fitness_func'] = correlation
-    # kwargs['terminals'] = ('x','e','i',)
-    # kwargs['domains'] = ((0, 2*math.pi, 31),)
-    # kwargs['num_gens'] = 50
-    # kwargs['pop_size'] = 400
-    # kwargs['test_kwargs'] = [
-    #     ['labels', 'init_individual_func', 'fitness_func'],
-    #     ['random_cor', random_tree, correlation],
-    #     # ['random_mse', random_tree, mse],
-    # ]
-
-    # kwargs['name'] = 'logical_or'
-    # kwargs['target_func'] = logical_or
-    # kwargs['terminals'] = ('x_0', 'x_1')
-    # kwargs['domains'] = ((0,1,2), (0,1,2))
-    # kwargs['num_gens'] = 10
-    # kwargs['test_kwargs'] = [
-    #     ['labels', 'ops'                      ],
-    #     ['4-ops' , ['+', '-', '*', '/']       ],
-    #     ['5-ops' , ['+', '-', '*', '/', '**'] ],
-    # ]
-
-    # kwargs['name'] = 'mod'
-    # kwargs['target_func'] = mod2k
-    # kwargs['fitness_func'] = correlation
-    # kwargs['terminals'] = ('x_0', 'x_1')
-    # kwargs['domains'] = ((0,15,16), (1,2,2))
-    # kwargs['init_individual_func'] = init_indiv
-    # # kwargs['num_gens'] = 100
-    # kwargs['test_kwargs'] = [
-    #     ['labels', 'ops'                      ],
-    #     # ['4-ops' , ['+', '-', '*', '/']       ],
-    #     ['5-ops' , ['+', '-', '*', '/', '**'] ],
-    # ]
-
-    # kwargs['name'] = 'logic'
-    # kwargs['target_func'] = xor_and_xor
-    # kwargs['fitness_func'] = correlation
-    # kwargs['p_c'] = 0.5
-    # kwargs['p_m'] = 0.5
-    # kwargs['terminals'] = ('x_0', 'x_1', 'x_2', 'x_3')
-    # kwargs['domains'] = ((0,1,2),(0,1,2),(0,1,2),(0,1,2))
-    # kwargs['init_individual_func'] = random_tree
-    # kwargs['num_gens'] = 50
-    # kwargs['test_kwargs'] = [['labels','p_c','p_m']] + [[f'{p_m} {p_c}', p_c, p_m] for p_m in np.linspace(0.1,0.9,5) for p_c in np.linspace(0.1,0.9,5)]
-    #
-    # print(kwargs['test_kwargs'])
-        # [0.3] * 2,
-        # [0.5] * 2,
-        # [0.7] * 2,
-
-
-    # kwargs['name'] = 'cos'
-    # kwargs['target_func'] = cos
-    # kwargs['fitness_func'] = correlation
-    # kwargs['terminals'] = ('x','e','i',)
-    # kwargs['domains'] = ((0, 2*math.pi, 31),)
-    # # kwargs['init_individual_func'] = init_sin
-    # kwargs['num_gens'] = 1
-    # kwargs['test_kwargs'] = [
-    #     # ['labels', 'init_individual_func'],
-    #     # ['random', random_tree],
-    #     # ['sin', init_sin],
-    #
-    #     ['labels', 'init_individual_func', 'fitness_func'],
-    #     ['random', random_tree, correlation],
-    #     ['sin', init_sin, correlation],
-    #     ['random_mse', random_tree, mse],
-    #     ['sin_mse', init_sin, mse],
-    # ]
-
-    # kwargs['name'] = 'debug'
-    # kwargs['verbose'] = 2
-    # kwargs['target_func'] = f
-    # kwargs['num_gens'] = 10
-    # kwargs['fitness_func'] = mse
-    # kwargs['legend_title'] = 'Types of Operations'
-    # kwargs['test_kwargs'] = [
-    #     ['labels', 'ops'                      ],
-    #     ['4-ops' , ['+', '-', '*', '/']       ],
-    #     # ['5-ops' , ['+', '-', '*', '/', '**'] ],
-    # ]
-
-    kwargs['name'] = 'debug'
-    kwargs['verbose'] = 2
-    kwargs['target_func'] = f
-    kwargs['num_gens'] = 10
-    # kwargs['fitness_func'] = mse
-    kwargs['legend_title'] = 'Mutations'
-    kwargs['test_kwargs'] = [
-        ['labels', 'mutate_funcs'],
-        ['one', [[subtree_mutation, 0.5]]],
-        # ['two' , [[subtree_mutation, 0.5],[split_mutation, 0.5]]],
-    ]
-
-    # Run simulation
-    all_pops, all_fits = run_sims(**kwargs)
-    save_all(all_pops, all_fits, kwargs)
-    plot_results(all_pops, all_fits, **kwargs)
-
-
-
-
-
-    # e = Node('e')
-    # i = Node('i')
-    # x = Node('x')
+    e = Node('e')
+    i = Node('i')
+    x = Node('x')
     # f = e ** (i * x)
     # # f = Node.sin(x)
     # # f = 3j * (x * i + 3j)
@@ -411,7 +293,7 @@ if __name__ == '__main__':
     #            domains=[[0, 2*np.pi, 31]])
 
 
-    #
+
     # x = Node('x')
     #
     # # f1 = 1 + x
@@ -420,18 +302,20 @@ if __name__ == '__main__':
     # # f4 = f2 / f3
     # # f = f4
     #
-    # f1 = 1 + x
-    # f2 = f1 - x
-    # f3 = f2 * f1
-    # f4 = f3 / f2
-    # f = f4
+    # # f1 = 1 + x
+    # # f2 = f1 - x
+    # # f3 = f2 * f1
+    # # f4 = f3 / f2
+    # # f = f4
+    #
+    # f = (x**5 - 2*x**3 + x).to_tree()
     #
     # # g1 = x / 1
     #
     # # (f1).replace(g1)
     #
     # plot_graph(f)
-    # f = split_mutation(f, 1, 2)
+    # f = pointer_mutation(f)
     # plot_graph(f)
 
 
