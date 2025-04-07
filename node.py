@@ -13,6 +13,7 @@ class Node:
 
     # All possible values for a node and the number of children it can have
     valid_ops = {
+        'noop': 1,
         'neg': 1,
         '+': 2,
         '-': 2,
@@ -147,35 +148,37 @@ class Node:
         """Returns the root Node of the tree"""
         return self if self.parent is None else self.parent.root()
 
-    def num_neutral(self):
-        """Count the operations that always return the same operand (identity or absorbing)"""
-        if type(self.value) is str:
-            match self.value:
-                case '+':
-                    s0 = self[1].simplify()
-                    s1 = self[0].simplify()
-                    if s0 == 0 or s1 == 0:
-                        return 1 + self[0].num_neutral() + self[1].num_neutral()
-                case '-':
-                    s1 = self[0].simplify()
-                    if s1 == 0:
-                        return 1 + self[0].num_neutral() + self[1].num_neutral()
-                case '*':
-                    s0 = self[1].simplify()
-                    s1 = self[0].simplify()
-                    if s0 == 0 or s1 == 0 or s0 == 1 or s1 == 1:
-                        return 1 + self[0].num_neutral() + self[1].num_neutral()
-                case '/':
-                    s0 = self[1].simplify()
-                    s1 = self[0].simplify()
-                    if s0 == 0 or s1 == 1 or (s0 == 1 and s1 == 0):
-                        return 1 + self[0].num_neutral() + self[1].num_neutral()
-                case '**':
-                    s0 = self[1].simplify()
-                    s1 = self[0].simplify()
-                    if (s1 == 1) or (s0 == 0 and s1 != 0) or (s0 == 1 and s1 == 0):
-                        return 1 + self[0].num_neutral() + self[1].num_neutral()
-        return sum([c.num_neutral() for c in self])
+    # def num_neutral(self):
+    #     """Count the operations that always return the same operand (identity or absorbing)"""
+    #     if type(self.value) is str:
+    #         match self.value:
+    #             case 'noop':
+    #                 return 1 + sum([c.num_neutral() for c in self])
+    #             case '+':
+    #                 s0 = self[1].simplify()
+    #                 s1 = self[0].simplify()
+    #                 if s0 == 0 or s1 == 0:
+    #                     return 1 + self[0].num_neutral() + self[1].num_neutral()
+    #             case '-':
+    #                 s1 = self[0].simplify()
+    #                 if s1 == 0:
+    #                     return 1 + self[0].num_neutral() + self[1].num_neutral()
+    #             case '*':
+    #                 s0 = self[1].simplify()
+    #                 s1 = self[0].simplify()
+    #                 if s0 == 0 or s1 == 0 or s0 == 1 or s1 == 1:
+    #                     return 1 + self[0].num_neutral() + self[1].num_neutral()
+    #             case '/':
+    #                 s0 = self[1].simplify()
+    #                 s1 = self[0].simplify()
+    #                 if s0 == 0 or s1 == 1 or (s0 == 1 and s1 == 0):
+    #                     return 1 + self[0].num_neutral() + self[1].num_neutral()
+    #             case '**':
+    #                 s0 = self[1].simplify()
+    #                 s1 = self[0].simplify()
+    #                 if (s1 == 1) or (s0 == 0 and s1 != 0) or (s0 == 1 and s1 == 0):
+    #                     return 1 + self[0].num_neutral() + self[1].num_neutral()
+    #     return sum([c.num_neutral() for c in self])
 
     def effective_code(self, a=None):
         """The effective code of the last evaluation"""
@@ -332,6 +335,7 @@ class Node:
                             ind = (s0 == 0) & (np.isreal(s1) | (np.real(s1) < 0))
                             return_value[ind] = np.power(s0[ind], s1[ind])
 
+                        case 'noop': return_value = self[0](*x, **kwargs)
                         case 'neg': return_value = -self[0](*x, **kwargs)
                         case '|': return_value = self[0](*x, **kwargs) or self[1](*x, **kwargs)
                         case '&': return_value = self[0](*x, **kwargs) and self[1](*x, **kwargs)

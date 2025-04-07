@@ -8,8 +8,6 @@ from utils import load_all
 # All functions relevant to saving, loading, and plotting.
 
 
-
-
 def plot_nodes(nodes, result_fitness_func=None, labels=None, title=None, legend_title=None, **kwargs):
     """Plot all given nodes and the fitness function"""
 
@@ -135,6 +133,23 @@ def plot_effective(all_pops, all_fits, legend_title=None, **kwargs):
         plt.plot(xs, ys, label=label)
     plt.xlabel('Generation')
     plt.ylabel('% Active Nodes')
+    plt.legend(title=legend_title)
+    plt.show()
+
+
+def plot_noop_size(all_pops, all_fits, legend_title=None, **kwargs):
+    """Plot the percentage of operations that have a non-zero semantic vector"""
+    noop_size = np.vectorize(
+        lambda x:
+            sum([len(x[i].nodes()) for i in range(1,len(x))]) / len(x.nodes()) if x.value == 'noop' else 0
+    )(all_pops)
+    for test in range(all_fits.shape[0]):
+        label = kwargs['test_kwargs'][test + 1][0]
+        ys = np.mean(noop_size[test], axis=(0,2))
+        xs = np.array(range(all_fits.shape[2]))
+        plt.plot(xs, ys, label=label)
+    plt.xlabel('Generation')
+    plt.ylabel('% No-Op Traversed Nodes')
     plt.legend(title=legend_title)
     plt.show()
 
@@ -348,11 +363,12 @@ def get_best(all_pops, all_fits, gen=-1, **kwargs):
 def plot_results(all_pops, all_fits, **kwargs):
     """Plot all standard plots"""
 
-    plot_quality_gain(all_pops, all_fits, **kwargs)
-    plot_success_rate(all_pops, all_fits, **kwargs)
-    plot_size(all_pops, all_fits, **kwargs)
-    plot_effective(all_pops, all_fits, **kwargs)
-    plot_min_fit(all_pops, all_fits, title='', **kwargs)
+    plot_noop_size(all_pops, all_fits, **kwargs)
+    # plot_quality_gain(all_pops, all_fits, **kwargs)
+    # plot_success_rate(all_pops, all_fits, **kwargs)
+    # plot_size(all_pops, all_fits, **kwargs)
+    # plot_effective(all_pops, all_fits, **kwargs)
+    # plot_min_fit(all_pops, all_fits, title='', **kwargs)
 
     # Plot best
     best = get_best(all_pops, all_fits, **kwargs)

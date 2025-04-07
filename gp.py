@@ -16,7 +16,7 @@ from math import sin, cos
 # Initialization Functions
 #
 
-def random_tree(init_tree_depth, ops, terminals, p_branch=0.5, init_call=True, **kwargs):
+def random_tree(init_tree_depth, ops=Node.valid_ops, terminals=['x'], p_branch=0.5, init_call=True, **kwargs):
     """Generate a random tree"""
     # Create a branch with an operator value
     if init_call or random.random() < p_branch and init_tree_depth > 0:
@@ -26,6 +26,10 @@ def random_tree(init_tree_depth, ops, terminals, p_branch=0.5, init_call=True, *
     # Create a leaf
     else:
         return Node(random.choice(terminals))
+
+def random_noop_tree(init_tree_depth, ops=Node.valid_ops, terminals=['x'], p_branch=0.5, **kwargs):
+        c = [random_tree(init_tree_depth, ops, terminals, p_branch=0.5, init_call=True, **kwargs) for _ in range(5)]
+        return Node('noop', c)
 
 #
 # Fitness Functions
@@ -39,7 +43,7 @@ def fitness_helper(id, node, xs, y_target):
 
 
 def mse(pop, target_func, domains, **kwargs):
-    """Calculate the fitness value of all chromosomes in a population"""
+    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
     xs = [np.linspace(*domain) for domain in domains]
     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
     y_target = np.array([target_func(*list(x)) for x in xs])
@@ -57,8 +61,8 @@ def mse(pop, target_func, domains, **kwargs):
     return fits
 
 
-def correlation(pop, target_func, domains, **kwargs):
-    """Calculate the fitness value of all individuals in a population"""
+def correlation(pop, target_func, domains, is_final=False, **kwargs):
+    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
     xs = [np.linspace(*domain) for domain in domains]
     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
     y_target = np.array([target_func(*list(x)) for x in xs])
@@ -75,48 +79,51 @@ def correlation(pop, target_func, domains, **kwargs):
         R = sum_target_actual / (sum_target_2 * sum_actual_2) ** (1/2)
         fit = 1 - R * np.conjugate(R)
         fits[i] = fit
+
+        # Post-processing
+        if is_final:
+            def min_f(a): return np.sum(np.abs(y_target - (a[1] * y_actual + a[0])))
+            res = minimize(min_f, [0,0], method='Nelder-Mead', tol=1e-6)
+            new_node = (node * float(res.x[1])) + float(res.x[0])
+            pop[i] = new_node
     # Replace inf and nan to arbitrary large values
     fits = np.nan_to_num(fits, nan=np.inf, posinf=np.inf)
     return fits
 
-def final_correlation(pop, target_func, domains, **kwargs):
-    """Calculate the fitness value of all individuals in a population"""
-    xs = [np.linspace(*domain) for domain in domains]
-    xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
-    y_target = np.array([target_func(*list(x)) for x in xs])
-    xs = xs.swapaxes(0, 1)
-    y_target_mean = np.mean(y_target)
-    fits = np.empty(len(pop))
-    for i,node in enumerate(pop):
-        # y_actual = np.array([node(*x) for x in xs])
-        y_actual = node(*xs, eval_method=kwargs['eval_method'])
-        y_actual_mean = np.mean(y_actual)
-        sum_target_actual = sum((y_target - y_target_mean) * np.conjugate(y_actual - y_actual_mean))
-        sum_target_2 = sum(abs((y_target - y_target_mean))**2)
-        sum_actual_2 = sum(abs((y_actual - y_actual_mean))**2)
-        R = sum_target_actual / (sum_target_2 * sum_actual_2) ** (1/2)
-        fit = 1 - R * np.conjugate(R)
-        fits[i] = fit
 
-        # Post-processing
-        # if len(pop) == kwargs['num_gens'] + 1:
-        def min_f(a): return np.sum(np.abs(y_target - (a[1] * y_actual + a[0])))
-        res = minimize(min_f, [0,0], method='Nelder-Mead', tol=1e-6)
-        new_node = (node * float(res.x[1])) + float(res.x[0])
-        pop[i] = new_node
-    # Replace inf and nan to arbitrary large values
-    fits = np.nan_to_num(fits, nan=1000000, posinf=1000000)
-    return fits
+# def final_correlation(pop, target_func, domains, **kwargs):
+#     """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
+#     xs = [np.linspace(*domain) for domain in domains]
+#     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
+#     y_target = np.array([target_func(*list(x)) for x in xs])
+#     xs = xs.swapaxes(0, 1)
+#     y_target_mean = np.mean(y_target)
+#     fits = np.empty(len(pop))
+#     for i,node in enumerate(pop):
+#         # y_actual = np.array([node(*x) for x in xs])
+#         y_actual = node(*xs, eval_method=kwargs['eval_method'])
+#         y_actual_mean = np.mean(y_actual)
+#         sum_target_actual = sum((y_target - y_target_mean) * np.conjugate(y_actual - y_actual_mean))
+#         sum_target_2 = sum(abs((y_target - y_target_mean))**2)
+#         sum_actual_2 = sum(abs((y_actual - y_actual_mean))**2)
+#         R = sum_target_actual / (sum_target_2 * sum_actual_2) ** (1/2)
+#         fit = 1 - R * np.conjugate(R)
+#         fits[i] = fit
+#
+#
+#     # Replace inf and nan to arbitrary large values
+#     fits = np.nan_to_num(fits, nan=np.inf, posinf=np.inf)
+#     return fits
 
 #
 # Mutation Functions
 #
 
-def randomize_mutation(a, p_m, verbose, **kwargs):
+def randomize_mutation(a, **kwargs):
     """Preform a mutation with a probability of p_m"""
     return kwargs['init_individual_func'](**kwargs)
 
-def subtree_mutation(a, p_m, verbose, **kwargs):
+def subtree_mutation(a, **kwargs):
     """Preform a mutation with a probability of p_m"""
     # Probability of mutation
     # if random.random() < p_m:
@@ -124,11 +131,11 @@ def subtree_mutation(a, p_m, verbose, **kwargs):
     # List of all nodes with no children
     a_nodes = [n for n in a.nodes() if len(n) == 0]
     old_branch = random.choice(a_nodes)
-    if verbose > 1:
+    if kwargs['verbose'] > 1:
         old_a = a.copy()
-    new_branch = kwargs['init_individual_func'](**kwargs)
+    new_branch = kwargs['new_individual_func'](**kwargs)
     new_a = old_branch.replace(new_branch)
-    if verbose > 1:
+    if kwargs['verbose'] > 1:
         print(f'\tsubtree_mutation: {old_a} replaces {old_branch} with {new_branch} returns {new_a}')
     a = new_a
     return a
@@ -151,7 +158,7 @@ def subtree_mutation(a, p_m, verbose, **kwargs):
 #             print(f'\t\tMutation: {old_a} replaces {old_branch} with {new_branch} returns {a}')
 #     return a
 
-def split_mutation(a, p_m, **kwargs):
+def split_mutation(a, **kwargs):
     """Only the direct parent may """
     # Probability of mutation
     # if random.random() < p_m:
@@ -212,22 +219,22 @@ def pointer_mutation(root, **kwargs):
 # Crossover Functions
 #
 
-def subtree_crossover(a, b, max_subtree_depth, max_tree_depth, **kwargs):
+def subtree_crossover(a, b, **kwargs):
     # Copy original trees
     a_new = a.copy()
     b_new = b.copy()
     a_height = a.height()
     b_height = b.height()
     # List of all nodes
-    a_parent_nodes = [an for an in a_new.nodes() if an.height() <= max_subtree_depth]
+    a_parent_nodes = [an for an in a_new.nodes() if an.height() <= kwargs['max_subtree_depth']]
     # Select the first random node (branch)
     a_parent_node = random.choice(a_parent_nodes)
     a_parent_node_height = a_parent_node.height()
     # List of all nodes that could swap with a without being too long in the worse case
     # TODO implement a more accurate assessment of length
-    b_parent_nodes = [bn for bn in b_new.nodes() if bn.height() <= max_subtree_depth
-                      and b_height - bn.height() + a_parent_node_height <= max_tree_depth
-                      and a_height + bn.height() - a_parent_node_height <= max_tree_depth
+    b_parent_nodes = [bn for bn in b_new.nodes() if bn.height() <= kwargs['max_subtree_depth']
+                      and b_height - bn.height() + a_parent_node_height <= kwargs['max_tree_depth']
+                      and a_height + bn.height() - a_parent_node_height <= kwargs['max_tree_depth']
                       ]
     # Select a random node with children
     b_parent_node = random.choice(b_parent_nodes)

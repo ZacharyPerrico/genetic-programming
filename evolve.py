@@ -119,7 +119,7 @@ def run_sim(**kwargs):
         all_pops.append(pop)
 
     # Final fitness values
-    all_fits.append(kwargs['fitness_func'](all_pops[-1], **kwargs))
+    all_fits.append(kwargs['fitness_func'](all_pops[-1], is_final=True, **kwargs))
 
     return all_pops, all_fits
 

@@ -4,40 +4,41 @@ from gp import *
 # Default kwargs
 #
 
-kwargs = {
-    'seed': None,
-    'verbose': 1, # 0: no updates, 1: generation updates, 2: all updates
-
-    'num_reps': 1,
-    'num_gens': 100,
-    'pop_size': 600, # Default: 600
-    'max_tree_depth': 200, # Default: 400
-    'max_subtree_depth': 4,
-
-    'eval_method': None,
-
-    'init_individual_func': random_tree,
-    'terminals': ['x'],
-    'ops': ['+','-','*','/','**'],
-    'p_branch': 0.5,
-    'init_tree_depth': 4,
-
-    'fitness_func': correlation,
-    'final_fitness_func': final_correlation, # Fitness function with post-processing
-    'result_fitness_func': mse, # Fitness to compare results
-    'domains': [[0, 1, 50]],  # The domain of the problem expressed using np.linspace
-
-    'crossover_func': subtree_crossover,
-    'k': 4, # Number of randomly chosen parents for each tournament
-    'p_c': 0.9, # Probability of crossover
-    'keep_parents': 4, # Elitism, must be even
-
-    # 'mutate_func': subtree_mutation,
-    'mutate_funcs': [
-        [subtree_mutation, 0.3]
-    ],
-    'p_m': 0.5, # Probability of mutation
-}
+# kwargs = {
+#     'seed': None,
+#     'verbose': 1, # 0: no updates, 1: generation updates, 2: all updates
+#
+#     'num_reps': 1,
+#     'num_gens': 100,
+#     'pop_size': 600, # Default: 600
+#     'max_tree_depth': 200, # Default: 400
+#     'max_subtree_depth': 4,
+#
+#     'eval_method': None,
+#
+#     'new_individual_func': random_tree,
+#     'init_individual_func': random_noop_tree,
+#     'terminals': ['x'],
+#     'ops': ['+','-','*','/','**'],
+#     'p_branch': 0.5,
+#     'init_tree_depth': 4,
+#
+#     'fitness_func': correlation,
+#     # 'final_fitness_func': final_correlation, # Fitness function with post-processing
+#     'result_fitness_func': mse, # Fitness to compare results
+#     'domains': [[0, 1, 50]],  # The domain of the problem expressed using np.linspace
+#
+#     'crossover_func': subtree_crossover,
+#     'k': 4, # Number of randomly chosen parents for each tournament
+#     'p_c': 0.9, # Probability of crossover
+#     'keep_parents': 4, # Elitism, must be even
+#
+#     # 'mutate_func': subtree_mutation,
+#     'mutate_funcs': [
+#         [subtree_mutation, 0.3]
+#     ],
+#     'p_m': 0.5, # Probability of mutation
+# }
 
 if __name__ == '__main__':
 
@@ -171,28 +172,43 @@ if __name__ == '__main__':
     #     ],
     # }
 
-    kwargs |= {
+    kwargs = {
         'name': 'HA3.3.1',
-        'verbose': 1,
+        'seed': None,
+        'verbose': 1, # 0: no updates, 1: generation updates, 2: all updates
+
+        'num_reps': 1,
+        'num_gens': 100,
+        'pop_size': 600, # Default: 600
+        'max_tree_depth': 200, # Default: 400
+        'max_subtree_depth': 4,
+
+        'eval_method': None,
+
+        'new_individual_func': random_tree, # Function used to generate new branches
+        'init_individual_func': random_noop_tree, # Function used to generate the initial population
+        'p_branch': 0.5, # Probability of a node branching
+        'terminals': ['x'],
+        'ops': ['+','-','*','/','**'],
+        'init_tree_depth': 4,
+
+        'fitness_func': correlation,
+        # 'final_fitness_func': final_correlation, # Fitness function with post-processing
+        'result_fitness_func': mse, # Fitness to compare results
+        'domains': [[0, 1, 50]],  # The domain of the problem expressed using np.linspace
+
+        'crossover_func': subtree_crossover,
+        'k': 4, # Number of randomly chosen parents for each tournament
+        'p_c': 0.9, # Probability of crossover
+        'keep_parents': 4, # Elitism, must be even
+
+        # 'mutate_func': subtree_mutation,
+        'mutate_funcs': [
+            [subtree_mutation, 0.3]
+        ],
+        'p_m': 0.5, # Probability of mutation
 
         'target_func': sin,
-        'terminals': ['x', 'e', 'i'],
-        'domains': [[0, 2*np.pi, 31]],
-
-        'fitness_func': mse,
-        'final_fitness_func': mse,
-
-        # 'target_func': f,
-        # 'terminals': ['x'],
-        # 'ops': ['+','-','*','/'],
-        # 'domains': [[-1, 1, 50]],
-
-        # 'init_tree_depth': 10,
-
-        'num_gens': 10,
-        'pop_size': 100,
-        'keep_parents': 0,
-        'k': 1,
 
         'legend_title': 'Mutations',
         'test_kwargs': [
