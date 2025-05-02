@@ -44,6 +44,7 @@ def plot_nodes(nodes, result_fitness_func=None, labels=None, title=None, legend_
 
     plt.title(title)
     plt.legend(title=kwargs['test_kwargs'][0][0])
+    plt.savefig(f'saves/{kwargs["name"]}/plots/{title}.png')
     plt.show()
 
 
@@ -58,7 +59,8 @@ def plot_min_fit(all_pops, all_fits, title=None, legend_title=None, **kwargs):
 
     for test in range(all_fits.shape[0]):
         # Plot smallest fitness value
-        y = np.min(all_fits[test], axis=(0,2))
+        # y = np.min(all_fits[test], axis=(0,2))
+        y = np.mean(np.min(all_fits[test], axis=2), axis=0)
         plt.plot(x, y, label=kwargs['test_kwargs'][test+1][0])
         # Scatter plot all points
         # xx = x.reshape((1,len(x),1)).repeat(all_fits.shape[1], axis=0).repeat(all_fits.shape[3], axis=2).ravel()
@@ -68,8 +70,9 @@ def plot_min_fit(all_pops, all_fits, title=None, legend_title=None, **kwargs):
     plt.title(title)
     # ax.set_yscale('log')
     plt.xlabel('Generation')
-    plt.ylabel('Min Fitness Value')
+    plt.ylabel('Average Min Fitness Value')
     plt.legend(title=kwargs['test_kwargs'][0][0])
+    plt.savefig(f'saves/{kwargs["name"]}/plots/Fits.png')
     plt.show()
 
 
@@ -85,6 +88,7 @@ def plot_size(all_pops, all_fits, legend_title=None, **kwargs):
     plt.xlabel('Generation')
     plt.ylabel('Number of Nodes')
     plt.legend(title=kwargs['test_kwargs'][0][0])
+    plt.savefig(f'saves/{kwargs["name"]}/plots/Size.png')
     plt.show()
 
 
@@ -103,6 +107,7 @@ def plot_quality_gain(all_pops, all_fits, legend_title=None, **kwargs):
     plt.xlabel('Generation')
     plt.ylabel('Quality Gain')
     plt.legend(title=kwargs['test_kwargs'][0][0])
+    plt.savefig(f'saves/{kwargs["name"]}/plots/Quality Gain.png')
     plt.show()
 
 
@@ -120,6 +125,7 @@ def plot_success_rate(all_pops, all_fits, legend_title=None, **kwargs):
     plt.xlabel('Generation')
     plt.ylabel('Success Rate')
     plt.legend(title=kwargs['test_kwargs'][0][0])
+    plt.savefig(f'saves/{kwargs["name"]}/plots/Success Rate.png')
     plt.show()
 
 
@@ -132,8 +138,9 @@ def plot_effective(all_pops, all_fits, legend_title=None, **kwargs):
         xs = np.array(range(all_fits.shape[2]))
         plt.plot(xs, ys, label=label)
     plt.xlabel('Generation')
-    plt.ylabel('% Active Nodes')
+    plt.ylabel('% Active Traversed Nodes')
     plt.legend(title=kwargs['test_kwargs'][0][0])
+    plt.savefig(f'saves/{kwargs["name"]}/plots/Active Nodes.png')
     plt.show()
 
 
@@ -151,6 +158,7 @@ def plot_noop_size(all_pops, all_fits, legend_title=None, **kwargs):
     plt.xlabel('Generation')
     plt.ylabel('% No-Op Traversed Nodes')
     plt.legend(title=kwargs['test_kwargs'][0][0])
+    plt.savefig(f'saves/{kwargs["name"]}/plots/Noop Nodes.png')
     plt.show()
 
 
@@ -337,15 +345,17 @@ def plot_graph(node, scale=1, title=None, suptitle=None, **kwargs):
         alpha=0.5,
     )
 
-    # suptitle = f'${node.latex()}$'
+    suptitle = f'${node.latex()}$'
     # title, suptitle = suptitle, title
-    # plt.suptitle(suptitle)
+    plt.suptitle(suptitle)
+
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
     plt.title(title)
     if 'result_fitness_func' in kwargs:
         plt.legend(title=f'Fitness = {kwargs['result_fitness_func']([node], **kwargs)[0]}')
     plt.xlabel('Traversal Order')
     plt.ylabel('Depth')
+    plt.savefig(f'saves/{kwargs["name"]}/plots/{title}.png')
     plt.show()
 
 
@@ -367,29 +377,31 @@ def get_best(all_pops, all_fits, gen=-1, **kwargs):
 def plot_results(all_pops, all_fits, **kwargs):
     """Plot all standard plots"""
 
+    print('Plotting results')
     plot_min_fit(all_pops, all_fits, title='', **kwargs)
 
     # Plot best
     best = get_best(all_pops, all_fits, **kwargs)
-    plot_nodes(best, **kwargs)
-
-    plot_size(all_pops, all_fits, **kwargs)
-    plot_quality_gain(all_pops, all_fits, **kwargs)
-    plot_success_rate(all_pops, all_fits, **kwargs)
-    plot_effective(all_pops, all_fits, **kwargs)
-    # plot_noop_size(all_pops, all_fits, **kwargs)
-
-
     if len(kwargs['domains']) == 1:
-        for i, node in enumerate(best):
-            title = 'Best Graph (' + kwargs['test_kwargs'][i + 1][0] + ')'
-            plot_graph(node, title=title, **kwargs)
+        plot_nodes(best, **kwargs)
     else:
         table_best(all_pops, all_fits, title='Best Overall', **kwargs)
 
 
+    plot_size(all_pops, all_fits, **kwargs)
+    # plot_quality_gain(all_pops, all_fits, **kwargs)
+    # plot_success_rate(all_pops, all_fits, **kwargs)
+    # plot_effective(all_pops, all_fits, **kwargs)
+    # plot_noop_size(all_pops, all_fits, **kwargs)
+
+    for i, node in enumerate(best):
+        print(node)
+        title = 'Best Graph (' + kwargs['test_kwargs'][i + 1][0] + ')'
+        plot_graph(node, title=title, **kwargs)
+
+
 
 if __name__ == '__main__':
-    name = 'noop'
+    name = 'bit_sum'
     all_pops, all_fits, kwargs = load_all(name)
     plot_results(all_pops, all_fits, **kwargs)

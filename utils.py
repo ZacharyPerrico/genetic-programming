@@ -47,6 +47,7 @@ def save_all(all_pops, all_fits, kwargs):
     with open(path + 'kwargs.json', 'w') as f:
         json.dump(func_to_string(kwargs.copy()), f, indent=4)
 
+    os.makedirs(path + 'plots', exist_ok=True)
 
 
 def load_all(name):
@@ -65,14 +66,21 @@ def load_all(name):
         return obj
 
     path = 'saves/' + name + '/'
+    print('Loading verts')
     # all_pops = np.load(path + 'pops.npy', allow_pickle=True)
     all_verts = np.load(path + 'verts.npy', allow_pickle=True)
+    print('Loading edges')
     all_edges = np.load(path + 'edges.npy', allow_pickle=True)
+    print('Loading returned_values')
     all_returned_values = np.load(path + 'returned_value.npy', allow_pickle=True)
+    print('Loading prev_fit')
     all_prev_fits = np.load(path + 'prev_fit.npy', allow_pickle=True)
+    print('Loading fits')
     all_fits = np.load(path + 'fits.npy')
+    print('Loading kwargs')
     with open(path + 'kwargs.json', 'rb') as f:
         kwargs = string_to_func(json.load(f))
+    print('Converting Data')
 
     # Save each desired attribute to its own array
     all_pops = np.empty_like(all_verts)
@@ -85,6 +93,7 @@ def load_all(name):
                     node.prev_fit = all_prev_fits[test, run, gen, indiv]
                     all_pops[test, run, gen, indiv] = node
 
+    print('Finished Loading')
     return all_pops, all_fits, kwargs
 
 

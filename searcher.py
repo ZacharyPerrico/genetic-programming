@@ -1,9 +1,10 @@
+import itertools
 
 from node import *
 
 def builder(ops, terminals, reps=1, data=None):
 
-    data = [[Node(terminals[0])]] if data is None else data
+    data = [[Node(t) for t in terminals]] if data is None else data
 
     data.append([])
 
@@ -40,6 +41,24 @@ def builder(ops, terminals, reps=1, data=None):
 #         if (y_n > 1e10).any():
 #             print('Found:', y_n, node)
 
+alias = {
+    '0000': 'False',
+    '0001': '$a_1$ and $a_2$',
+    '0010': '$a_1$ and not $a_2$',
+    '0011': '$a_1$',
+    '0100': 'not $a_1$ and $a_2$',
+    '0101': '$a_2$',
+    '0110': '$a_1$ xor $a_2$',
+    '0111': '$a_1$ or $a_2$',
+    '1000': '$a_1$ nor $a_2$',
+    '1001': '$a_1$ xnor $a_2$',
+    '1010': 'not $a_2$',
+    '1011': '$a_1 \\leftarrow a_2$',
+    '1100': 'not $a_1$',
+    '1101': '$a_1 \\rightarrow a_2$',
+    '1110': '$a_1$ nand $a_2$',
+    '1111': 'True',
+}
 
 def finder(*x, reps=2, ops=('+', '-', '*', '/', '**')):
     terminals = ['x_' + str(i) for i in range(len(x))]
@@ -47,52 +66,49 @@ def finder(*x, reps=2, ops=('+', '-', '*', '/', '**')):
     built = builder(ops=ops, terminals=terminals, reps=reps)
 
     # table
+    # table = {}
+    table = {tuple(int(j) for j in '{:04b}'.format(i)) : [0]*len(built) for i in range(16)}
 
-    all_values = []
-    all_counts = []
+    table['other'] = [0]*len(built)
+    table['total'] = [0]*len(built)
 
-    d = {'{:04b}'.format(i) : [0]*len(built) for i in range(16)}
-
-    # ys = []
-    for rep in range(len(built)):
+    for col in range(len(built)):
         # Calculate values of all nodes
-        # ys.append([])
         ys = []
-        for node in built[rep]:
+        for node in built[col]:
             y = node(*x)
             ys.append(y)
             # if ((y != 1) & (y != 0)).any():
             #     print('Found:', y, node)
 
-        # Convert nodes into LaTeX table
         vals, counts = np.unique(ys, axis=0, return_counts=True)
-        # all_values.append(vals)
-        # all_counts.append(counts)
 
-    # for rep in
-    # for i in range(len(all_values)):
+        # Move unique to the dict table
         for v, c in zip(vals, counts):
-            # if ((v == 1) | (v == 0)).all():
-            bit_str = "".join(map(str, map(int, v)))
-            if bit_str in d:
-                d[bit_str][rep] = c
+            t = tuple(v)
+            if t in table:
+                table[t][col] = c
+            else:
+                if ((v == 1) | (v == 0)).all():
+                    table[t] = [0]*len(built)
+                    table[t][col] = c
+                else:
+                    print(v,c)
+                    table['other'][col] += c
+            table['total'][col] += c
 
-    for key in d.keys():
-        s = key + '' + ' & '.join(map(str, d[key])) + ' \\\\'
-        print(s)
+    # Print the table as LaTeX
+    for key in table.keys():
+        if type(key) != str:
+            bit_str = "".join(str(int(i)) for i in key if type(key) != str)
+            a = alias[bit_str]
+        else:
+            bit_str = key
+            a = ''
+        # bit_str = "".join(map(str, map(int, key)))
+        row = a + ' & ' + bit_str + ' & ' + ' & '.join(map(str, table[key])) + ' \\\\'
+        print(row)
 
-    # print(d)
-
-    # b_count = 0
-    # for v,c in zip(vals, counts):
-    #     if ((v == 1) | (v == 0)).all():
-    #     # if True:
-    #         b_count += c
-    #         s = f'& {"".join(map(str,map(int,v)))} & {c} \\\\'
-    #         # s = f'& {v} & {c} \\\\'
-    #         print(s)
-    # print(f'& other & {sum(counts) - b_count} \\\\')
-    # print(f'& total & {sum(counts)} \\\\')
 
 if __name__ == '__main__':
 
@@ -115,5 +131,5 @@ if __name__ == '__main__':
     finder(
         [0, 0, 1, 1],
         [0, 1, 0, 1],
-        reps=3
+        reps=4
     )

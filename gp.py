@@ -8,7 +8,7 @@ from evolve import *
 from plot import *
 from utils import save_all
 
-from math import sin, cos
+from math import sin, cos, tan
 
 """Functions relevant to implementing genetic programming"""
 
@@ -81,9 +81,12 @@ def correlation(pop, target_func, domains, is_final=False, **kwargs):
         sum_target_actual = sum((y_target - y_target_mean) * np.conjugate(y_actual - y_actual_mean))
         sum_target_2 = sum(abs((y_target - y_target_mean))**2)
         sum_actual_2 = sum(abs((y_actual - y_actual_mean))**2)
-        R = sum_target_actual / (sum_target_2 * sum_actual_2) ** (1/2)
+        R = sum_target_actual / np.sqrt(sum_target_2 * sum_actual_2)
         fit = 1 - R * np.conjugate(R)
-        fits[i] = fit
+        if fit < 0: #FIXME
+            fits[i] = np.inf
+        else:
+            fits[i] = fit
 
         # Post-processing
         if is_final:
@@ -91,6 +94,7 @@ def correlation(pop, target_func, domains, is_final=False, **kwargs):
             res = minimize(min_f, [0,0], method='Nelder-Mead', tol=1e-6)
             new_node = (node * float(res.x[1])) + float(res.x[0])
             pop[i] = new_node
+
     # Replace inf and nan to arbitrary large values
     fits = np.nan_to_num(fits, nan=np.inf, posinf=np.inf)
     return fits
@@ -104,15 +108,45 @@ def randomize_mutation(root, **kwargs):
     """Return a random new individual"""
     return kwargs['init_individual_func'](**kwargs)
 
+def point_mutation(root, **kwargs):
+    """Randomly change an op node to point to a random node that is not an ancestor"""
+    new_root = root.copy()
+    # List of all nodes with parents and children
+    # The root node and terminal nodes cannot have their pointer changed
+    valid_nodes = [
+        n for n in new_root.nodes() if len(n) > 0
+    ]
+    if len(valid_nodes) == 0:
+        if kwargs['verbose'] > 1:
+            print(f'\tpoint_mutation: failed for {new_root}')
+        return new_root
+
+    node = random.choice(valid_nodes)
+    num_agrs = Node.valid_ops[node.value]
+    valid_ops = [op for op in kwargs['ops'] if op != node.value and Node.valid_ops[op] == num_agrs]
+
+    if len(valid_ops) == 0:
+        if kwargs['verbose'] > 1:
+            print(f'\tpoint_mutation: failed for {new_root} on {node.value}')
+        return new_root
+
+    new_value = random.choice(valid_ops)
+
+    if kwargs['verbose'] > 1:
+        print(f'\tpoint_mutation: {root} replaces a {node.value} with a {new_value} returns {new_root}')
+    node.value = new_value
+    return new_root
 
 def subtree_mutation(root, **kwargs):
     """Swap a random node with a random new subtree"""
     new_root = root.copy()
     new_branch = kwargs['new_individual_func'](**kwargs)
     new_branch_height = new_branch.height()
-    # List of all nodes with no children
+    # List of all nodes that are not the root
     root_nodes = [
-        n for n in new_root.nodes() if len(n) == 0 and n.depth() + new_branch_height < kwargs['max_tree_depth']
+        n for n in new_root.nodes()
+            if n.value != 'noop'
+            and n.depth() + new_branch_height <= kwargs['max_tree_depth']
     ]
     # Failure occurs if there is no way to insert the new tree
     if len(root_nodes) == 0:
@@ -132,7 +166,9 @@ def pointer_mutation(root, **kwargs):
     new_root = root.copy()
     # List of all nodes with parents and children
     # The root node and terminal nodes cannot have their pointer changed
-    valid_parent_nodes = [n for n in new_root.nodes() if len(n.parents) > 0 and len(n.children) > 0]
+    valid_parent_nodes = [
+        n for n in new_root.nodes() if len(n.parents) > 0 and len(n.children) > 0
+    ]
     # Pointer mutations will fail in situations such as if the graph is a path
     if len(valid_parent_nodes) == 0:
         if kwargs['verbose'] > 1:
@@ -203,36 +239,44 @@ def deep_split_mutation(root, **kwargs):
 
 def subtree_crossover(a, b, **kwargs):
     # Copy original trees
-    a_new = a.copy()
-    b_new = b.copy()
-    a_height = a.height()
-    b_height = b.height()
+    new_a = a.copy()
+    new_b = b.copy()
     # List of all nodes
-    a_parent_nodes = [an for an in a_new.nodes() if an.height() <= kwargs['max_subtree_depth']]
+    valid_a_subtrees = [
+        an for an in new_a.nodes()
+            if an.value != 'noop'
+            and an.height() <= kwargs['max_subtree_depth']
+    ]
     # Select the first random node (branch)
-    a_parent_node = random.choice(a_parent_nodes)
-    a_parent_node_height = a_parent_node.height()
-    # List of all nodes that could swap with a without being too long in the worse case
-    # TODO implement a more accurate assessment of length
-    b_parent_nodes = [bn for bn in b_new.nodes() if bn.height() <= kwargs['max_subtree_depth']
-                      and b_height - bn.height() + a_parent_node_height <= kwargs['max_tree_depth']
-                      and a_height + bn.height() - a_parent_node_height <= kwargs['max_tree_depth']
-                      ]
+    a_subtree = random.choice(valid_a_subtrees)
+    a_subtree_depth = a_subtree.depth()
+    a_subtree_height = a_subtree.height()
+    # List of all nodes that could swap with a without being too long
+    valid_b_subtrees = [
+        bn for bn in new_b.nodes()
+            if bn.value != 'noop'
+            and bn.height() <= kwargs['max_subtree_depth']
+            and bn.height() + a_subtree_depth <= kwargs['max_tree_depth']
+            and bn.depth() + a_subtree_height <= kwargs['max_tree_depth']
+    ]
 
-    if len(b_parent_nodes) == 0:
-        print(f'\tsubtree_crossover: failed between {a} and {b}')
+    if len(valid_b_subtrees) == 0:
+        if kwargs['verbose'] >= 3:
+            print(f'\tsubtree_crossover: failed between {a} and {b}')
+        elif kwargs['verbose'] >= 2:
+            print(f'\tsubtree_crossover: failed')
         return a, b
 
     # Select a random node with children
-    b_parent_node = random.choice(b_parent_nodes)
+    b_subtree = random.choice(valid_b_subtrees)
 
     # Swap the two nodes
-    a_parent_node.replace(b_parent_node.copy())
-    b_parent_node.replace(a_parent_node.copy())
+    a_subtree.replace(b_subtree.copy())
+    b_subtree.replace(a_subtree.copy())
 
     if kwargs['verbose'] > 1:
-        print(f'\tsubtree_crossover: {a} and {b} produce {a_new} and {b_new}')
-    return a_new, b_new
+        print(f'\tsubtree_crossover: {a} and {b} produce {new_a} and {new_b}')
+    return new_a, new_b
 
 
 #
@@ -243,8 +287,12 @@ def logical_or(*x): return bool(x[0]) or bool(x[1])
 def f(x): return x**5 - 2*x**3 + x
 def mod2k(*x): return x[0] % (2 ** x[1])
 def xor_and_xor(*x): return (int(x[0]) ^ int(x[1])) & (int(x[2]) ^ int(x[3]))
-# def const_32(x): return x**5 + 32*x**3 + x
 def const_32(x): return 32*x**2 + x
+def k3(x): return x**5 - 2*x**3 + x
+# def sin_to(x): return
+def bit_sum(x): return sum(int(i) for i in f'{int(x):04b}')
+
+# def k3(x): return (x**5 - 2*x**3 + x)**2
 
 
 #
@@ -259,7 +307,14 @@ def init_indiv(**kwargs):
     return f
 
 def init_sin(**kwargs): return Node.sin(Node('x'))
-def init_sin_limited(**kwargs): return Node.sin(Node('x')).limited()
+def init_sin_limited(**kwargs): return Node.sin(Node('x')).limited().to_tree()
+def init_cos(**kwargs): return Node.cos(Node('x'))
+def init_cos_limited(**kwargs): return Node.cos(Node('x')).limited().to_tree()
+
+# def init_get_bit(**kwargs): return (Node.get_bits(x,0,1) + Node.get_bits(x,1,1) + Node.get_bits(x,2,1) + Node.get_bits(x,3,1)).limited()
+# def init_get_bit(**kwargs): return Node.get_bits(x,1,1) + Node.get_bits(x,2,1) + Node.get_bits(x,3,1)
+def init_get_bit(**kwargs): return Node.get_bits(x,0,1) + Node.get_bits(x,1,1) + Node.get_bits(x,2,1)
+def init_get_bit_limited(**kwargs): return init_get_bit(**kwargs).limited()
 
 #
 # Debug
@@ -267,20 +322,47 @@ def init_sin_limited(**kwargs): return Node.sin(Node('x')).limited()
 
 if __name__ == '__main__':
 
+    f = init_cos_limited()
+
+    plot_graph(f)
+    #
+    # f = ((((e + (i + e)) ** e) * i) ** ((((e + (i + e)) ** e) * i) + x))
+    # # d = [[0, 2, 31]]
+    #
+    # # f = ((((e + (i + e)) ** e) * i) ** ((((e + (i + e)) ** e) * i) + x))
+    # # f = (e+i) ** e ** x
+    # d = [[0, 1, 2]]
+    #
+    # f = ((((e + (i + e)) ** e) * i) ** ((((e + (i + e)) ** e) * i) + x))
+    #
+    # print(f(0))
+    # print(f(1))
+    #
+    # print(f(0)*f(1))
+    #
+    #
+    # fit = correlation([f], cos, d, eval_method=None)
+    #
+    #
+    #
+    # print(fit)
+
     # pass
     # f0 = x + 1
     # f1 = f0 + x
     # f2 = f1 + f0
     # f = f2
     #
-    g = x + 1
-    f = g + g
+    # g = x + 1
+    # f = g + g
 
     # f = random_noop_tree(3,5, ['+','-','*','/','**'],['x'],1)
 
     # plot_graph(f)
 
-    f = subtree_mutation(
+    f =  x + 3 + 2
+
+    f = point_mutation(
         f,
         verbose=2,
         max_tree_depth=5,
