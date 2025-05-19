@@ -5,10 +5,7 @@ import os
 import numpy as np
 
 from node import Node
-
-
-
-
+from plot import plot_results
 
 
 def save_all(all_pops, all_fits, kwargs):
@@ -199,9 +196,9 @@ def load_runs(**kwargs):
 
 
 
-if __name__ == '__main__':
-    kwargs = load_kwargs('debug')
-    pops, fits = load_runs(**kwargs)
+# if __name__ == '__main__':
+#     kwargs = load_kwargs('debug')
+#     pops, fits = load_runs(**kwargs)
     # print(fits.shape)
     # print(pops)
     # plot_results(pops, fits, **kwargs)

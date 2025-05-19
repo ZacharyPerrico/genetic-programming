@@ -1,3 +1,4 @@
+from evolve import simulate_tests
 from gp import *
 
 if __name__ == '__main__':
@@ -5,36 +6,40 @@ if __name__ == '__main__':
     kwargs = {
         'name': 'debug',
         'seed': None,
-        'verbose': 1, # 0: no updates, 1: generation updates, 2: all updates
+        'verbose': 1, # 0: no updates, 1: generation updates, 2: all updates, 3:
         'num_runs': 2,
         'num_gens': 100,
         'pop_size': 100,
-        'max_tree_depth': 10,
-        'max_subtree_depth': 4,
-        'eval_method': None,
-        'new_individual_func': random_tree, # Function used to generate new branches
+        'max_height': 10, # The maximum height
+        # Initialization
         'init_individual_func': random_tree, # Function used to generate the initial population
+        'init_max_height': 4,
         'p_branch': 0.5, # Probability of a node branching
         'terminals': ['x'],
         'ops': ['+','-','*','/','**'],
-        'init_tree_depth': 4,
-        'target_func': k3,
-        # 'fitness_func': correlation,
+        # Evaluation
+        'eval_method': None,
+        'target_func': koza_3,
         'fitness_func': mse,
         'result_fitness_func': mse, # Fitness to compare results
-        'domains': [[-1, 1, 50]],  # The domain of the problem expressed using np.linspace
-        'crossover_func': subtree_crossover,
-        'k': 2, # Number of randomly chosen parents for each tournament
-        'p_c': 0.2, # Probability of crossover
+        'domains': [[-1, 1, 50]],  # The domain of each variable expressed using np.linspace
+        'crossover_func': subgraph_crossover,
+        # Selection
         'keep_parents': 2, # Elitism, must be even
+        'k': 2, # Number of randomly chosen parents for each tournament
+        # Repopulation
+        'subgraph_max_height': 4,
+        'new_individual_func': random_tree, # Function used to generate new branches used by mutations
+        'p_c': 0.2, # Probability of crossover
         'mutate_funcs': [
-            [subtree_mutation, 0.3],
+            [subgraph_mutation, 0.3],
             [pointer_mutation, 0.3],
         ],
+        # Tests
         'test_kwargs': [
             ['Initial Population', 'terminals',],
-            ['Just x', ['x'],],
-            ['Numbers', ['x',1,2,3],],
+            ['Variable Only', ['x'],],
+            ['With Constants', ['x']+list(range(-5,6)),],
         ],
     }
 
@@ -45,15 +50,15 @@ if __name__ == '__main__':
     #     'num_runs': 1,
     #     'num_gens': 10,
     #     'pop_size': 60,
-    #     'max_tree_depth': 200,
-    #     'max_subtree_depth': 4,
+    #     'max_height': 200,
+    #     'subgraph_max_height': 4,
     #     'eval_method': None,
     #     'new_individual_func': random_tree, # Function used to generate new branches
     #     # 'init_individual_func': random_tree, # Function used to generate the initial population
     #     'p_branch': 0.5, # Probability of a node branching
     #     'terminals': ['x'],
     #     'ops': ['+','-','*','/','**'],
-    #     'init_tree_depth': 4,
+    #     'init_max_height': 4,
     #     'target_func': cos,
     #     'fitness_func': correlation,
     #     'result_fitness_func': mse, # Fitness to compare results
@@ -74,7 +79,23 @@ if __name__ == '__main__':
     #     ],
     # }
 
-    # Run simulation, save, then plot
-    simulate_tests(**kwargs)
-    # save_all(all_pops, all_fits, kwargs)
-    # plot_results(all_pops, all_fits, **kwargs)
+    # simulate_tests(**kwargs)
+    # plot_results(**kwargs)
+
+
+
+
+
+    # FIXME ???
+    f = Node.cos(x).to_tree()
+    # f = Node(-1) ** (Node(1) / Node(2))
+
+    # f = Node(-1) ** Node(1)
+
+    # f = Node.cos(x) / Node.sin(x)
+    # f = (e ** (i * x) + e**(-i*x))/2
+
+    # print(f.height())
+    # print(f.simplify())
+    l = f.limited(not False)
+    print(l)

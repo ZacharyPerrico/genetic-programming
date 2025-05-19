@@ -38,22 +38,22 @@ class Node:
         self.parent = None
         self.parents = []
         # If the value is already a node use its value so that Nodes can be cast to a Node
-        # This also allows for copies of a Node to be made through casting
+        # This also allows for shallow copies of a Node to be made through casting
         if type(value) == Node:
             self.children = value.copy().children
             self.value = value.value
         else:
             self.value = value
             self.children = children if children is not None else []
-        # Used when creating a list of all nodes to prevent repeats.
+        # Used when creating a list of all nodes to prevent repeats
         # None indicates that all children also have a temp_index of None
         # Setting this to -1 and then resetting results in it being None
         self.temp_index = -1
         # Previously returned value used for semantic analysis
         self.returned_value = -1
         # If all descendants are in the simplest form
-        # self.prev_fit = None
         self.is_limited = False
+        # self.prev_fit = None
 
     #
     # Children and Parents
@@ -75,6 +75,20 @@ class Node:
     def __getitem__(self, i): return self.children[i]
     def __setitem__(self, i, value): self.children[i] = value
     def __iter__(self): yield from self.children
+
+    def reset_index(self):
+        """Set the temp_index of all nodes to None"""
+        if self.temp_index is not None:
+            self.temp_index = None
+            for child in self.children:
+                child.reset_index()
+
+    def index_in(self, l):
+        """Returns the first index of this object in the given iterable. The `in` keyword and `index` method will not work for Nodes"""
+        for i,node in enumerate(l):
+            if node is self:
+                return i
+        return -1
 
     def nodes(self, node_list=None):
         """Returns a list of all nodes"""
@@ -112,20 +126,6 @@ class Node:
             for child in self.children:
                 child.reset_index()
 
-    def reset_index(self):
-        """Set the temp_index of all nodes to None"""
-        if self.temp_index is not None:
-            self.temp_index = None
-            for child in self.children:
-                child.reset_index()
-
-    def index_in(self, l):
-        """Returns the first index of this object in the given iterable. The `in` keyword and `index` method will not work for Nodes"""
-        for i,node in enumerate(l):
-            if node is self:
-                return i
-        return -1
-
     def copy(self):
         return Node.from_lists(*self.to_lists())
 
@@ -142,7 +142,7 @@ class Node:
         return max([0] + [1 + parent.depth() for parent in self.parents])
 
     def root(self):
-        """Returns the root Node of the tree"""
+        """Returns the root Node of the graph"""
         return self if self.parent is None else self.parent.root()
 
     def size(self):
@@ -319,19 +319,15 @@ class Node:
                         case '*':
                             s0, s1 = self[0](*x, **kwargs), self[1](*x, **kwargs)
                             return_value = s0 * s1
-                            # return_value = self[0](*x, **kwargs) * self[1](*x, **kwargs)
-
                         case '/':
                             s0, s1 = self[0](*x, **kwargs), self[1](*x, **kwargs)
-                            # Only return s0 ** s1 for symbolic expressions
+                            # Only return s0 / s1 for symbolic expressions
                             if isinstance(x[0], sp.Expr):
                                 return_value =  s0 / s1
                             else:
                                 return_value = np.ones_like(s0, 'complex')
                                 ind = s1 != 0
                                 np.true_divide(s0, s1, out=return_value, where=ind, dtype='complex')
-                                # return_value = np.array(return_value)
-                                # return_value = complex(return_value)
                         case '**':
                             s0, s1 = self[0](*x, **kwargs), self[1](*x, **kwargs)
                             # Only return s0 ** s1 for symbolic expressions
@@ -342,7 +338,6 @@ class Node:
                                 # Valid where s0 is not zero or s1 is a positive real number
                                 ind = (s0 != 0) | (np.isreal(s1) & (np.real(s1) > 0))
                                 np.power(s0, s1, out=return_value, where=ind, dtype='complex')
-
                         case 'noop': return_value = self[0](*x, **kwargs)
                         case 'neg': return_value = -self[0](*x, **kwargs)
                         case '|': return_value = self[0](*x, **kwargs) | self[1](*x, **kwargs)
@@ -380,12 +375,9 @@ class Node:
                         case 'x': return_value = x[0]
                         case 'y': return_value = x[1]
                         case 'z': return_value = x[2]
-                        case 'e':
-                            return_value = kwargs['e'] if 'e' in kwargs else np.e * np.ones_like(x[0])
-                        case 'i':
-                            return_value = kwargs['i'] if 'i' in kwargs else 1j * np.ones_like(x[0])
-                        case 'pi':
-                            return_value = kwargs['pi'] if 'pi' in kwargs else np.pi * np.ones_like(x[0])
+                        case 'e': return_value = kwargs['e'] if 'e' in kwargs else np.e * np.ones_like(x[0])
+                        case 'i': return_value = kwargs['i'] if 'i' in kwargs else 1j * np.ones_like(x[0])
+                        case 'pi': return_value = kwargs['pi'] if 'pi' in kwargs else np.pi * np.ones_like(x[0])
 
                         # Arbitrary Variable
                         case _: return_value = np.float64(x[int(''.join([s for s in self.value if s.isdigit()]))])
@@ -395,22 +387,25 @@ class Node:
                 return return_value
 
     def simplify(self):
+        """Returns a SymPy Expression representing the graph"""
         return sp.sympify(self(sp.Symbol('x'), sp.Symbol('y'), sp.Symbol('z'), e=sp.E, i=sp.I, pi=sp.pi))
 
     #
-    # Construction From Native Python Operations
+    # Construction
+    # Easily create graphs using native Python operations and static Node methods
+    # All implementations must use the op function as a basis
     #
 
     @staticmethod
     def op(operation, *operands):
-        """Return a new Node from an operation on other Nodes"""
+        """Returns a new Node from an operation on other Nodes"""
         # Convert operands to a list to be modified
         operands = list(operands)
         # Cast each operand to a Node, operands must not be copied as pointers need to be preserved
         for i in range(len(operands)):
             if type(operands[i]) != Node:
                 operands[i] = Node(operands[i])
-        # Return a new Node with the operands as the children
+        # Create a new Node with the operands as the children
         new_node = Node(operation, operands)
         # Maintain that the root node has the same attributes TODO: improve implementation
         if hasattr(operands[0], 'prev_fit'):
@@ -459,6 +454,7 @@ class Node:
 
     #
     # Limited Equivalence
+    # Convert a graph of various operation types into one of only basic operations
     #
 
     @staticmethod
@@ -494,26 +490,16 @@ class Node:
                     self.children = [child.limited(consts=consts) for child in self]
                     self.is_limited = True
                     return self
-                case 'neg':
-                    return_value = 0 - self[0]
-                case '|':
-                    return_value = self[0] ** 0 ** self[1]
-                case '&':
-                    return_value = self[0] * self[1]
-                case '==':
-                    return_value = 0 / (self[0] - self[1])
-                case 'abs':
-                    return_value = (self[0] * self[0]) ** (Node(1) / 2)
-                case '<':
-                    return_value = (1 - abs(self[0] - self[1]) / (self[0] - self[1])) / 2
-                case '>':
-                    return_value = (1 - abs(self[1] - self[0]) / (self[1] - self[0])) / 2
-                case '<=':
-                    return_value = ((abs(self[1] - self[0]) / (self[1] - self[0]) + 1) / 2)
-                case '>=':
-                    return_value = ((abs(self[0] - self[1]) / (self[1] - self[0]) + 1) / 2)
-                case '<<':
-                    return_value = (self[0] * 2 ** self[1])
+                case 'neg': return_value = 0 - self[0]
+                case '|': return_value = self[0] ** 0 ** self[1]
+                case '&': return_value = self[0] * self[1]
+                case '==': return_value = 0 / (self[0] - self[1])
+                case 'abs': return_value = (self[0] * self[0]) ** (Node(1) / 2)
+                case '<': return_value = (1 - abs(self[0] - self[1]) / (self[0] - self[1])) / 2
+                case '>': return_value = (1 - abs(self[1] - self[0]) / (self[1] - self[0])) / 2
+                case '<=': return_value = ((abs(self[1] - self[0]) / (self[1] - self[0]) + 1) / 2)
+                case '>=': return_value = ((abs(self[0] - self[1]) / (self[1] - self[0]) + 1) / 2)
+                case '<<': return_value = (self[0] * 2 ** self[1])
                 case '>>':
                     s1 = self[1].value
                     if s1 == 0:
@@ -537,15 +523,9 @@ class Node:
                     e = Node('e')
                     i = Node('i')
                     return_value = (e ** (i * self[0]) + e ** (i * -self[0])) / 2
-                case 'get_bits':
-                    s1 = self[1].value
-                    s2 = self[2].value
-                    return_value = ((self[0] >> s1) % (2 ** s2))
-                case 'i':
-                    return_value = Node(-1) ** (Node(1) / Node(2))
-                case _:
-                    return self
-
+                case 'get_bits': return_value = ((self[0] >> self[1].value) % (2 ** self[2].value))
+                case 'i': return_value = Node(-1) ** (Node(1) / Node(2))
+                case _: return self
         # Recursively call limiting
         return_value = return_value.limited(consts=consts)
         self.replace(return_value)
@@ -580,17 +560,19 @@ if __name__ == '__main__':
 
     # f = Node(-1) ** Node(1)
 
-    f = Node.cos(x) / Node.sin(x)
+    # f = Node.cos(x) / Node.sin(x)
     # f = (e ** (i * x) + e**(-i*x))/2
 
     # print(f.height())
     # print(f.simplify())
     l = f.limited(not False)
 
-    plot_graph(l)
+    # print(l)
+
+    # plot_graph(l)
 
     # print(l.height())
-    # print(l.simplify())
+    print(l.simplify())
 
     # f = (x-y)/x
 
@@ -680,160 +662,3 @@ if __name__ == '__main__':
 
     # print(l)
 
-    # print(l.simplify())
-
-    # f = x + x
-    #
-    # l = [x, 0, x, f]
-    #
-    # i = f.index_in(l)
-    #
-    # x = Node('x')
-    # y = Node('y')
-    # r = [Node(str(i)) for i in range(6)]
-    #
-    #
-    # a = (r[4] - r[3]) + (r[1] + r[5])
-    # b = (r[1] / r[2]) * (r[3] + r[1])
-    #
-    # a0 =  x + 0
-    # a1 = a0 + x
-    # a2 = a1 + a0
-    # a = a2
-    #
-    # print(a)
-    # plot_tree(a)
-    # a1.replace(y)
-    # plot_tree(a)
-    # print(a)
-
-    # print(i)
-
-    # g = x**5 + 32*x**3 + x
-
-    # f = ((-21.077945511687545 * (x - ((x * x) * (x + x)))) + -1.218498355689607e-07)
-
-    # f = ((64.33472816266729*((((x*x)*x)*x)/(((x+x)-x)*(x+x))))+-0.08907341519219569)
-    #
-    # print((f).simplify())
-
-
-    # plot_nodes([f, f.limited()], domains=[(0, 2 * math.pi, 16)])
-    # f = (x_0 / (x_1 - ((x_1 / x_0) - x_0)))
-    # print(f(1,1))
-
-    # f0 = x + 1
-    # f1 = f0 - x
-    # f2 = f1 * f1
-    # f3 = f2 / f1
-    # f4 = f3 ** f2
-    # f = f4
-
-    # print(f(3))
-
-    # f = f4.copy()
-    # f0 = x + 1
-    # f1 = f0 - f0
-    # f2 = f1 * f1
-    # f3 = f2 / f2
-    # f4 = f3 ** f3
-
-    # f = x + x
-    # f = f + f
-    # f = f + f.expanded_copy()
-    # f = f.expanded_copy()
-
-    # f = x
-
-    # f = -x
-
-    # f0 = -x
-    # f1 = Node.max(x, f0)
-    # f2 = -f1
-    # f3 = Node.cos(f1)
-    # f4 = Node.cos(f2)
-    # f5 = f3 - f4
-    # f = f5
-
-    # f = x & x + 1
-    # f = x % 4
-    # f = x + 1
-
-    # print(f)
-    # print(f.limited())
-    # print(f.limited().to_lists())
-
-    # plot_nodes([f, f.limited()], domains=[(0,31,32)])
-    # plot_tree(f.limited(), 0)
-
-
-    # ReLu
-    # f = Node.if_then_else(x >= 0, x)
-    # x*(0.5 + 0.5*(x**2)**0.5/x)
-
-    # Collatz Conjecture
-    # f = Node.if_then_else(
-    #     x % 2,
-    #     3 * x + 1,
-    #     x / 2,
-    # )
-    # f = 2/4 + 7/4 * x +  (-2/4 + -5/4 * x) * (-1)**x
-    # f = 2/4 + 7/4*x + (-2/4 + -5/4*x) * cos(pi * x)
-    # f(n) = 2 / 4 + 7 / 4 * f(n-1) + (-2 / 4 + -5 / 4 * f(n-1)) * cos(pi * f(n-1))
-    # i = 43
-    # y = [i]
-    # while i != 1:
-    #     print(i)
-    #     i = f(i)
-    #     y.append(i)
-    # y = np.array(y)
-    # x = np.arange(len(y))
-    # # Loop plot
-    # xx = y.copy()
-    # yy = y.copy()
-    # yy[0] = 0
-    # xx[1::2] = xx[0::2]
-    # yy[2::2] = yy[1:-1:2]
-    # plt.plot(xx, yy)
-    # plt.scatter(xx,yy)
-    # plt.axline((0, 1), (1, 4), ls=':')
-    # plt.axline((0, 0), (1, 1/2), ls=':')
-    # plt.axline((1, 0), (4, 1), ls=':')
-    # plt.axline((0, 0), (1/2, 1), ls=':')
-    # plt.plot()
-    # plt.show()
-    # f = (((((x-x)+(x+x))**((x+x)/x))*(x+x))/((x+x)-x))
-    # f = (((x+x)*((((((((x+x)*(x/x))*x)+(((x-(x*(x+x)))*x)+(x*x)))+((((x-((x*(((((x-x)-x)/x)+x)/x))/x))/x)*x)*x))+x)/((x-x)+x))-((x+x)*(0-x))))/((x+((x+(((((((((((x/((0/(x-x))*(((x+((x/x)-(x*x)))+(x+((x/x)*x)))*x)))+((x+x)/x))-(((((x/(x-x))+x)/(((((x+x)/x)-((x-x)+x))+x)/x))*x)*(x/x)))+x)+x)/x)-x)/(x*x))/x)-x)+x))/x))-x))
-    # f = ((((x+x)**(((((x/x)+x)+x)+x)/x))-x)/((x+x)-x))
-    # (((max((if_then_else(x,x,((x*(if_then_else((x|x),abs(x),x)|(abs(x)-(x+x))))|abs(x)))*x),abs(((((min(x,x)+((if_then_else(x,x,x)|(x-x))&x))+x)|x)+max((max((abs(((min(x,x)+max(((((x+min(x,x))|x)|x)+(x&x)),x))+(((((if_then_else(0,x,x)&(x/x))+min(if_then_else(x,x,x),min(x,x)))&(x+x))+abs(x))|(x|x))))+min(x,x)),x)+if_then_else((x-x),x,x)),x))))-x)-min(x,x))*x)
-    # s = 8
-    # n = Node.get_bits(x, 0, s)
-    # c = Node.get_bits(x, s, s) + 1
-    # # c=c n=n
-    # # n == 1
-    # # c=0 n=c
-    # # c == 0
-    # # c=0 n=0
-    # cc = Node.if_then_else(
-    #     n == 1,
-    #     -1,
-    #     Node.if_then_else(
-    #         c == 0,
-    #         0,
-    #         c
-    #     ),
-    # )
-    # nn = Node.if_then_else(
-    #     n == 1,
-    #     c,
-    #     Node.if_then_else(
-    #         c == 0,
-    #         0,
-    #         Node.if_then_else(
-    #             n % 2,
-    #             3 * n + 1,
-    #             n / 2,
-    #         )
-    #     )
-    # )
-    # f = cc * 2**s + nn

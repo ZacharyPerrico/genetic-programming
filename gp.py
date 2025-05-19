@@ -1,16 +1,14 @@
-import multiprocessing
-
-import numpy as np
 from scipy.optimize import minimize
 
 from node import *
-from evolve import *
 from plot import *
-from utils import save_all
-
-from math import sin, cos, tan
 
 """Functions relevant to implementing genetic programming"""
+
+
+#
+# Utility
+#
 
 def choice(arr, rng):
     """
@@ -20,26 +18,27 @@ def choice(arr, rng):
     """
     return arr[rng.choice(len(arr))]
 
+
 #
 # Initialization Functions
 #
 
-def random_tree(init_tree_depth, ops=Node.valid_ops, terminals=('x',), p_branch=0.5, init_call=True, **kwargs):
+def random_tree(init_max_height, ops=Node.valid_ops, terminals=('x',), p_branch=0.5, init_call=True, **kwargs):
     """Generate a random tree"""
     # Create a branch with an operator value
-    if init_call or kwargs['rng'].random() < p_branch and init_tree_depth > 0:
+    if init_call or kwargs['rng'].random() < p_branch and init_max_height > 0:
         # Prevent the casting of str into numpy str
         op = choice(ops, kwargs['rng'])
-        children = [random_tree(init_tree_depth - 1, ops, terminals, p_branch, False, **kwargs) for _ in range(Node.valid_ops[op])]
+        children = [random_tree(init_max_height - 1, ops, terminals, p_branch, False, **kwargs) for _ in range(Node.valid_ops[op])]
         return Node(op, children)
     # Create a leaf
     else:
         return Node(choice(terminals, kwargs['rng']))
 
 
-def random_noop_tree(init_tree_depth, num_registers, ops=Node.valid_ops, terminals=('x',), p_branch=0.5, **kwargs):
+def random_noop_tree(init_max_height, num_registers, ops=Node.valid_ops, terminals=('x',), p_branch=0.5, **kwargs):
     c = [
-        random_tree(init_tree_depth-1, ops=ops, terminals=terminals, p_branch=p_branch, init_call=True, **kwargs)
+        random_tree(init_max_height-1, ops=ops, terminals=terminals, p_branch=p_branch, init_call=True, **kwargs)
         for _ in range(num_registers)
     ]
     return Node('noop', c)
@@ -116,6 +115,7 @@ def randomize_mutation(root, **kwargs):
     """Return a random new individual"""
     return kwargs['init_individual_func'](**kwargs)
 
+
 def point_mutation(root, **kwargs):
     """Randomly change an op node to point to a random node that is not an ancestor"""
     new_root = root.copy()
@@ -146,7 +146,8 @@ def point_mutation(root, **kwargs):
     node.value = new_value
     return new_root
 
-def subtree_mutation(root, **kwargs):
+
+def subgraph_mutation(root, **kwargs):
     """Swap a random node with a random new subtree"""
     new_root = root.copy()
     new_branch = kwargs['new_individual_func'](**kwargs)
@@ -155,18 +156,18 @@ def subtree_mutation(root, **kwargs):
     root_nodes = [
         n for n in new_root.nodes()
             if n.value != 'noop'
-            and n.depth() + new_branch_height <= kwargs['max_tree_depth']
+            and n.depth() + new_branch_height <= kwargs['max_height']
     ]
     # Failure occurs if there is no way to insert the new tree
     if len(root_nodes) == 0:
         if kwargs['verbose'] > 1:
-            print(f'\tsubtree_mutation: failed for {new_root} and branch {new_branch} of height {new_branch_height}')
+            print(f'\tsubgraph_mutation: failed for {new_root} and branch {new_branch} of height {new_branch_height}')
         return new_root
     # Select and replace a node with the branch
     branch = choice(root_nodes, kwargs['rng'])
     branch.replace(new_branch)
     if kwargs['verbose'] > 1:
-        print(f'\tsubtree_mutation: {root} replaces {branch} with {new_branch} returns {new_root}')
+        print(f'\tsubgraph_mutation: {root} replaces {branch} with {new_branch} returns {new_root}')
     return new_root
 
 
@@ -246,45 +247,45 @@ def deep_split_mutation(root, **kwargs):
 # Crossover Functions
 #
 
-def subtree_crossover(a, b, **kwargs):
+def subgraph_crossover(a, b, **kwargs):
     # Copy original trees
     new_a = a.copy()
     new_b = b.copy()
     # List of all nodes
-    valid_a_subtrees = [
+    valid_a_subgraphs = [
         an for an in new_a.nodes()
             if an.value != 'noop'
-            and an.height() <= kwargs['max_subtree_depth']
+            and an.height() <= kwargs['subgraph_max_height']
     ]
     # Select the first random node (branch)
-    a_subtree = choice(valid_a_subtrees, kwargs['rng'])
-    a_subtree_depth = a_subtree.depth()
-    a_subtree_height = a_subtree.height()
+    a_subgraph = choice(valid_a_subgraphs, kwargs['rng'])
+    a_subgraph_depth = a_subgraph.depth()
+    a_subgraph_height = a_subgraph.height()
     # List of all nodes that could swap with a without being too long
-    valid_b_subtrees = [
+    valid_b_subgraphs = [
         bn for bn in new_b.nodes()
             if bn.value != 'noop'
-            and bn.height() <= kwargs['max_subtree_depth']
-            and bn.height() + a_subtree_depth <= kwargs['max_tree_depth']
-            and bn.depth() + a_subtree_height <= kwargs['max_tree_depth']
+            and bn.height() <= kwargs['subgraph_max_height']
+            and bn.height() + a_subgraph_depth <= kwargs['max_height']
+            and bn.depth() + a_subgraph_height <= kwargs['max_height']
     ]
 
-    if len(valid_b_subtrees) == 0:
+    if len(valid_b_subgraphs) == 0:
         if kwargs['verbose'] >= 3:
-            print(f'\tsubtree_crossover: failed between {a} and {b}')
+            print(f'\tsubgraph_crossover: failed between {a} and {b}')
         elif kwargs['verbose'] >= 2:
-            print(f'\tsubtree_crossover: failed')
+            print(f'\tsubgraph_crossover: failed')
         return a, b
 
     # Select a random node with children
-    b_subtree = choice(valid_b_subtrees, kwargs['rng'])
+    b_subgraph = choice(valid_b_subgraphs, kwargs['rng'])
 
     # Swap the two nodes
-    a_subtree.replace(b_subtree.copy())
-    b_subtree.replace(a_subtree.copy())
+    a_subgraph.replace(b_subgraph.copy())
+    b_subgraph.replace(a_subgraph.copy())
 
     if kwargs['verbose'] > 1:
-        print(f'\tsubtree_crossover: {a} and {b} produce {new_a} and {new_b}')
+        print(f'\tsubgraph_crossover: {a} and {b} produce {new_a} and {new_b}')
     return new_a, new_b
 
 
@@ -293,37 +294,24 @@ def subtree_crossover(a, b, **kwargs):
 #
 
 def logical_or(*x): return bool(x[0]) or bool(x[1])
-def f(x): return x**5 - 2*x**3 + x
 def mod2k(*x): return x[0] % (2 ** x[1])
 def xor_and_xor(*x): return (int(x[0]) ^ int(x[1])) & (int(x[2]) ^ int(x[3]))
 def const_32(x): return 32*x**2 + x
-def k3(x): return x**5 - 2*x**3 + x
-# def sin_to(x): return
+def koza_3(x): return x**5 - 2*x**3 + x
 def bit_sum(x): return sum(int(i) for i in f'{int(x):04b}')
-
-# def k3(x): return (x**5 - 2*x**3 + x)**2
 
 
 #
 # Initial pops
 #
 
-def init_indiv(**kwargs):
-    x_0 = Node('x_0')
-    x_1 = Node('x_1')
-    f = x_0 >> 2
-    f = f.limited()
-    return f
-
 def init_sin(**kwargs): return Node.sin(Node('x'))
 def init_sin_limited(**kwargs): return Node.sin(Node('x')).limited().to_tree()
 def init_cos(**kwargs): return Node.cos(Node('x'))
 def init_cos_limited(**kwargs): return Node.cos(Node('x')).limited().to_tree()
-
-# def init_get_bit(**kwargs): return (Node.get_bits(x,0,1) + Node.get_bits(x,1,1) + Node.get_bits(x,2,1) + Node.get_bits(x,3,1)).limited()
-# def init_get_bit(**kwargs): return Node.get_bits(x,1,1) + Node.get_bits(x,2,1) + Node.get_bits(x,3,1)
 def init_get_bit(**kwargs): return Node.get_bits(x,0,1) + Node.get_bits(x,1,1) + Node.get_bits(x,2,1)
 def init_get_bit_limited(**kwargs): return init_get_bit(**kwargs).limited()
+
 
 #
 # Debug
@@ -374,9 +362,9 @@ if __name__ == '__main__':
     f = point_mutation(
         f,
         verbose=2,
-        max_tree_depth=5,
+        max_height=5,
         new_individual_func=random_tree,
-        init_tree_depth=2,
+        init_max_height=2,
         ops=['+','-','*','/','**']
     )
 
