@@ -79,23 +79,5 @@ if __name__ == '__main__':
     #     ],
     # }
 
-    # simulate_tests(**kwargs)
+    simulate_tests(**kwargs)
     # plot_results(**kwargs)
-
-
-
-
-
-    # FIXME ???
-    f = Node.cos(x).to_tree()
-    # f = Node(-1) ** (Node(1) / Node(2))
-
-    # f = Node(-1) ** Node(1)
-
-    # f = Node.cos(x) / Node.sin(x)
-    # f = (e ** (i * x) + e**(-i*x))/2
-
-    # print(f.height())
-    # print(f.simplify())
-    l = f.limited(not False)
-    print(l)

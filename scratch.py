@@ -48,8 +48,16 @@ f = Node.if_then_else(
 # # c == 0
 # # c=0 n=0
 
-# cc = Node.if_then_else(
-#     n == 1,
+# x = x/2-1
+#
+# next_x = Node.if_then_else(
+#     x % 2,
+#     3 * x + 1,
+#     x / 2,
+# )
+#
+# f = Node.if_then_else(
+#     next_x == 1,
 #     -1,
 #     Node.if_then_else(
 #         c == 0,
@@ -57,6 +65,8 @@ f = Node.if_then_else(
 #         c
 #     ),
 # )
+
+
 # nn = Node.if_then_else(
 #     n == 1,
 #     c,

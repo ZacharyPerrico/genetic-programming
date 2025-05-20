@@ -309,6 +309,7 @@ def plot_graph(node, layout='topo', scale=1, title=None, **kwargs):
         G,
         pos,
         arrowstyle=[["-|>", "->"][i] for i in edge_props],
+        edgelist=edges, # Specify edge order
         connectionstyle=connectionstyle,
         arrowsize=20 * scale,
         # edge_color = edge_props,
@@ -332,7 +333,8 @@ def plot_graph(node, layout='topo', scale=1, title=None, **kwargs):
     plt.title(title)
     if 'result_fitness_func' in kwargs:
         plt.legend(title=f'Fitness = {kwargs['result_fitness_func']([node], **kwargs)[0]}')
-    plt.savefig(f'saves/{kwargs["name"]}/plots/{title}.png')
+    if 'name' in kwargs:
+        plt.savefig(f'saves/{kwargs["name"]}/plots/{title}.png')
     plt.show()
 
 
@@ -357,7 +359,7 @@ def plot_results(all_pops, all_fits, **kwargs):
     os.makedirs(path, exist_ok=True)
     print('Plotting results')
 
-    plot_min_fit(all_pops, all_fits, title='', **kwargs)
+    # plot_min_fit(all_pops, all_fits, title='', **kwargs)
 
     # Plot best
     best = get_best(all_pops, all_fits, **kwargs)
@@ -368,7 +370,7 @@ def plot_results(all_pops, all_fits, **kwargs):
 
     # plot_means(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
 
-    plot_medians(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
+    # plot_medians(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
 
 
     # plot_hist(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
@@ -379,16 +381,21 @@ def plot_results(all_pops, all_fits, **kwargs):
     # plot_effective(all_pops, all_fits, **kwargs)
     # plot_noop_size(all_pops, all_fits, **kwargs)
 
-    # for i, node in enumerate(best):
-    #     print(node)
-    #     title = 'Best Graph (' + kwargs['test_kwargs'][i + 1][0] + ')'
-    #     plot_graph(node, title=title, **kwargs)
+    for i, node in enumerate(best):
+        print(node)
+        title = 'Best Graph (' + kwargs['test_kwargs'][i + 1][0] + ')'
+        plot_graph(node, title=title, **kwargs)
 
 
 if __name__ == '__main__':
     kwargs = load_kwargs('debug')
     pops, fits = load_runs(**kwargs)
     plot_results(pops, fits, **kwargs)
+
+    # x = Node('x')
+    # f = x / x + x * x
+    # f = f.to_tree()
+    # plot_graph(f)
 
 
 
