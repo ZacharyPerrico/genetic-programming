@@ -217,7 +217,7 @@ def plot_tm_trans_array(trans, ax=None, title=None, save=True, show=True, **kwar
 # Data Based Plotting
 #
 
-def plot_fitness(all_pops, all_fits, save=True, show=True, **kwargs):
+def plot_fitness(all_pops, all_fits, ax=None, save=True, show=True, **kwargs):
     """Plot the average of the runs' minimum fitness for each test"""
     fig, ax = plt.subplots()
     x = np.array(range(all_fits.shape[2]))
@@ -229,6 +229,8 @@ def plot_fitness(all_pops, all_fits, save=True, show=True, **kwargs):
             y = np.mean(np.max(all_fits[test], axis=2), axis=0)
             plt.ylabel('Average Max Fitness Value')
         plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0])
+        # y_std = np.std(np.min(all_fits[test], axis=2), axis=0)
+        # ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
         # Scatter plot all points
         # xx = x.reshape((1,len(x),1)).repeat(all_fits.shape[1], axis=0).repeat(all_fits.shape[3], axis=2).ravel()
         # yy = all_fits[test].ravel()
@@ -419,26 +421,24 @@ def plot_results(all_pops, all_fits, **kwargs):
     # plot_grid(all_pops, all_fits, plot_func=plot_tm_graph, title='Best Graphs', show=False, **kwargs)
     # plot_grid(all_pops, all_fits, plot_func=plot_trans_array, title='Best Transition Arrays', show=False, **kwargs)
 
+    # plot_grid(all_pops, all_fits, plot_func=plot_fitness, title='Best Solutions', show=False, **kwargs)
+
     # Plot best results of each test
     best = get_best(all_pops, all_fits, **kwargs)
     for i, code in enumerate(best):
+        code_1d = np.ravel(code)
 
-        l = Linear(code, [0], 4)
-        l.run(64)
+        print(f'\nRun {i}')
+        l = run_self_rep(code_1d, **kwargs)
         print(l)
-
-        # print(f'\nRun {i}')
-        # l = run_self_rep(code, **kwargs)
-        # print(l)
-        # code = np.array(l.out).reshape(-1, 4).tolist()
-        # l = run_self_rep(code, **kwargs)
-        # print(l)
+        l = run_self_rep(l.mem[2], **kwargs)
+        print(l)
 
 
 
 if __name__ == '__main__':
     # name = 'unstable_self_rep_0'
-    name = 'self_mutate_0'
+    name = 'self_rep_2'
     kwargs = load_kwargs(name, '../../saves/')
     pops, fits = load_runs(**kwargs)
     plot_results(pops, fits, **kwargs)

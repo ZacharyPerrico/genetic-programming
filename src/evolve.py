@@ -43,6 +43,7 @@ def tournament_selection(pop, fits, k, **kwargs):
 #
 
 def next_pop(pop, **kwargs):
+    """Returns the next population from a given population"""
 
     # Truncate Selection
     # This is not used
@@ -88,10 +89,19 @@ def next_pop(pop, **kwargs):
             c0, f0 = tournament_selection(**kwargs)
             c1, f1 = tournament_selection(**kwargs)
 
+            c0 = c0.copy()
+            c1 = c1.copy()
+
             # Crossover
-            c = kwargs['rng'].random()
-            if c < kwargs['p_c']:
-                c0, c1 = kwargs['crossover_func'](c0, c1, **kwargs)
+            # c = kwargs['rng'].random()
+            # if c < kwargs['p_c']:
+            #     c0, c1 = kwargs['crossover_func'](c0, c1, **kwargs)
+
+            # Crossover
+            a, p = zip(*kwargs['crossover_funcs'])
+            crossover_func = kwargs['rng'].choice(a=a, p=p)
+            if crossover_func is not None:
+                c0, c1 = crossover_func(c0, c1, **kwargs)
 
             # Mutation
             a, p = zip(*kwargs['mutate_funcs'])
@@ -100,10 +110,6 @@ def next_pop(pop, **kwargs):
                 c0 = mutate_func(c0, **kwargs)
                 c1 = mutate_func(c1, **kwargs)
 
-            c0 = c0.copy()
-            c1 = c1.copy()
-            # c0.prev_fit = (f0 + f1) / 2
-            # c1.prev_fit = (f0 + f1) / 2
             new_pop.append(c0)
             new_pop.append(c1)
 
@@ -112,6 +118,11 @@ def next_pop(pop, **kwargs):
 
 def simulate_run(**kwargs):
     """Run a single simulation of a full set of generations"""
+
+    # Add no-operation as a possible crossover
+    prob_noop = 1 - sum(list(zip(*kwargs['crossover_funcs']))[1])
+    if prob_noop > 0:
+        kwargs['crossover_funcs'].append([None, prob_noop])
 
     # Add no-operation as a possible mutation
     prob_noop = 1 - sum(list(zip(*kwargs['mutate_funcs']))[1])
@@ -123,7 +134,6 @@ def simulate_run(**kwargs):
     # Initialization
     all_pops = np.empty(shape, dtype=object)
     all_fits = np.empty(shape)
-    prev_fit = np.empty(shape)
 
     pop = init_pop(**kwargs)
     # all_pops[0] = [n.to_lists() for n in pop]
@@ -177,8 +187,6 @@ def _simulate_and_save_test_run(test_num, run_num, test_kwargs, base_kwargs):
     pops, fits = simulate_run(test_name=test_name, **kwargs)
     save_run(test_path, pops, fits, **kwargs)
 
-    # return f"Test {test_num}, Run {run_num}, Seed {kwargs['seed']}"
-
 
 def simulate_tests(num_runs, test_kwargs, **kwargs):
     """
@@ -208,11 +216,6 @@ def simulate_tests(num_runs, test_kwargs, **kwargs):
         #MODIFY cpu_count() to adjust max core count use
         with Pool(processes=min(cpu_count(), len(jobs_args))) as pool:
             results = pool.starmap(_simulate_and_save_test_run, jobs_args)
-
-        # if kwargs.get('verbose', 0) > 0:
-        #     print("All test runs completed.")
-        #     for res in results:
-        #         print(res)
 
     # Non parallelized
     else:

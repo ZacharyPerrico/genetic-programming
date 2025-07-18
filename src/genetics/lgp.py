@@ -42,9 +42,7 @@ def lgp_mse(pop, target_func, domains, **kwargs):
 
     fits = np.empty(len(pop))
 
-    for i,code in enumerate(pop):
-
-        # Pass all test cases as a single numpy array so that a semantic vector can be formed if needed
+    for i, code in enumerate(pop):
 
         y_actual = []
 
@@ -68,8 +66,7 @@ def lgp_mse(pop, target_func, domains, **kwargs):
 
 def run_self_rep(code, **kwargs):
     """Run the given code setup to self replicate"""
-    code_1d = np.ravel(code)
-    l = Linear(code, input_regs=[0, 0], num_output_regs=len(code_1d))
+    l = Linear([[0]*4, code, [-1]*len(code)])
     l.run(kwargs['timeout'])
     return l
 
@@ -77,10 +74,10 @@ def run_self_rep(code, **kwargs):
 def self_rep(pop, **kwargs):
     """Calculate the fitness value of all individuals in a population"""
     fits = np.empty(len(pop))
-    for i,code in enumerate(pop):
+    for i, code in enumerate(pop):
         code_1d = np.ravel(code)
-        l = run_self_rep(code, **kwargs)
-        fit = sum((code_1d == l.out) & (code_1d != 0))
+        l = run_self_rep(code_1d, **kwargs)
+        fit = sum(code_1d != l.mem[2])
         fits[i] = fit
     return fits
 
@@ -103,37 +100,70 @@ def self_rep(pop, **kwargs):
 #     return fits
 
 
-def self_mutate(pop, **kwargs):
-    """Calculate the fitness value of all individuals in a population"""
-    fits = np.empty(len(pop))
-    for i,code in enumerate(pop):
+# def self_mutate(pop, **kwargs):
+#     """Calculate the fitness value of all individuals in a population"""
+#     fits = np.empty(len(pop))
+#     for i,code in enumerate(pop):
+#
+#         input_0 = [0] * 4
+#         input_1 = [0] * 4
+#         l_0 = Linear(code, [0], 4)
+#         l_1 = Linear(code, [0], 4)
+#         l_0.run(kwargs['timeout'])
+#         l_1.run(kwargs['timeout'])
+#         output_0 = l_0.out
+#         output_1 = l_1.out
+#         output_0 = np.array(output_0)
+#         output_1 = np.array(output_1)
+#
+#         diff_0 = input_0 != output_0
+#         diff_1 = input_1 != output_1
+#
+#         fit = 0
+#         fit += sum(diff_0)
+#         fit += sum(diff_1)
+#
+#         if sum(diff_0) + sum(diff_1) == 0:
+#             fit = 1000
+#
+#         if (output_0 == output_1).all():
+#             fit = 1000
+#
+#         fits[i] = fit
+#     return fits
 
-        input_0 = [0] * 4
-        input_1 = [0] * 4
-        l_0 = Linear(code, [0], 4)
-        l_1 = Linear(code, [0], 4)
-        l_0.run(kwargs['timeout'])
-        l_1.run(kwargs['timeout'])
-        output_0 = l_0.out
-        output_1 = l_1.out
-        output_0 = np.array(output_0)
-        output_1 = np.array(output_1)
 
-        diff_0 = input_0 != output_0
-        diff_1 = input_1 != output_1
-
-        fit = 0
-        fit += sum(diff_0)
-        fit += sum(diff_1)
-
-        if sum(diff_0) + sum(diff_1) == 0:
-            fit = 1000
-
-        if (output_0 == output_1).all():
-            fit = 1000
-
-        fits[i] = fit
-    return fits
+# def self_crossover(pop, **kwargs):
+#     """Calculate the fitness value of all individuals in a population"""
+#     fits = np.empty(len(pop))
+#     for i, code in enumerate(pop):
+#
+#         input_0 = [0] * 4
+#         input_1 = [0] * 4
+#         l_0 = Linear(code, [0], 4)
+#         l_1 = Linear(code, [0], 4)
+#         l_0.run(kwargs['timeout'])
+#         l_1.run(kwargs['timeout'])
+#         output_0 = l_0.out
+#         output_1 = l_1.out
+#         output_0 = np.array(output_0)
+#         output_1 = np.array(output_1)
+#
+#         diff_0 = input_0 != output_0
+#         diff_1 = input_1 != output_1
+#
+#         fit = 0
+#         fit += sum(diff_0)
+#         fit += sum(diff_1)
+#
+#         if sum(diff_0) + sum(diff_1) == 0:
+#             fit = 1000
+#
+#         if (output_0 == output_1).all():
+#             fit = 1000
+#
+#         fits[i] = fit
+#     return fits
 
 #
 # Target Functions
@@ -321,12 +351,34 @@ if __name__ == '__main__':
     # ll = run_self_rep(code, timeout=64)
     # print(ll)
 
-    code = [
+    # Self-Rep / Crossover / Mutation
+    code = [[
+        0, # PC
+        0, # Random value
+        0, # Copy pointer
+        0, # Temp
+    ],[
+        Linear.RAND,  1,  1, Linear.VARS_DIRECT,   # Generate random value
+        Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Execute next line if random value is 0
+        Linear.LOAD,  3,  2, Linear.CODE_INDIRECT, # Load temp value from MEM2
+        Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Execute next line if random value is 0
+        Linear.STORE, 3,  2, Linear.MEM2_INDIRECT, # Store temp value into MEM2
+        Linear.ADD,   2,  1, Linear.IMMEDIATE,     # Increment copy pointer
+    ],[
+        32, 32, 32, 32,
+        32, 32, 32, 32,
+        32, 32, 32, 32,
+        32, 32, 32, 32,
+        32, 32, 32, 32,
+        32, 32, 32, 32,
+    ]]
 
-    ]
-
-    f = self_mutate([code], timeout=64)
-    print(f)
+    # code = [
+    #
+    # ]
+    #
+    # f = self_mutate([code], timeout=64)
+    # print(f)
 
     # fits = self_rep([code], timeout=100)
     # print(fits)
