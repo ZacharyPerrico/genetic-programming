@@ -13,7 +13,7 @@ from src.utils.utils import cartesian_prod
 #
 
 def _random_line(**kwargs):
-    """Helper function for generating a single line"""
+    """Helper function to generating a single line of code"""
     return [
         kwargs['rng'].choice(kwargs['ops']),
         kwargs['rng'].integers(kwargs['max_len']),
@@ -24,8 +24,8 @@ def _random_line(**kwargs):
 def random_code(**kwargs):
     """Generate a random list of transitions"""
     init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
-    trans = [_random_line(**kwargs) for _ in range(init_len)]
-    return trans
+    code = [_random_line(**kwargs) for _ in range(init_len)]
+    return code
 
 
 #
@@ -45,7 +45,7 @@ def lgp_rmse(pop, target_func, domains, **kwargs):
             l = Linear([[0]+list(case)+[0], np.ravel(org)])
             l.run(kwargs['timeout'])
             y_actual = np.append(y_actual, l.vars[-1])
-        # Calculate MSE
+        # Calculate RMSE
         fits[i] = (sum((abs(y_target - y_actual)) ** 2) / len(cases)) ** 0.5
     return fits
 
@@ -193,21 +193,7 @@ def self_rep(pop, **kwargs):
 
 def x2(x): return 2 * x
 def multiply(x0,x1): return x0 * x1
-
-#
-# Mutation Functions
-#
-
-def point_mutation(code, **kwargs):
-    """Randomly change a value in a random line"""
-    # Duplicate the original
-    code = [line.copy() for line in code]
-    # Select a random line and sub line
-    index = kwargs['rng'].integers(len(code))
-    sub_index = kwargs['rng'].integers(4)
-    # Replace the argument
-    code[index][sub_index] = _random_line(**kwargs)[sub_index]
-    return code
+def power(x0,x1): return x0 ** x1
 
 
 #
@@ -260,6 +246,22 @@ def two_point_crossover(a, b, **kwargs):
 #                     if (kwargs['min_len'] <= len(new_a) <= kwargs['max_len']) and (kwargs['min_len'] <= len(new_b) <= kwargs['max_len']):
 #                         l.append(f'{new_a} {new_b}')
 #     return l
+
+#
+# Mutation Functions
+#
+
+def point_mutation(code, **kwargs):
+    """Randomly change a value in a random line"""
+    # Duplicate the original
+    code = [line.copy() for line in code]
+    # Select a random line and sub line
+    index = kwargs['rng'].integers(len(code))
+    sub_index = kwargs['rng'].integers(4)
+    # Replace the argument
+    code[index][sub_index] = _random_line(**kwargs)[sub_index]
+    return code
+
 
 #
 # Debug

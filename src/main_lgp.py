@@ -5,19 +5,19 @@ from src.utils.save import load_runs
 
 
 kwargs = {
-    'name': 'mult_1',  # Name of folder to contain all results
+    'name': 'pow_4',  # Name of folder to contain all results
     'seed': None,
     'verbose': True,
     'parallelize': True,
     'saves_path': '../saves/',  # Save path relative to this file
     ## Size ##
     'num_runs': 6,
-    'num_gens': 200,
-    'pop_size': 200,
+    'num_gens': 4000,
+    'pop_size': 1000,
     'min_len': 4,
     'max_len': 4,
     ## Initialization ##
-    'init_individual_func': random_code,  # Function used to generate the initial population
+    'init_individual_func': random_code,  # Function used to generate a new organism
     'init_min_len': 4,
     'init_max_len': 4,
     'max_value': 16,
@@ -25,10 +25,9 @@ kwargs = {
     'addr_modes': list(range(len(Linear.VALID_ADDR_MODES))),
     ## Evaluation ##
     'fitness_func': lgp_rmse,
-    'target_func': multiply,
-    'domains': [list(range(5)), list(range(5))],  # Cases are generated from the Cartesian product
-    'timeout': 64,
-    'result_fitness_func': lgp_mse,
+    'target_func': power,  # The function that the organism is attempting to replicate
+    'domains': [list(range(1, 5)), list(range(1, 4))],  # Cases are generated from the Cartesian product
+    'timeout': 64,  # Number of evaluation iterations before forced termination
     ## Selection ##
     'minimize_fitness': True,
     'keep_parents': 2,  # Elitism, must be even
@@ -41,17 +40,8 @@ kwargs = {
         [point_mutation, 0.9],
     ],
     ## Tests ##
-    # 'test_kwargs': [
-    #     ['Fitness Func', 'fitness_func'],
-    #     ['MSE', lgp_mse],
-    #     ['Sum', lgp_error],
-    # ]
     'test_kwargs': [
         ['Max Length', 'init_max_len', 'max_len'],
-        # [ '4',  4,  4],
-        # [ '8',  8,  8],
-        # ['12', 12, 12],
-        # ['16', 16, 16],
         *[[str(i),i,i] for i in [4,16,32,64]],
     ],
     # 'test_kwargs': [
