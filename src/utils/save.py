@@ -10,7 +10,7 @@ from src.utils.utils import to_tuple
 
 
 def save_kwargs(**kwargs):
-    GP_FILE = 'src.genetics'
+    FUNC_PREFIX = 'src.genetics'
     def func_to_string(obj):
         """Recursively replace functions with its name preceded by src.genetics"""
         if type(obj) == dict:
@@ -26,7 +26,7 @@ def save_kwargs(**kwargs):
         elif type(obj) == np.ndarray:
             return to_tuple(obj)
         elif hasattr(obj, '__name__'):
-            return f'{GP_FILE}.{obj.__name__}'
+            return f'{FUNC_PREFIX}.{obj.__name__}'
         else:
             return obj
     kwargs_path = f'{kwargs['saves_path']}{kwargs['name']}/'
@@ -44,24 +44,22 @@ def save_run(test_path, pops, fits, **kwargs):
     os.makedirs(test_path, exist_ok=True)
     np.save(test_path + 'pops', pops)
     np.save(test_path + 'fits', fits)
-    # np.save(path + 'returned_value', all_returned_values)
-    # np.save(path + 'prev_fit', all_prev_fits)
 
 
 def load_kwargs(name, saves_path):
-    GP_FILE = 'src.genetics'
+    FUNC_PREFIX = 'src.genetics'
     def string_to_func(obj):
-        """Recursively replace strings preceded by src.genetics to the imported function of the same name"""
+        """Recursively replace strings preceded by src.genetics with the imported function of the same name"""
         if type(obj) is dict:
             for key in obj:
                 obj[key] = string_to_func(obj[key])
         elif type(obj) is list:
             for i, item in enumerate(obj):
                 obj[i] = string_to_func(item)
-        elif type(obj) is type('') and obj.startswith(GP_FILE + '.'):
+        elif type(obj) is type('') and obj.startswith(FUNC_PREFIX + '.'):
             # module = __import__(GP_FILE)
             import src.genetics as module
-            return getattr(module, obj[len(GP_FILE) + 1:])
+            return getattr(module, obj[len(FUNC_PREFIX) + 1:])
         return obj
     path = f'{saves_path}{name}/kwargs.json'
     print(f'Loading kwargs from {path}')
@@ -88,3 +86,58 @@ def load_runs(**kwargs):
     pops = np.array(pops, dtype=object)
     fits = np.array(fits)
     return pops, fits
+
+
+def load_fits(**kwargs):
+    """Returns a 4D array of all individuals and fitness values"""
+    fits = []
+    test_names = [test[0] for test in kwargs['test_kwargs'][1:]]
+    for test_name in test_names:
+        fits.append([])
+        test_path = f'{kwargs['saves_path']}{kwargs['name']}/data/{test_name}/*/'
+        for run_file_name in sorted(glob.glob(test_path)):
+            print(f'Loading fitness from {run_file_name}')
+            fits[-1].append(np.load(run_file_name+'fits.npy'))
+    fits = np.array(fits)
+    return fits
+
+
+def load_pops(test, run, **kwargs):
+    """Returns a 4D array of all individuals and fitness values"""
+    pops = []
+    test_names = [test[0] for test in kwargs['test_kwargs'][1:]]
+    for test_name in test_names:
+        pops.append([])
+        test_path = f'{kwargs['saves_path']}{kwargs['name']}/data/{test_name}/*/'
+        for run_file_name in glob.glob(test_path):
+            print(f'Loading run from {run_file_name}')
+            pops[-1].append(np.load(run_file_name+'pops.npy', allow_pickle=True))
+    # pops = np.array(pops, dtype=[('verts','object'),('edges','object')])
+    pops = np.array(pops, dtype=object)
+    fits = np.array(fits)
+    return pops, fits
+
+
+def load_pop(test, run, **kwargs):
+    """Returns a 4D array of all individuals and fitness values"""
+    test_name = kwargs['test_kwargs'][1:][test][0]
+    test_path = f'{kwargs['saves_path']}{kwargs['name']}/data/{test_name}/*/'
+    run_file_name = sorted(glob.glob(test_path))[run]
+    print(f'Loading population from {run_file_name}')
+    pop = np.load(run_file_name+'pops.npy', allow_pickle=True)
+    return pop
+
+
+
+if __name__ == '__main__':
+    # name = 'unstable_self_rep_0'
+    name = 'mult_1'
+    kwargs = load_kwargs(name, '../../saves/')
+    fits = load_fits(**kwargs)
+
+    pop = load_pop(0, 0, **kwargs)
+
+
+
+    pass
+

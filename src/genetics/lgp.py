@@ -27,64 +27,25 @@ def random_code(**kwargs):
     code = [_random_line(**kwargs) for _ in range(init_len)]
     return code
 
+def random_self_rep_code(**kwargs):
+    self_rep = [
+        Linear.RAND, 32,  1, Linear.VARS_DIRECT,   # Generate random value
+        Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Execute next line if random value is 0
+        Linear.LOAD,  3,  2, Linear.MEM2_INDIRECT, # Load temp value from MEM2
+        Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Execute next line if random value is 0
+        Linear.STORE, 3,  2, Linear.MEM3_INDIRECT, # Store temp value into MEM2
+        Linear.ADD,   2,  1, Linear.IMMEDIATE,     # Increment copy pointer
+    ]
+
+    init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
+    code = [_random_line(**kwargs) for _ in range(init_len)]
+    code = sum(code, [])
+    code = [code, self_rep]
+    return code
 
 #
 # Fitness Functions
 #
-
-def lgp_rmse(pop, target_func, domains, **kwargs):
-    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
-    # 2D array of input variables for each test case
-    cases = cartesian_prod(*domains)
-    y_target = np.array([target_func(*list(case)) for case in cases])
-    fits = np.empty(len(pop))
-    for i, org in enumerate(pop):
-        y_actual = []
-        for case in cases:
-            # Evaluate the organism
-            l = Linear([[0]+list(case)+[0], np.ravel(org)])
-            l.run(kwargs['timeout'])
-            y_actual = np.append(y_actual, l.vars[-1])
-        # Calculate RMSE
-        fits[i] = (sum((abs(y_target - y_actual)) ** 2) / len(cases)) ** 0.5
-    return fits
-
-
-def lgp_mse(pop, target_func, domains, **kwargs):
-    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
-    # 2D array of input variables for each test case
-    cases = cartesian_prod(*domains)
-    y_target = np.array([target_func(*list(case)) for case in cases])
-    fits = np.empty(len(pop))
-    for i, org in enumerate(pop):
-        y_actual = []
-        for case in cases:
-            # Evaluate the organism
-            l = Linear([[0]+list(case)+[0], np.ravel(org)])
-            l.run(kwargs['timeout'])
-            y_actual = np.append(y_actual, l.vars[-1])
-        # Calculate MSE
-        fits[i] = sum((abs(y_target - y_actual)) ** 2) / len(cases)
-    return fits
-
-
-def lgp_error(pop, target_func, domains, **kwargs):
-    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
-    # 2D array of input variables for each test case
-    cases = cartesian_prod(*domains)
-    y_target = np.array([target_func(*list(case)) for case in cases])
-    fits = np.empty(len(pop))
-    for i, org in enumerate(pop):
-        y_actual = []
-        for case in cases:
-            # Evaluate the organism
-            l = Linear([[0]+list(case)+[0], np.ravel(org)])
-            l.run(kwargs['timeout'])
-            y_actual = np.append(y_actual, l.vars[-1])
-        # Calculate error
-        fits[i] = sum(abs(y_target - y_actual))
-    return fits
-
 
 def run_self_rep(code, **kwargs):
     """Run the given code setup to self replicate"""
@@ -187,6 +148,77 @@ def self_rep(pop, **kwargs):
 #         fits[i] = fit
 #     return fits
 
+def lgp_rmse(pop, target_func, domains, **kwargs):
+    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
+    # 2D array of input variables for each test case
+    cases = cartesian_prod(*domains)
+    y_target = np.array([target_func(*list(case)) for case in cases])
+    fits = np.empty(len(pop))
+    for i, org in enumerate(pop):
+        y_actual = []
+        for case in cases:
+            # Evaluate the organism
+            l = Linear([[0]+list(case)+[0], np.ravel(org)])
+            l.run(kwargs['timeout'])
+            y_actual = np.append(y_actual, l.vars[-1])
+        # Calculate RMSE
+        fits[i] = (sum((abs(y_target - y_actual)) ** 2) / len(cases)) ** 0.5
+    return fits
+
+
+def lgp_mse(pop, target_func, domains, **kwargs):
+    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
+    # 2D array of input variables for each test case
+    cases = cartesian_prod(*domains)
+    y_target = np.array([target_func(*list(case)) for case in cases])
+    fits = np.empty(len(pop))
+    for i, org in enumerate(pop):
+        y_actual = []
+        for case in cases:
+            # Evaluate the organism
+            l = Linear([[0]+list(case)+[0], np.ravel(org)])
+            l.run(kwargs['timeout'])
+            y_actual = np.append(y_actual, l.vars[-1])
+        # Calculate MSE
+        fits[i] = sum((abs(y_target - y_actual)) ** 2) / len(cases)
+    return fits
+
+
+def lgp_error(pop, target_func, domains, **kwargs):
+    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
+    # 2D array of input variables for each test case
+    cases = cartesian_prod(*domains)
+    y_target = np.array([target_func(*list(case)) for case in cases])
+    fits = np.empty(len(pop))
+    for i, org in enumerate(pop):
+        y_actual = []
+        for case in cases:
+            # Evaluate the organism
+            l = Linear([[0]+list(case)+[0], np.ravel(org)])
+            l.run(kwargs['timeout'])
+            y_actual = np.append(y_actual, l.vars[-1])
+        # Calculate error
+        fits[i] = sum(abs(y_target - y_actual))
+    return fits
+
+
+def lgp_self_rep_rmse(pop, target_func, domains, **kwargs):
+    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
+    # 2D array of input variables for each test case
+    cases = cartesian_prod(*domains)
+    y_target = np.array([target_func(*list(case)) for case in cases])
+    fits = np.empty(len(pop))
+    for i, org in enumerate(pop):
+        y_actual = []
+        for case in cases:
+            # Evaluate the organism
+            l = Linear([[0]+list(case)+[-100], org[0]])
+            l.run(kwargs['timeout'])
+            y_actual = np.append(y_actual, l.vars[-1])
+        # Calculate RMSE
+        fits[i] = (sum((abs(y_target - y_actual)) ** 2) / len(cases)) ** 0.5
+    return fits
+
 #
 # Target Functions
 #
@@ -235,17 +267,25 @@ def two_point_crossover(a, b, **kwargs):
     return new_a, new_b
 
 
-# def test_all_two_point_crossover(a, b, **kwargs):
-#     l = []
-#     for cut_a_0 in range(len(a)+1):
-#         for cut_a_1 in range(cut_a_0, len(a)+1):
-#             for cut_b_0 in range(len(b)+1):
-#                 for cut_b_1 in range(cut_b_0, len(b)+1):
-#                     new_a = a[:cut_a_0] + b[cut_b_0:cut_b_1] + a[cut_a_1:]
-#                     new_b = b[:cut_b_0] + a[cut_a_0:cut_a_1] + b[cut_b_1:]
-#                     if (kwargs['min_len'] <= len(new_a) <= kwargs['max_len']) and (kwargs['min_len'] <= len(new_b) <= kwargs['max_len']):
-#                         l.append(f'{new_a} {new_b}')
-#     return l
+def self_crossover(a,b,**kwargs):
+    # regs, solver, output, replication
+    a_solv, a_repl = a
+    b_solv, b_repl = b
+
+    new_a_solv = [[0, 0, 0, 0], a_repl, a_solv, b_solv]
+    new_a_repl = [[0, 0, 0, 0], a_repl, a_repl, b_repl]
+    new_b_solv = [[0, 0, 0, 0], b_repl, b_solv, a_solv]
+    new_b_repl = [[0, 0, 0, 0], b_repl, b_repl, a_repl]
+
+    new_a_solv = Linear(new_a_solv).run(kwargs['timeout']).mem[3]
+    new_a_repl = Linear(new_a_repl).run(kwargs['timeout']).mem[3]
+    new_b_solv = Linear(new_b_solv).run(kwargs['timeout']).mem[3]
+    new_b_repl = Linear(new_b_repl).run(kwargs['timeout']).mem[3]
+
+    new_a = [new_a_solv, new_a_repl]
+    new_b = [new_b_solv, new_b_repl]
+
+    return new_a, new_b
 
 #
 # Mutation Functions
@@ -434,11 +474,13 @@ if __name__ == '__main__':
     #     [3, 3, 13, 1],
     # ]
 
-    case = [2,10]
-    l = Linear([[0] + list(case) + [0], np.ravel(code)])
-    l.run(64)
-    y_actual = l.vars[-1]
-    print(l)
+    # case = [2,10]
+    # l = Linear([[0] + list(case) + [0], np.ravel(code)])
+    # l.run(64)
+    # y_actual = l.vars[-1]
+    # print(l)
+
+
 
     # fits = lgp_rmse([code], multiply, [list(range(5)),list(range(5))], timeout=64)
     # print(fits)

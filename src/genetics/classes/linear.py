@@ -20,7 +20,7 @@ class Linear:
         # 'MUL',
         # 'DIV',
         'IFEQ',
-        # 'RAND',
+        'RAND',
     )
     STOP  = VALID_OPS.index('STOP')  if 'STOP'  in VALID_OPS else None
     LOAD  = VALID_OPS.index('LOAD')  if 'LOAD'  in VALID_OPS else None
@@ -41,6 +41,8 @@ class Linear:
         'CODE_INDIRECT',
         'MEM2_DIRECT',
         'MEM2_INDIRECT',
+        'MEM3_DIRECT',
+        'MEM3_INDIRECT',
     )
     IMMEDIATE     = VALID_ADDR_MODES.index('IMMEDIATE')     if 'IMMEDIATE'     in VALID_ADDR_MODES else None
     VARS_DIRECT   = VALID_ADDR_MODES.index('VARS_DIRECT')   if 'VARS_DIRECT'   in VALID_ADDR_MODES else None
@@ -49,6 +51,8 @@ class Linear:
     CODE_INDIRECT = VALID_ADDR_MODES.index('CODE_INDIRECT') if 'CODE_INDIRECT' in VALID_ADDR_MODES else None
     MEM2_DIRECT   = VALID_ADDR_MODES.index('MEM2_DIRECT')   if 'MEM2_DIRECT'   in VALID_ADDR_MODES else None
     MEM2_INDIRECT = VALID_ADDR_MODES.index('MEM2_INDIRECT') if 'MEM2_INDIRECT' in VALID_ADDR_MODES else None
+    MEM3_DIRECT   = VALID_ADDR_MODES.index('MEM3_DIRECT')   if 'MEM3_DIRECT'   in VALID_ADDR_MODES else None
+    MEM3_INDIRECT = VALID_ADDR_MODES.index('MEM3_INDIRECT') if 'MEM3_INDIRECT' in VALID_ADDR_MODES else None
 
     def __init__(self, mem):
         self.mem = mem
@@ -119,6 +123,7 @@ class Linear:
         for _ in range(steps):
             if self.step():
                 break
+        return self
 
 
     def __str__(self):

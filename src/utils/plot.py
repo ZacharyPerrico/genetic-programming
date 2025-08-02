@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 
 from src.genetics import Linear, run_self_rep
 from src.genetics.tmgp import _run_maze_tm, maze_fitness
-from src.utils.save import load_kwargs, load_runs
+from src.utils.save import load_kwargs, load_runs, load_pop, load_fits
 from src.utils.utils import cartesian_prod
 
 
@@ -218,7 +218,7 @@ def plot_tm_trans_array(trans, ax=None, title=None, save=True, show=True, **kwar
 # Data Based Plotting
 #
 
-def plot_fitness(all_pops, all_fits, ax=None, save=True, show=True, **kwargs):
+def plot_fitness(all_fits, ax=None, save=True, show=True, **kwargs):
     """Plot the average of the runs' minimum fitness for each test"""
     if ax is None:
         fig, ax = plt.subplots()
@@ -230,13 +230,13 @@ def plot_fitness(all_pops, all_fits, ax=None, save=True, show=True, **kwargs):
         else:
             y = np.mean(np.max(all_fits[test], axis=2), axis=0)
             ax.set_ylabel('Average Max Fitness Value')
-        plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0])
+        # plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0])
         # y_std = np.std(np.min(all_fits[test], axis=2), axis=0)
         # ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
         # Scatter plot all points
-        # xx = x.reshape((1,len(x),1)).repeat(all_fits.shape[1], axis=0).repeat(all_fits.shape[3], axis=2).ravel()
-        # yy = all_fits[test].ravel()
-        # plt.scatter(xx, yy, 0.1)
+        xx = x.reshape((1,len(x),1)).repeat(all_fits.shape[1], axis=0).repeat(all_fits.shape[3], axis=2).ravel()
+        yy = all_fits[test].ravel()
+        plt.scatter(xx, yy, 0.1)
     # ax.set_yscale('log')
     ax.set_xlabel('Generation')
     plt.legend(title=kwargs['test_kwargs'][0][0])
@@ -365,21 +365,21 @@ def table_best(obj, **kwargs):
     # Calculate values
     y_actual = []
     for case in cases:
-        l = Linear([[0] + list(case) + [0], np.ravel(obj)])
+        l = Linear([[0] + list(case) + [0], obj[0]])
         l.run(kwargs['timeout'])
         y_actual = np.append(y_actual, l.vars[-1])
-
+    # Append rows as columns to table
     table.append(range(len(cases)))
     table.append(cases)
     table.append(y_target)
     table.append(y_actual)
     table.append(abs(y_target - y_actual))
     table.append(abs(y_target - y_actual) ** 2)
-
+    # Transpose the table and print each row
     for row in zip(*table):
         row = '{:2} │ {} │ {:2} │ {:4.1f} │ {:4.1f} │ {:5.1f} │'.format(*row)
         print(row)
-
+    # Print the total's row
     row = []
     row.append('')
     row.append('')
@@ -397,20 +397,17 @@ def table_best(obj, **kwargs):
 # Control
 #
 
-def get_best(all_pops, all_fits, gen=-1, **kwargs):
+def get_best(all_fits, gen=-1, **kwargs):
     """Get the best result of the given run and gen"""
     best_objs = []
     best_fits = []
-    # Iterate over all runs
-    for run in range(all_pops.shape[0]):
+    for test in range(all_fits.shape[0]):
         if kwargs['minimize_fitness']:
-            i = all_fits[run, slice(None), gen, :].argmin()
+            run, org = np.unravel_index(all_fits[test,:,gen,:].argmin(), all_fits[test,:,gen,:].shape)
         else:
-            i = all_fits[run, slice(None), gen, :].argmax()
-        best_obj = all_pops[run, slice(None), gen, :].flatten()[i]
-        best_fit = all_fits[run, slice(None), gen, :].flatten()[i]
-        best_objs.append(best_obj)
-        best_fits.append(best_fit)
+            run, org = np.unravel_index(all_fits[test,:,gen,:].argmax(), all_fits[test,:,gen,:].shape)
+        best_objs.append(load_pop(test,run,**kwargs)[gen,org])
+        best_fits.append(all_fits[test,run,gen,org])
     return best_objs, best_fits
 
 
@@ -458,15 +455,15 @@ def plot_grid(all_pops, all_fits, plot_func, title=None, save=True, show=True, *
         plt.close()
 
 
-def plot_results(all_pops, all_fits, **kwargs):
+def plot_results(all_fits, **kwargs):
     """Plot all standard plots"""
     path = f'{kwargs["saves_path"]}{kwargs["name"]}/plots/'
     os.makedirs(path, exist_ok=True)
     print('Plotting results')
 
-    plot_fitness(all_pops, all_fits, show=False, **kwargs)
+    plot_fitness(all_fits, show=False, **kwargs)
 
-    plot_means(np.vectorize(lambda x: len(x))(all_pops), 'Average Length', show=False, **kwargs)
+    # plot_means(np.vectorize(lambda x: len(x))(all_pops), 'Average Length', show=False, **kwargs)
     # plot_medians(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
     # plot_hist(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
 
@@ -478,14 +475,14 @@ def plot_results(all_pops, all_fits, **kwargs):
     # plot_grid(all_pops, all_fits, plot_func=plot_fitness, title='Best Solutions', show=False, **kwargs)
 
     # Plot best results of each test
-    bests = zip(*get_best(all_pops, all_fits, **kwargs))
+    bests = zip(*get_best(all_fits, gen=slice(None), **kwargs))
     for i, best in enumerate(bests):
         best_obj, best_fit = best
         test_name = kwargs['test_kwargs'][i+1][0]
         print(f'Test: {test_name}, Fitness: {best_fit}')
         table_best(best_obj, **kwargs)
 
-        l = Linear([[0], np.ravel(best_obj)])
+        l = Linear([[0,0,0,0], *best_obj])
 
         # l = run_self_rep(code_1d, **kwargs)
         print(l)
@@ -497,7 +494,7 @@ def plot_results(all_pops, all_fits, **kwargs):
 
 if __name__ == '__main__':
     # name = 'unstable_self_rep_0'
-    name = 'mult_1'
+    name = 'self_rep_mult_1'
     kwargs = load_kwargs(name, '../../saves/')
-    pops, fits = load_runs(**kwargs)
-    plot_results(pops, fits, **kwargs)
+    fits = load_fits(**kwargs)
+    plot_results(fits, **kwargs)
