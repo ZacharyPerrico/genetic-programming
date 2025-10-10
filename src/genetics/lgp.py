@@ -18,14 +18,32 @@ def _random_line(**kwargs):
         kwargs['rng'].choice(kwargs['ops']),
         kwargs['rng'].integers(kwargs['max_len']),
         kwargs['rng'].integers(kwargs['max_value']),
-        kwargs['rng'].choice(kwargs['addr_modes']),
+        kwargs['rng'].integers(1+2*len(kwargs['mem_lens'])),
     ]
 
 def random_code(**kwargs):
     """Generate a random list of transitions"""
     init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
     code = [_random_line(**kwargs) for _ in range(init_len)]
+    code = [sum(code, [])]
     return code
+
+def random_2d_code(**kwargs):
+    code = []
+    for i in range(len(kwargs['init_max_lens'])):
+        init_min_len = kwargs['init_min_lens'][i]
+        init_max_len = kwargs['init_min_lens'][i]
+        code.append(random_code(init_min_len=init_min_len, init_max_len=init_max_len, **kwargs))
+    return code
+
+# def random_code(**kwargs):
+#     self_rep = [_random_line(**kwargs) for _ in range(6)]
+#     self_rep = sum(self_rep, [])
+#     init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
+#     code = [_random_line(**kwargs) for _ in range(init_len)]
+#     code = sum(code, [])
+#     code = [code, self_rep]
+#     return code
 
 def random_code_uniform(**kwargs):
     self_rep = [
@@ -58,19 +76,10 @@ def random_code_one_point(**kwargs):
     code = [code, self_rep]
     return code
 
-def random_non_self_rep_code(**kwargs):
-    self_rep = [_random_line(**kwargs) for _ in range(6)]
-    self_rep = sum(self_rep, [])
-    init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
-    code = [_random_line(**kwargs) for _ in range(init_len)]
-    code = sum(code, [])
-    code = [code, self_rep]
-    return code
-
-def random_random_code(**kwargs):
-    func_index = kwargs['rng'].integers(0, 3)
-    funcs = [random_code_uniform, random_code_one_point, random_non_self_rep_code]
-    return funcs[func_index](**kwargs)
+# def random_random_code(**kwargs):
+#     func_index = kwargs['rng'].integers(0, 3)
+#     funcs = [random_code_uniform, random_code_one_point, random_non_self_rep_code]
+#     return funcs[func_index](**kwargs)
 
 #
 # Fitness Functions
@@ -194,30 +203,12 @@ def lgp_mse(pop, target_func, domains, rmse=False, **kwargs):
             # Evaluate the organism
             l = Linear([[0]+list(case)+[0], np.ravel(org)])
             l.run(kwargs['timeout'])
-            y_actual = np.append(y_actual, l.vars[-1])
+            y_actual = np.append(y_actual, l.regs[-1])
         # Calculate MSE
         fits[i] = sum((abs(y_target - y_actual)) ** 2) / len(cases)
         # Calculate RMSE
         if rmse:
             fits[i] **= 0.5
-    return fits
-
-
-def lgp_error(pop, target_func, domains, **kwargs):
-    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
-    # 2D array of input variables for each test case
-    cases = cartesian_prod(*domains)
-    y_target = np.array([target_func(*list(case)) for case in cases])
-    fits = np.empty(len(pop))
-    for i, org in enumerate(pop):
-        y_actual = []
-        for case in cases:
-            # Evaluate the organism
-            l = Linear([[0]+list(case)+[0], np.ravel(org)])
-            l.run(kwargs['timeout'])
-            y_actual = np.append(y_actual, l.vars[-1])
-        # Calculate error
-        fits[i] = sum(abs(y_target - y_actual))
     return fits
 
 
@@ -233,7 +224,7 @@ def lgp_self_rep_rmse(pop, target_func, domains, **kwargs):
             # Evaluate the organism
             l = Linear([[0]+list(case)+[0], org[0]])
             l.run(kwargs['timeout'])
-            y_actual = np.append(y_actual, l.vars[-1])
+            y_actual = np.append(y_actual, l.regs[-1])
         # Calculate RMSE
         fits[i] = (sum((abs(y_target - y_actual)) ** 2) / len(cases)) ** 0.5
     return fits
@@ -250,9 +241,6 @@ def power(x0,x1): return x0 ** x1
 #
 # Crossover Functions
 #
-
-# def uniform_crossover(a,b,**kwargs):
-#     for i in range()
 
 def one_point_crossover(a, b, **kwargs):
     cut_a = kwargs['rng'].integers(0, len(a) + 1)
@@ -290,23 +278,22 @@ def two_point_crossover(a, b, **kwargs):
 
 
 def self_crossover(a,b,**kwargs):
-    # regs, solver, output, replication
-    a_solv, a_repl = a
-    b_solv, b_repl = b
-
-    new_a_solv = [[0, 0, 0, 0], a_repl, a_solv, b_solv]
-    new_a_repl = [[0, 0, 0, 0], a_repl, a_repl, b_repl]
-    new_b_solv = [[0, 0, 0, 0], b_repl, b_solv, a_solv]
-    new_b_repl = [[0, 0, 0, 0], b_repl, b_repl, a_repl]
-
+    """Use the organisms to replicate and mutate self"""
+    a_vars, a_solv, a_repl = a
+    b_vars, b_solv, b_repl = b
+    # Code used to replicate each sub block of code
+    new_a_solv = [a_vars, a_repl, a_solv, b_solv]
+    new_a_repl = [a_vars, a_repl, a_repl, b_repl]
+    new_b_solv = [b_vars, b_repl, b_solv, a_solv]
+    new_b_repl = [b_vars, b_repl, b_repl, a_repl]
+    # Create and run a Linear runtime object
     new_a_solv = Linear(new_a_solv, rand=True).run(kwargs['timeout']).mem[3]
     new_a_repl = Linear(new_a_repl, rand=True).run(kwargs['timeout']).mem[3]
     new_b_solv = Linear(new_b_solv, rand=True).run(kwargs['timeout']).mem[3]
     new_b_repl = Linear(new_b_repl, rand=True).run(kwargs['timeout']).mem[3]
-
-    new_a = [new_a_solv, new_a_repl]
-    new_b = [new_b_solv, new_b_repl]
-
+    # Build new organism from the replicated code
+    new_a = [a_vars, new_a_solv, new_a_repl]
+    new_b = [b_vars, new_b_solv, new_b_repl]
     return new_a, new_b
 
 #

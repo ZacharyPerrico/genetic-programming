@@ -397,7 +397,7 @@ def table_best(obj, **kwargs):
     for case in cases:
         l = Linear([[0] + list(case) + [0], obj[0]])
         l.run(kwargs['timeout'])
-        y_actual = np.append(y_actual, l.vars[-1])
+        y_actual = np.append(y_actual, l.regs[-1])
     # Append rows as columns to table
     table.append(range(len(cases)))
     table.append(cases)

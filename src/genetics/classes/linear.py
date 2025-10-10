@@ -11,122 +11,109 @@ class Linear:
     LINE_LENGTH = 4
     MAX_VALUE = 256
 
-    VALID_OPS = (
+    DEFAULT_OPS = (
         'STOP',
         'LOAD',
         'STORE',
         'ADD',
         'SUB',
-        # 'MUL',
-        # 'DIV',
         'IFEQ',
         'RAND',
+        'DEL',
     )
-    STOP  = VALID_OPS.index('STOP')  if 'STOP'  in VALID_OPS else None
-    LOAD  = VALID_OPS.index('LOAD')  if 'LOAD'  in VALID_OPS else None
-    STORE = VALID_OPS.index('STORE') if 'STORE' in VALID_OPS else None
-    ADD   = VALID_OPS.index('ADD')   if 'ADD'   in VALID_OPS else None
-    SUB   = VALID_OPS.index('SUB')   if 'SUB'   in VALID_OPS else None
-    MUL   = VALID_OPS.index('MUL')   if 'MUL'   in VALID_OPS else None
-    DIV   = VALID_OPS.index('DIV')   if 'DIV'   in VALID_OPS else None
-    IFEQ  = VALID_OPS.index('IFEQ')  if 'IFEQ'  in VALID_OPS else None
-    RAND  = VALID_OPS.index('RAND')  if 'RAND'  in VALID_OPS else None
 
     # Addressing modes
-    VALID_ADDR_MODES = (
+    DEFAULT_ADDR_MODES = (
         'IMMEDIATE',
-        'VARS_DIRECT',
-        'VARS_INDIRECT',
+        'REGS_DIRECT',
+        'REGS_INDIRECT',
         'CODE_DIRECT',
         'CODE_INDIRECT',
-        'MEM2_DIRECT',
-        'MEM2_INDIRECT',
-        'MEM3_DIRECT',
-        'MEM3_INDIRECT',
     )
-    IMMEDIATE     = VALID_ADDR_MODES.index('IMMEDIATE')     if 'IMMEDIATE'     in VALID_ADDR_MODES else None
-    VARS_DIRECT   = VALID_ADDR_MODES.index('VARS_DIRECT')   if 'VARS_DIRECT'   in VALID_ADDR_MODES else None
-    VARS_INDIRECT = VALID_ADDR_MODES.index('VARS_INDIRECT') if 'VARS_INDIRECT' in VALID_ADDR_MODES else None
-    CODE_DIRECT   = VALID_ADDR_MODES.index('CODE_DIRECT')   if 'CODE_DIRECT'   in VALID_ADDR_MODES else None
-    CODE_INDIRECT = VALID_ADDR_MODES.index('CODE_INDIRECT') if 'CODE_INDIRECT' in VALID_ADDR_MODES else None
-    MEM2_DIRECT   = VALID_ADDR_MODES.index('MEM2_DIRECT')   if 'MEM2_DIRECT'   in VALID_ADDR_MODES else None
-    MEM2_INDIRECT = VALID_ADDR_MODES.index('MEM2_INDIRECT') if 'MEM2_INDIRECT' in VALID_ADDR_MODES else None
-    MEM3_DIRECT   = VALID_ADDR_MODES.index('MEM3_DIRECT')   if 'MEM3_DIRECT'   in VALID_ADDR_MODES else None
-    MEM3_INDIRECT = VALID_ADDR_MODES.index('MEM3_INDIRECT') if 'MEM3_INDIRECT' in VALID_ADDR_MODES else None
 
-    def __init__(self, mem, rand=False):
+    def __init__(self, mem, valid_ops=DEFAULT_OPS):
         self.mem = mem
-        self.vars = self.mem[0]
+        self.regs = self.mem[0]
         self.code = self.mem[1]
-        self.rand = rand
+
+        # Create a list and dict to map between op code strings and values
+        self.valid_ops_list = valid_ops
+        self.valid_ops_dict = {v:u for u,v in enumerate(self.valid_ops_list)}
+
+        # Create a list and dict to map between addr mode strings and values
+        self.valid_addr_modes_list = list(Linear.DEFAULT_ADDR_MODES)
+        self.valid_addr_modes_list += sum([[f'MEM{i}_DIRECT', f'MEM{i}_INDIRECT'] for i in range(2, len(self.mem))], [])
+        self.valid_addr_modes_dict = {v:u for u,v in enumerate(self.valid_addr_modes_list)}
+
+        # Mem can also be passed as containing strings
+        valid_dict = self.valid_ops_dict | self.valid_addr_modes_dict
+        for i, mem_bank in enumerate(mem):
+            for j, value in enumerate(mem_bank):
+                if type(value) == str:
+                    self.mem[i][j] = valid_dict[value]
 
 
     def step(self):
 
         # Fetch the current line to be executed and unpack
         # Program counter loops back to start
-        pc = int(self.vars[Linear.PC_INDEX])
+        pc = int(self.regs[Linear.PC_INDEX])
         code_line = [self.code[(pc + i) % len(self.code)] for i in range(Linear.LINE_LENGTH)]
         op_code, target_reg, operand_spec, addr_mode = code_line
 
         # Values are modified to always be valid references
-        op_code    = int(op_code)    % len(Linear.VALID_OPS)
-
-        # Change RAND to STORE if random mode is off
-        if op_code == Linear.RAND and not self.rand:
-            op_code = Linear.STORE
-
-        # Values are modified to always be valid references
-        target_reg = int(target_reg) % len(self.vars) if op_code != Linear.RAND else int(target_reg)
+        op_code    = int(op_code)    % len(self.valid_ops_dict)
+        target_reg = int(target_reg) % len(self.regs) if self.valid_ops_list[op_code] != 'RAND' else int(target_reg)
         addr_mode  = int(addr_mode)  % (len(self.mem) * 2 + 1)
 
         # Fetch the operand
         # Value of 0 is IMMEDIATE
         # Odd numbers are DIRECT
         # Even values are INDIRECT
+        # if addr_mode % 2 == 1:
+        #     mem_index = (addr_mode - 1) // 2
+        #     operand = self.mem[mem_index][int(operand_spec) % len(self.mem[mem_index])]
+        # elif addr_mode % 2 == 0 and addr_mode != 0:
+        #     mem_index = (addr_mode - 2) // 2
+        #     operand = self.mem[mem_index][self.regs[int(operand_spec) % len(self.regs)] % len(self.mem[mem_index])]
+        # else:
+        #     operand = operand_spec
+
+        # mem_pointer
+
+        # Fetch the operand
         if addr_mode % 2 == 1:
-            mem_index = (addr_mode - 1) // 2
-            operand = self.mem[mem_index][int(operand_spec) % len(self.mem[mem_index])]
+            i = (addr_mode - 1) // 2
+            j = int(operand_spec) % len(self.mem[i])
         elif addr_mode % 2 == 0 and addr_mode != 0:
-            mem_index = (addr_mode - 2) // 2
-            operand = self.mem[mem_index][self.vars[int(operand_spec) % len(self.vars)] % len(self.mem[mem_index])]
+            i = (addr_mode - 2) // 2
+            j = self.regs[int(operand_spec) % len(self.regs)] % len(self.mem[i])
         else:
-            operand = operand_spec
+            i = 1
+            j = (pc + 2) % len(self.mem[i])
+        operand = self.mem[i][j]
 
         # Increment program counter
-        self.vars[Linear.PC_INDEX] += Linear.LINE_LENGTH
-
-
+        self.regs[Linear.PC_INDEX] += Linear.LINE_LENGTH
 
         # Perform the operation
-        match op_code:
-            case None: raise BaseException('invalid operation')
-            case Linear.STOP: return True
-            case Linear.STORE:  # STORE must save to mem instead of fetching
-                if addr_mode % 2 == 1:
-                    mem_index = (addr_mode - 1) // 2
-                    self.mem[mem_index][int(operand_spec) % len(self.mem[mem_index])] = self.vars[target_reg]
-                elif addr_mode % 2 == 0 and addr_mode != 0:
-                    mem_index = (addr_mode - 2) // 2
-                    self.mem[mem_index][self.vars[int(operand_spec) % len(self.vars)] % len(self.mem[mem_index])] = self.vars[target_reg]
-            case Linear.LOAD: self.vars[target_reg] =                          operand  % Linear.MAX_VALUE
-            case Linear.ADD:  self.vars[target_reg] = (self.vars[target_reg] + operand) % Linear.MAX_VALUE
-            case Linear.SUB:  self.vars[target_reg] = (self.vars[target_reg] - operand) % Linear.MAX_VALUE
-            case Linear.MUL:  self.vars[target_reg] = (self.vars[target_reg] * operand) % Linear.MAX_VALUE
-            case Linear.DIV:  self.vars[target_reg] = (self.vars[target_reg] / operand) % Linear.MAX_VALUE
-            case Linear.IFEQ:
-                if self.vars[target_reg] != operand:
-                    self.vars[Linear.PC_INDEX] += Linear.LINE_LENGTH
-            case Linear.RAND:
+        match self.valid_ops_list[op_code]:
+            case 'STOP': return True
+            case 'STORE': self.mem[i][j] = self.regs[target_reg]
+            case 'LOAD': self.regs[target_reg] =                          operand  % Linear.MAX_VALUE
+            case 'ADD':  self.regs[target_reg] = (self.regs[target_reg] + operand) % Linear.MAX_VALUE
+            case 'SUB':  self.regs[target_reg] = (self.regs[target_reg] - operand) % Linear.MAX_VALUE
+            case 'MUL':  self.regs[target_reg] = (self.regs[target_reg] * operand) % Linear.MAX_VALUE
+            case 'DIV':  self.regs[target_reg] = (self.regs[target_reg] / operand) % Linear.MAX_VALUE
+            case 'IFEQ':
+                if self.regs[target_reg] != operand:
+                    self.regs[Linear.PC_INDEX] += Linear.LINE_LENGTH
+            case 'RAND':
                 low  = min(0, target_reg)
                 high = max(0, target_reg)
-                random_val = np.random.randint(low, high + 1)
-                if addr_mode % 2 == 1:
-                    mem_index = (addr_mode - 1) // 2
-                    self.mem[mem_index][int(operand_spec) % len(self.mem[mem_index])] = random_val
-                elif addr_mode % 2 == 0 and addr_mode != 0:
-                    mem_index = (addr_mode - 2) // 2
-                    self.mem[mem_index][self.vars[int(operand_spec) % len(self.vars)] % len(self.mem[mem_index])] = random_val
+                self.mem[i][j] = np.random.randint(low, high + 1)
+            case 'DEL': del self.mem[i][j]
+            # case 'DUPE':
         return False
 
 
@@ -139,30 +126,31 @@ class Linear:
 
 
     def __str__(self):
-        strings = ''
+        string = ''
         for i,mem in enumerate(self.mem):
-            strings += f'self.mem[{i}]'
-            if i == 0: strings += ' (VARIABLES)'
-            elif i == 1: strings += ' (PROGRAM)'
-            strings += '\n'
+            string += f'self.mem[{i}]'
+            if i == 0: string += ' (REGISTERS)'
+            elif i == 1: string += ' (PROGRAM)'
+            string += '\n'
             step_size = 1 if i == 0 else Linear.LINE_LENGTH
             for pc in range(0, len(mem), step_size):
                 line = [mem[(pc + j) % len(mem)] for j in range(step_size)]
-                strings += f'  {pc:2} │ '
-                # if step_size != 1: strings += '['
-                strings += ', '.join([f'{j:2}' for j in line])
-                # if step_size != 1: strings += '],'
-                if i != 0:
+                # Line index
+                string += f'  {pc:2} │ '
+                # Line values
+                string += ', '.join([f'{j:2}' for j in line])
+                # Formated line as code
+                if step_size != 1:
                     op_code, target_reg, operand_spec, addr_mode = line
-                    op_code    = int(op_code)    % len(Linear.VALID_OPS)
-                    target_reg = int(target_reg) % len(self.vars) if op_code != Linear.RAND else int(target_reg)
-                    addr_mode  = int(addr_mode)  % len(self.mem) * 2 + 1
+                    op_code = int(op_code) % len(self.valid_ops_dict)
+                    target_reg = int(target_reg) % len(self.regs) if self.valid_ops_list[op_code] != 'RAND' else int(target_reg)
+                    addr_mode = int(addr_mode) % (len(self.mem) * 2 + 1)
                     # Replace number with constant reference
-                    op_code = Linear.VALID_OPS[op_code]
-                    addr_mode = Linear.VALID_ADDR_MODES[addr_mode] if addr_mode < len(Linear.VALID_ADDR_MODES) else addr_mode
-                    strings += f' │ Linear.{op_code:5}, {target_reg:2}, {operand_spec:2}, Linear.{addr_mode},'
-                strings += '\n'
-        return strings
+                    op_code = "'" + self.valid_ops_list[op_code] + "',"
+                    addr_mode = self.valid_addr_modes_list[addr_mode] if addr_mode < len(self.valid_addr_modes_list) else addr_mode
+                    string += f" │ {op_code:8} {target_reg:2}, {operand_spec:2}, '{addr_mode}',"
+                string += '\n'
+        return string
 
 
 if __name__ == '__main__':
@@ -203,12 +191,17 @@ if __name__ == '__main__':
     # ]]
 
     ## Multiply ##
-    # code = [
-    #     [Linear.IFEQ, 2,  4, Linear.CODE_DIRECT],
-    #     [Linear.STOP, 2,  9, Linear.VARS_DIRECT],
-    #     [Linear.SUB,  2, 15, Linear.CODE_DIRECT],
-    #     [Linear.ADD,  3, 13, Linear.VARS_DIRECT],
-    # ]
+    # code = [[
+    #     0,
+    #     3,
+    #     5,
+    #     0,
+    # ],[
+    #     'IFEQ', 2,  4, 'CODE_DIRECT',
+    #     'STOP', 2,  9, 'REGS_DIRECT',
+    #     'SUB',  2, 15, 'CODE_DIRECT',
+    #     'ADD',  3, 13, 'REGS_DIRECT',
+    # ]]
 
     ## Evolved Self Rep ##
     # code = [
@@ -220,26 +213,27 @@ if __name__ == '__main__':
     # ]
 
     ## One Point Crossover ##
-    code = [[
-        0, # PC
-        0, # Copy pointer
-        0, # Temp
-    ],[
-        Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Check if copy pointer is 0
-        Linear.RAND,4*8,  1, Linear.VARS_DIRECT,   # Randomly move the copy pointer
-        Linear.LOAD,  2,  1, Linear.MEM2_INDIRECT, # Load temp value from MEM2
-        Linear.STORE, 2,  1, Linear.MEM3_INDIRECT, # Store temp value into MEM3
-        Linear.ADD,   1,  1, Linear.IMMEDIATE,     # Increment copy pointer
-        Linear.IFEQ,  1,4*8, Linear.IMMEDIATE,     # Check if copy pointer is at last position
-        Linear.STOP,  0,  0, Linear.IMMEDIATE,     # End execution
-    ],
-        [1] * 32,
-        [2] * 32,
-    ]
+    # code = [[
+    #     0, # PC
+    #     0, # Copy pointer
+    #     0, # Temp
+    # ],[
+    #     Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Check if copy pointer is 0
+    #     Linear.RAND,4*8,  1, Linear.VARS_DIRECT,   # Randomly move the copy pointer
+    #     Linear.LOAD,  2,  1, Linear.MEM2_INDIRECT, # Load temp value from MEM2
+    #     Linear.STORE, 2,  1, Linear.MEM3_INDIRECT, # Store temp value into MEM3
+    #     Linear.ADD,   1,  1, Linear.IMMEDIATE,     # Increment copy pointer
+    #     Linear.IFEQ,  1,4*8, Linear.IMMEDIATE,     # Check if copy pointer is at last position
+    #     Linear.STOP,  0,  0, Linear.IMMEDIATE,     # End execution
+    # ],
+    #     [1] * 32,
+    #     [2] * 32,
+    # ]
 
-    l = Linear(code, rand=True)
-    l.run(2)
+    l = Linear(code)
     print(l)
-    l.run(4000)
+    l.run(100)
     print(l)
+    # l.run(4000)
+    # print(l)
 

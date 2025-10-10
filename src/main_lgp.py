@@ -20,8 +20,8 @@ from src.utils.save import load_runs, load_fits
 #     'init_min_len': 4,
 #     'init_max_len': 4,
 #     'max_value': 16,
-#     'ops': list(range(len(Linear.VALID_OPS))),
-#     'addr_modes': list(range(len(Linear.VALID_ADDR_MODES))),
+#     'ops': list(range(len(Linear.DEFAULT_OPS))),
+#     'addr_modes': list(range(len(Linear.DEFAULT_ADDR_MODES))),
 #     ## Evaluation ##
 #     'fitness_func': lgp_self_rep_rmse,
 #     'target_func': multiply,  # The function that the organism is attempting to replicate
@@ -63,7 +63,7 @@ from src.utils.save import load_runs, load_fits
 
 
 kwargs = {
-    'name': 'random_self_rep_mult_0',  # Name of folder to contain all results
+    'name': 'new_test_0',  # Name of folder to contain all results
     'seed': None,
     'verbose': True,
     'parallelize': True,
@@ -71,21 +71,24 @@ kwargs = {
     ## Size ##
     'num_runs': 12,
     'num_gens': 100,
-    'pop_size': 1000,
-    'min_len': 4,
-    'max_len': 4,
+    'pop_size': 100,
+    'min_lens': [64, 64],  # The length of each memory
+    'max_lens': [64, 64],  # The length of each memory
+    # 'min_len': 4,  # Used by predefined repopulation methods
+    # 'max_len': 4,  # Used by predefined repopulation methods
     ## Initialization ##
-    'init_individual_func': random_code_uniform,  # Function used to generate a new organism
-    'init_min_len': 4,
-    'init_max_len': 4,
+    'init_individual_func': random_code,  # Function used to generate a new organism
+    # 'init_min_len': 4,  # Used by predefined initialization methods
+    # 'init_max_len': 4,  # Used by predefined initialization methods
+    'init_min_lens': [64, 64],  # The length of each memory
+    'init_max_lens': [64, 64],  # The length of each memory
     'max_value': 16,
-    'ops': list(range(len(Linear.VALID_OPS))),
-    'addr_modes': list(range(len(Linear.VALID_ADDR_MODES))),
+    'ops': list(range(len(Linear.DEFAULT_OPS))),
+    'addr_modes': list(range(len(Linear.DEFAULT_ADDR_MODES))),
     ## Evaluation ##
-    'fitness_func': lgp_self_rep_rmse,
-    'target_func': multiply,  # The function that the organism is attempting to replicate
+    'fitness_func': lgp_rmse,
+    'target_func': multiply,  # The function that the organism is attempting to replicate across the domains
     'domains': [list(range(0, 4)), list(range(0, 4))],  # Cases are generated from the Cartesian product
-    # 'domains': [[3,5,7], [2,4,6]],  # Cases are generated from the Cartesian product
     'timeout': 64,  # Number of evaluation iterations before forced termination
     ## Selection ##
     'minimize_fitness': True,
@@ -93,21 +96,27 @@ kwargs = {
     'k': 2,  # Number of randomly chosen parents for each tournament
     ## Repopulation ##
     'crossover_funcs': [
-        # [two_point_crossover, 0.9],
-        [self_crossover, 1.0],
+        [two_point_crossover, 0.9],
+        # [self_crossover, 1.0],
     ],
     'mutate_funcs': [
         [point_mutation, 0.0],
     ],
     ## Tests ##
+    # 'test_kwargs': [
+    #     ['Crossover Rate', 'init_individual_func', 'fitness_func', 'crossover_funcs', ],
+    #     # ['1.0', random_non_self_rep_code, lgp_self_rep_rmse, [[self_crossover, 1.0]]],
+    #     # ['0.7', random_random_code, lgp_self_rep_rmse, [[self_crossover, 0.7]]],
+    #     # ['1.0', random_random_code, lgp_self_rep_rmse, [[self_crossover, 1.0]]],
+    #     # ['0.5', random_self_rep_code, lgp_self_rep_rmse, [[self_crossover, 0.5]]],
+    #     # ['1.0', random_self_rep_code, lgp_self_rep_rmse, [[self_crossover, 1.0]]],
+    #     ['p.5', random_code, lgp_rmse, [[two_point_crossover, 1.0]], ('STOP','LOAD','STORE','ADD','SUB','IFEQ','RAND',)],
+    #     # ['p.5', random_code, lgp_rmse, [[two_point_crossover, 1.0]]],
+    # ],
     'test_kwargs': [
-        ['Crossover Rate', 'init_individual_func', 'fitness_func', 'crossover_funcs', ],
-        # ['1.0', random_non_self_rep_code, lgp_self_rep_rmse, [[self_crossover, 1.0]]],
-        ['0.7', random_random_code, lgp_self_rep_rmse, [[self_crossover, 0.7]]],
-        ['1.0', random_random_code, lgp_self_rep_rmse, [[self_crossover, 1.0]]],
-        # ['0.5', random_self_rep_code, lgp_self_rep_rmse, [[self_crossover, 0.5]]],
-        # ['1.0', random_self_rep_code, lgp_self_rep_rmse, [[self_crossover, 1.0]]],
-        # ['p.5', random_code, lgp_rmse, [[two_point_crossover, 1.0]]],
+        ['Ops', 'ops'],
+        ['Normal', ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'IFEQ',)],
+        ['DEL', ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'IFEQ', 'DEL',)],
     ],
     # 'test_kwargs': [
     #     ['Crossover, Mutation', 'crossover_funcs', 'mutate_funcs'],

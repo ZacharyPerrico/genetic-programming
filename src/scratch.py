@@ -1,8 +1,10 @@
 """File for testing ideas"""
 
-from main_lgp import *
+import numpy as np
 
-kwargs['rng'] = np.random.default_rng()
+# from main_lgp import *
+
+# kwargs['rng'] = np.random.default_rng()
 
 # a = random_self_rep_code(**kwargs)
 # b = random_self_rep_code(**kwargs)
@@ -30,11 +32,50 @@ kwargs['rng'] = np.random.default_rng()
 # # print(bb)
 
 
-f = random_random_code(**kwargs)
+# f = random_code(**kwargs)
 
-f = [[0,0,0,0], *f, []]
-f = Linear(f)
+# f = [[0,0,0,0], *f, []]
+# f = Linear(f)
 
-print(f)
+# print(f)
+
+
+# b = np.zeros((3,3),int)
+
+b = np.zeros((3,),int)
+
+
+
+
+game = []
+plays = [0,3,0,3,0]
+# Map the moves to indices
+mapping = list(range(9))
+plays = [mapping.pop(i) for i in plays]
+# Create the board and play the moves
+board = np.zeros((9,),int)
+board[plays[::2]] = -1
+board[plays[1::2]] = 1
+board = board.reshape((3,3))
+
+print(board)
+
+# s = np.sum(board, axis=0)
+# ss = np.sum(board, axis=1)
+s = np.sum(board[(0,1,2),(0,1,2)])
+s = np.sum(board[(0,1,2),(2,1,0)])
+
+# s = np.sum(board, axis=0)
+
+
+print(s)
+
+
+
+
+
+
+
+
 
 
