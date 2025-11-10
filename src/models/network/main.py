@@ -5,15 +5,16 @@ from src.utils.save import load_fits
 
 
 kwargs = {
-    'name': 'test_0',  # Name of folder to contain all results
+    'name': 'test_2',  # Name of folder to contain all results
     'seed': None,
     'verbose': True,
     'parallelize': True,
     'saves_path': '../../../saves/network/',  # Save path relative to this file
     ## Size ##
-    'num_runs': 1,
-    'num_gens': 100,
-    'pop_size': 100,
+    'num_runs': 12,
+    'num_gens': 10,
+    'pop_size': 10,
+    'network_shape': (20,20),
     ## Initialization ##
     'channels': list(range(1,12)),
     'init_individual_func': random_network,  # Function used to generate a new organism
@@ -27,25 +28,35 @@ kwargs = {
     'keep_parents': 2,  # Elitism, must be even
     'k': 2,  # Number of randomly chosen parents for each tournament
     ## Repopulation ##
+    'subgraph_crossover_p_branch': 0.5,
     'crossover_funcs': [
         [two_point_crossover, 0.9],
     ],
     'mutate_funcs': [
-        [point_mutation, 0.0],
+        [point_mutation, 0],
     ],
     ## Tests ##
+    # 'test_kwargs': [
+    #     ['Channels', 'channels'],
+    #     ['All', list(range(11))],
+    #     ['Orthogonal', (1,6,11)],
+    #     ['1-6', (1,2,3,4,5,6)],
+    # ],
     'test_kwargs': [
-        ['Channels', 'channels'],
-        ['All', list(range(11))],
-        ['Orthogonal', (1,6,11)],
-        ['1-6', (1,2,3,4,5,6)],
+        ['Crossover', 'crossover_funcs', 'subgraph_crossover_p_branch'],
+        ['BFS Two Point', [[bfs_two_point_crossover, 0.7]], 0],
+        ['Subgraph 0.25', [[subgraph_crossover, 0.7]], 0.25],
+        ['Subgraph 0.5', [[subgraph_crossover, 0.7]], 0.5],
+        ['Subgraph 0.75', [[subgraph_crossover, 0.7]], 0.75],
+        # ['Two Point', [[two_point_crossover, 0.7]]],
+        # ['One Point', [[one_point_crossover, 0.7]]],
     ],
 }
 
 
 if __name__ == '__main__':
     # Setup the problem TODO improve implementation of procedural problem setup
-    nodes, links = regular_topology((3,3))
+    nodes, links = regular_topology(**kwargs)
     kwargs = setup(nodes, links, **kwargs)
     # Run evolution
     simulate_tests(**kwargs)

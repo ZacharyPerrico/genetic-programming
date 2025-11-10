@@ -2,107 +2,114 @@
 Genetic programming functions specifically for the evolution of completed graph models.
 """
 import numpy as np
+from networkx.classes import subgraph
+
+# from src.models import plot_network
+
 
 #
 # Problem Generation
 #
 
-def regular_topology(shape):
-
+def regular_topology(network_shape, **kwargs):
+    """Returns the nodes and links for a regular grid topology"""
     nodes = []
     links = []
-
-    for i in range(shape[0]):
-        for j in range(shape[1]):
-
+    for i in range(network_shape[0]):
+        for j in range(network_shape[1]):
             node_id = len(nodes)
             nodes.append((i,j))
-
             if i > 0:
-                node_down = node_id - shape[0]
+                node_down = node_id - network_shape[0]
                 links.append((node_down, node_id))
-
             if j > 0:
                 node_left = node_id - 1
                 links.append((node_left, node_id))
-
-
-
     return nodes, links
 
-
 def setup(nodes, links, **kwargs):
-
-    # List of nodes as [x,y]
+    """Saves problem specific constants to the kwargs for future calculations, such as fitness"""
+    # Array of nodes as [x,y]
     nodes = np.array(nodes)
     kwargs['nodes'] = nodes
 
-    # List of all links as [node_1, node_2]
+    # List of all links as (s1,s2)
     links = tuple(tuple(l) for l in links)
     kwargs['links'] = links
 
     # Adj matrix of all links_adj
     links_adj = np.zeros((len(nodes), len(nodes)))
     for i, j in links:
-        # i,j = sorted((i,j))
         links_adj[i, j] = 1
         links_adj[j, i] = 1
     kwargs['links_adj'] = links_adj
 
-    # List of all interfering links as [s1,s2]
+    # List of all interfering links as (e1,e2)
+    # Future calculation will usually only be done for links that are known to interfere instead of every link
     interf = []
-    for s1 in range(len(links)):
-        for s2 in range(s1 + 1, len(links)):
-            interf.append((s1,s2))
+    for e1 in range(len(links)):
+        for e2 in range(e1 + 1, len(links)):
+            interf.append((e1,e2))
     kwargs['interf'] = np.array(interf)
 
     # Distances between all interfering links
-    # dists = -np.ones((len(links_list), len(links_list)))
     dists = []
+    # Minimum number of channels required for separation
     min_c_seps = []
     for e1,e2 in interf:
         s1 = links[e1]
         s2 = links[e2]
+        # Calculate distance
         d00 = np.linalg.norm(s1[0] - s2[0])
         d01 = np.linalg.norm(s1[0] - s2[1])
         d10 = np.linalg.norm(s1[1] - s2[0])
         d11 = np.linalg.norm(s1[1] - s2[1])
         dist = min([d00, d01, d10, d11])
-        # dists[s1, s2] = dist
-        # dists[s2, s1] = dist
         dists.append(dist)
-
+        # Calculate separation
         min_c_sep = min([c for c in range(6) if dist >= kwargs['i_c'][c]])
         min_c_seps.append(min_c_sep)
     kwargs['dists'] = np.array(dists)
     kwargs['min_c_seps'] = np.array(min_c_seps)
 
+    # Setup node ordering
+    bfs_nodes = [0]
+    bfs_links = []
+    for node in bfs_nodes:
+        for next_node in range(len(kwargs['nodes'])):
+            link = tuple(sorted((node, next_node)))
+            # A link exists between the two nodes and has not already been traversed
+            if link in kwargs['links'] and link not in bfs_links:
+                bfs_links.append(link)
+                if next_node not in bfs_nodes:
+                    bfs_nodes.append(next_node)
+    bfs_links = np.array(bfs_links)
+    bfs_links = tuple([(int(u), int(v)) for u, v in bfs_links])
+    kwargs['bfs_map'] = [links.index(link) for link in bfs_links]
+    kwargs['bfs_demap'] = [bfs_links.index(link) for link in links]
+
     return kwargs
+
 
 #
 # Initialization Functions
 #
 
 def random_network(**kwargs):
+    """Returns random network weights"""
     org = []
-    for link in kwargs['interf']:
-        # l = tuple(sorted(link))
-        # org[l] = kwargs['rng'].choice(kwargs['channels'])
+    for e1,e2 in kwargs['links']:
         org.append(kwargs['rng'].choice(kwargs['channels']))
     org = np.array(org)
     return org
 
-    # adj = np.zeros((len(kwargs['links']),len(kwargs['links'])))
-    # for link in kwargs['links']:
-    #     l = tuple(sorted(link))
-    #     adj[l[0],l[1]] = kwargs['rng'].choice(kwargs['channels'])
-    # return org
 
 #
 # Fitness Functions
 #
 
 def total_interference(pop, **kwargs):
+    """Fitness function based on the total interference"""
     fits = np.empty(len(pop))
     for i,org in enumerate(pop):
         fit = org[kwargs['interf'][:,0]] - org[kwargs['interf'][:,1]]
@@ -113,17 +120,26 @@ def total_interference(pop, **kwargs):
     fits = np.array(fits)
     return fits
 
+
 #
 # Crossover Functions
 #
 
+
+
 def one_point_crossover(a, b, **kwargs):
+    min_len = len(a)
+    max_len = len(a)
+    a = list(a)
+    b = list(b)
     cut_a = kwargs['rng'].integers(0, len(a) + 1)
-    cut_b_min = max(cut_a + len(b) - kwargs['max_len'], cut_a - len(a) + kwargs['min_len'])
-    cut_b_max = min(cut_a + len(b) - kwargs['min_len'], cut_a - len(a) + kwargs['max_len'])
+    cut_b_max = min(cut_a + len(b) - min_len, cut_a - len(a) + max_len)
+    cut_b_min = max(cut_a + len(b) - max_len, cut_a - len(a) + min_len)
     cut_b = kwargs['rng'].integers(cut_b_min, cut_b_max + 1)
     new_a = a[:cut_a] + b[cut_b:]
     new_b = b[:cut_b] + a[cut_a:]
+    new_a = np.array(new_a)
+    new_b = np.array(new_b)
     return new_a, new_b
 
 
@@ -157,6 +173,62 @@ def two_point_crossover(a, b, **kwargs):
     new_b = np.array(new_b)
     return new_a, new_b
 
+def bfs_two_point_crossover(a, b, **kwargs):
+    new_a = a[kwargs['bfs_map']]
+    new_b = b[kwargs['bfs_map']]
+    new_a, new_b = two_point_crossover(new_a, new_b, **kwargs)
+    new_a = new_a[kwargs['bfs_demap']]
+    new_b = new_b[kwargs['bfs_demap']]
+    return new_a, new_b
+
+def subgraph_crossover(a, b, **kwargs):
+    subgraph = subgraph_selection(**kwargs)
+    new_a = a.copy()
+    new_a[subgraph] = b[subgraph]
+    new_b = b.copy()
+    new_b[not subgraph] = a[not subgraph]
+    new_a = np.array(new_a)
+    new_b = np.array(new_b)
+    return new_a, new_b
+
+
+
+def subgraph_selection(**kwargs):
+
+    node_dists = np.zeros((len(kwargs['nodes']),len(kwargs['nodes'])))
+    for i,j in kwargs['links']:
+        ni = kwargs['nodes'][i]
+        nj = kwargs['nodes'][j]
+        d = np.linalg.norm(nj-ni)
+        node_dists[i, j] = d
+        node_dists[j, i] = d
+
+    init_node = int(kwargs['rng'].integers(len(kwargs['nodes'])))
+    nodes = [init_node]
+
+    sub_edges = []
+    for node in nodes:
+        # print('node', node)
+        for next_node in range(len(kwargs['nodes'])):
+            link = tuple(sorted((node, next_node)))
+            # A link exists between the two nodes and has not already been traversed
+            if link in kwargs['links'] and link not in sub_edges:
+                # print('\tlink',link)
+                p = kwargs['rng'].random()
+                if p < kwargs['subgraph_crossover_p_branch']:
+                    # print('\tADDED', link)
+                    sub_edges.append(link)
+                    if next_node not in nodes:
+                        nodes.append(next_node)
+    sub_edges = np.array(sub_edges)
+    sub_edges = tuple([(int(u),int(v)) for u,v in sub_edges])
+
+    # print(sub_edges)
+    # print(kwargs['links'])
+
+    sub = [(link in sub_edges) for link in kwargs['links']]
+
+    return sub
 
 #
 # Mutation Functions
@@ -174,4 +246,21 @@ def point_mutation(org, **kwargs):
 #
 
 if __name__ == '__main__':
+
+    n, l = regular_topology((5,5))
+    kwargs = setup(n,l, i_c=[2, 1.125, 0.75, 0.375, 0.125, 0])
+    kwargs['rng'] = np.random.default_rng()
+
+    print(kwargs)
+
+    s = subgraph_selection(**kwargs)
+
+    print('SSSSSSSSSSSSSSS')
+    print(s)
+
+    l = [link for i,link in enumerate(kwargs['links']) if s[i]]
+    print(l)
+
+    plot_network(show=True, save=False, nodes=n, links=l)
+
     pass
