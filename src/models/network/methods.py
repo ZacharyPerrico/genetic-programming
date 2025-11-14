@@ -121,6 +121,20 @@ def total_interference(pop, **kwargs):
     return fits
 
 
+def modified_total_interference(pop, **kwargs):
+    """Fitness function based on the total interference"""
+    fits = np.empty(len(pop))
+    for i,org in enumerate(pop):
+        fit = org[kwargs['interf'][:,0]] - org[kwargs['interf'][:,1]]
+        fit = np.abs(fit)
+        fit[fit >= kwargs['min_c_seps']] = 0
+        # fit = np.minimum(fit - kwargs['min_c_seps'], 0)
+        fit = np.sum(fit)
+        fit = 1 / fit
+        fits[i] = fit
+    fits = np.array(fits)
+    return fits
+
 #
 # Crossover Functions
 #
@@ -173,6 +187,7 @@ def two_point_crossover(a, b, **kwargs):
     new_b = np.array(new_b)
     return new_a, new_b
 
+
 def bfs_two_point_crossover(a, b, **kwargs):
     new_a = a[kwargs['bfs_map']]
     new_b = b[kwargs['bfs_map']]
@@ -180,6 +195,7 @@ def bfs_two_point_crossover(a, b, **kwargs):
     new_a = new_a[kwargs['bfs_demap']]
     new_b = new_b[kwargs['bfs_demap']]
     return new_a, new_b
+
 
 def subgraph_crossover(a, b, **kwargs):
     subgraph = subgraph_selection(**kwargs)
@@ -193,42 +209,82 @@ def subgraph_crossover(a, b, **kwargs):
 
 
 
+# def subgraph_selection(**kwargs):
+#
+#     # node_dists = np.zeros((len(kwargs['nodes']),len(kwargs['nodes'])))
+#     # for i,j in kwargs['links']:
+#     #     ni = kwargs['nodes'][i]
+#     #     nj = kwargs['nodes'][j]
+#     #     d = np.linalg.norm(nj-ni)
+#     #     node_dists[i, j] = d
+#     #     node_dists[j, i] = d
+#
+#     # Randomly selected node
+#     init_node = int(kwargs['rng'].integers(len(kwargs['nodes'])))
+#
+#     # List of the nodes in the order they are visited
+#     nodes = [init_node]
+#
+#     # Edges of the subgraph
+#     sub_edges = []
+#     for node in nodes:
+#         # print('node', node)
+#         for next_node in range(len(kwargs['nodes'])):
+#             link = tuple(sorted((node, next_node)))
+#             # A link exists between the two nodes and has not already been traversed
+#             if link in kwargs['links'] and link not in sub_edges:
+#                 # print('\tlink',link)
+#                 p = kwargs['rng'].random()
+#                 if p < kwargs['subgraph_crossover_p_branch']:
+#                     # print('\tADDED', link)
+#                     sub_edges.append(link)
+#                     if next_node not in nodes:
+#                         nodes.append(next_node)
+#     sub_edges = np.array(sub_edges)
+#     sub_edges = tuple([(int(u),int(v)) for u,v in sub_edges])
+#     sub = [(link in sub_edges) for link in kwargs['links']]
+#     return sub
+
+
 def subgraph_selection(**kwargs):
 
-    node_dists = np.zeros((len(kwargs['nodes']),len(kwargs['nodes'])))
-    for i,j in kwargs['links']:
-        ni = kwargs['nodes'][i]
-        nj = kwargs['nodes'][j]
-        d = np.linalg.norm(nj-ni)
-        node_dists[i, j] = d
-        node_dists[j, i] = d
+    # node_dists = np.zeros((len(kwargs['nodes']),len(kwargs['nodes'])))
+    # for i,j in kwargs['links']:
+    #     ni = kwargs['nodes'][i]
+    #     nj = kwargs['nodes'][j]
+    #     d = np.linalg.norm(nj-ni)
+    #     node_dists[i, j] = d
+    #     node_dists[j, i] = d
 
+    # Boolean list representing if each link is in the subgraph
+    subgraph = np.zeros_like(kwargs['links'], bool)
+
+    # Randomly selected node
     init_node = int(kwargs['rng'].integers(len(kwargs['nodes'])))
+
+    # List of the nodes in the order they are visited
     nodes = [init_node]
 
-    sub_edges = []
     for node in nodes:
         # print('node', node)
         for next_node in range(len(kwargs['nodes'])):
             link = tuple(sorted((node, next_node)))
             # A link exists between the two nodes and has not already been traversed
-            if link in kwargs['links'] and link not in sub_edges:
-                # print('\tlink',link)
-                p = kwargs['rng'].random()
-                if p < kwargs['subgraph_crossover_p_branch']:
+            if link in kwargs['links']:
+                link_index = kwargs['links'].index(link)
+                # Continue if subgraph has already been added
+                if subgraph[link_index]:
+                    continue
+                # Probability to add link to subgraph
+                elif kwargs['rng'].random() < kwargs['subgraph_crossover_p_branch']:
                     # print('\tADDED', link)
-                    sub_edges.append(link)
+                    subgraph[link_index] = True
+                    # Add next npde to list of nodes to visit
                     if next_node not in nodes:
                         nodes.append(next_node)
-    sub_edges = np.array(sub_edges)
-    sub_edges = tuple([(int(u),int(v)) for u,v in sub_edges])
 
-    # print(sub_edges)
-    # print(kwargs['links'])
+    return subgraph
 
-    sub = [(link in sub_edges) for link in kwargs['links']]
-
-    return sub
 
 #
 # Mutation Functions
