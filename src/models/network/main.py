@@ -5,7 +5,7 @@ from src.utils.save import load_fits
 
 
 kwargs = {
-    'name': 'test_10x10_2',  # Name of folder to contain all results
+    'name': '10x10_drop_center',  # Name of folder to contain all results
     'seed': None,
     'verbose': True,
     'parallelize': True,
@@ -20,7 +20,6 @@ kwargs = {
     'init_individual_func': random_network,  # Function used to generate a new organism
     ## Evaluation ##
     'fitness_func': total_interference,
-    # 'fitness_func': modified_total_interference,
     'i_c': [2, 1.125, 0.75, 0.375, 0.125, 0],  # 2M band
     #'i_c': [2, 0.625, 0.375, 0.125, 0],  # 5.5M band
     #'i_c': [2, 0.5, 0.375, 0.125, 0],  # 11M band
@@ -36,6 +35,9 @@ kwargs = {
     'mutate_funcs': [
         [point_mutation, 0.7],
     ],
+    ## Other ##
+    'nodes_removed_gen': 500,  # Remove the following nodes on the given generation
+    'nodes_removed': [22, 27, 72, 77],  # Remove all nodes in the list (12 is the center node in a 5x5 grid)
     ## Tests ##
     # 'test_kwargs': [
     #     ['Channels', 'channels'],
@@ -45,12 +47,8 @@ kwargs = {
     # ],
     'test_kwargs': [
         ['Crossover', 'crossover_funcs', 'subgraph_crossover_p_branch'],
-        ['BFS Two Point', [[bfs_two_point_crossover, 0.7]], 0],
-        # ['Subgraph 0.25', [[subgraph_crossover, 0.7]], 0.25],
-        ['Subgraph 0.5', [[subgraph_crossover, 0.7]], 0.5],
-        # ['Subgraph 0.75', [[subgraph_crossover, 0.7]], 0.75],
-        # ['Two Point', [[two_point_crossover, 0.7]]],
-        # ['One Point', [[one_point_crossover, 0.7]]],
+        ['BFS Two-Point', [[bfs_two_point_crossover, 0.7]], 0],
+        ['Subgraph', [[subgraph_crossover, 0.7]], 0.5],
     ],
 }
 
