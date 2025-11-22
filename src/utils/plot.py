@@ -302,7 +302,7 @@ def plot_results(all_fits, **kwargs):
     # plot_grid(all_pops, all_fits, plot_func=plot_trans_array, title='Best Transition Arrays', show=False, **kwargs)
     # plot_grid(all_pops, all_fits, plot_func=plot_fitness, title='Best Solutions', show=False, **kwargs)
 
-    plot_network_problem(**kwargs)
+    # plot_network(**kwargs)
 
     # Plot best results of each test
     bests = zip(*get_best(all_fits, **kwargs))
@@ -310,7 +310,13 @@ def plot_results(all_fits, **kwargs):
         best_obj, best_fit = best
         test_name = kwargs['test_kwargs'][i+1][0]
 
-        plot_network(org=best_obj, title=test_name, **kwargs)
+        # plot_network(org=best_obj, title=test_name, **kwargs)
+
+        contour(best_obj, title=test_name, show=True, **kwargs)
+
+        org = load_pop(i, 0, **kwargs)[0, 0]
+
+        contour(org, title=test_name, show=True, **kwargs)
 
         # print(best_obj.simplify())
         # print(best_obj.latex())
@@ -331,7 +337,7 @@ def plot_results(all_fits, **kwargs):
 
 
 if __name__ == '__main__':
-    name = 'test_10x10'
+    name = '5x5_mini'
     kwargs = load_kwargs(name, '../../saves/network/')
     fits = load_fits(**kwargs)
     plot_results(fits, **kwargs)
