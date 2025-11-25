@@ -229,6 +229,25 @@ def lgp_self_rep_rmse(pop, target_func, domains, **kwargs):
         fits[i] = (sum((abs(y_target - y_actual)) ** 2) / len(cases)) ** 0.5
     return fits
 
+
+
+# def smlgp_compete(org0, org1, **kwargs):
+#
+#     a = Linear([[0,21,0],org0])
+#     a.run(kwargs['timeout'])
+#     da = a.mem[0][]
+#
+#     b = Linear([[0,0],org1])
+
+
+
+
+
+
+
+
+
+
 #
 # Target Functions
 #
