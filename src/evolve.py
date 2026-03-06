@@ -44,7 +44,7 @@ def tournament_selection(pop, fits, k, **kwargs):
 #
 
 def next_pop(pop, **kwargs):
-    """Returns the next population from a given population"""
+    """Returns the fitness values for the given population and the next population"""
 
     # Truncate Selection
     # This is not used
@@ -89,7 +89,6 @@ def next_pop(pop, **kwargs):
             # Selection
             org_0, fit_0 = tournament_selection(**kwargs)
             org_1, fit_1 = tournament_selection(**kwargs)
-
             org_0 = copy.deepcopy(org_0)
             org_1 = copy.deepcopy(org_1)
 
@@ -109,55 +108,44 @@ def next_pop(pop, **kwargs):
             new_pop.append(org_0)
             new_pop.append(org_1)
 
-        return new_pop, kwargs['fits']
+        return kwargs['fits'], new_pop
 
 
 def simulate_run(**kwargs):
     """Run a single simulation of a full set of generations"""
 
-    # Add no-operation as a possible crossover
-    prob_noop = 1 - sum(list(zip(*kwargs['crossover_funcs']))[1])
-    if prob_noop > 0:
-        kwargs['crossover_funcs'].append([None, prob_noop])
-
-    # Add no-operation as a possible mutation
-    prob_noop = 1 - sum(list(zip(*kwargs['mutate_funcs']))[1])
-    if prob_noop > 0:
-        kwargs['mutate_funcs'].append([None, prob_noop])
-
-    shape = (kwargs['num_gens'] + 1, kwargs['pop_size'])
-
     # Initialization
-    all_pops = np.empty(shape, dtype=object)
-    all_fits = np.empty(shape)
+    shape = (kwargs['num_gens'] + 1, kwargs['pop_size'])
+    run_pops = np.empty(shape, dtype=object)
+    run_fits = np.empty(shape)
 
     pop = init_pop(**kwargs)
-    all_pops[0] = pop
+    run_pops[0] = pop
 
-    # Loop level 2
+    # Repeat for each generation
     for generation in range(kwargs['num_gens']):
 
         if kwargs['verbose'] > 0 and generation % 1 == 0:
             print(f'Simulating Test {kwargs["test_name"]}, Run {kwargs["seed"]}, Generation {generation} of {kwargs["num_gens"]}')
 
         # Remove node
-        if generation == kwargs.get('nodes_removed_gen'):
-            for node_index in kwargs['nodes_removed']:
-                print(f'Removing node {node_index}')
-                kwargs['interf_mask'] = remove_node(node_index, **kwargs)
+        # if generation == kwargs.get('nodes_removed_gen'):
+        #     for node_index in kwargs['nodes_removed']:
+        #         print(f'Removing node {node_index}')
+        #         kwargs['interf_mask'] = remove_node(node_index, **kwargs)
 
         # Next generation and previous fitness
-        pop, fit = next_pop(pop=pop, **kwargs)
+        fit, pop = next_pop(pop=pop, **kwargs)
 
         # Save results
         # all_pops[generation + 1] = [n.to_lists() for n in pop]
-        all_pops[generation + 1] = pop
-        all_fits[generation] = fit
+        run_pops[generation + 1] = pop
+        run_fits[generation] = fit
 
     # Final fitness values
-    all_fits[-1] = kwargs['fitness_func'](pop, is_final=True, **kwargs)
+    run_fits[-1] = kwargs['fitness_func'](pop, is_final=True, **kwargs)
 
-    return all_pops, all_fits
+    return run_pops, run_fits
 
 
 def _simulate_and_save_test_run(test_num, run_num, test_kwargs, base_kwargs):
@@ -180,6 +168,16 @@ def _simulate_and_save_test_run(test_num, run_num, test_kwargs, base_kwargs):
     if kwargs['seed'] is None:
         kwargs['seed'] = np.random.randint(0, 2**64, dtype='uint64')
     kwargs['rng'] = np.random.default_rng(kwargs['seed'])
+
+    # Add no-operation as a possible crossover
+    prob_noop = 1 - sum(list(zip(*kwargs['crossover_funcs']))[1])
+    if prob_noop > 0:
+        kwargs['crossover_funcs'].append([None, prob_noop])
+
+    # Add no-operation as a possible mutation
+    prob_noop = 1 - sum(list(zip(*kwargs['mutate_funcs']))[1])
+    if prob_noop > 0:
+        kwargs['mutate_funcs'].append([None, prob_noop])
 
     # Run simulation and save
     pops, fits = simulate_run(test_name=test_name, **kwargs)

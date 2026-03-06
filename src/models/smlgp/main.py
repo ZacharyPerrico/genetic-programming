@@ -142,7 +142,7 @@ from src.utils.save import load_runs, load_fits
 
 
 kwargs = {
-    'name': 'sylver_coinage_tuning',  # Name of folder to contain all results
+    'name': 'sylver_coinage',  # Name of folder to contain all results
     'seed': None,
     'verbose': True,
     'parallelize': True,

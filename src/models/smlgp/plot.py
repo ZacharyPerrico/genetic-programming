@@ -368,7 +368,9 @@ def plot_results(all_fits, **kwargs):
 
 
 if __name__ == '__main__':
-    name = 'sylver_coinage_tuning'
+    # name = 'sylver_coinage_tuning'
+    name = 'sylver_coinage_tuning_fit_2'
     kwargs = load_kwargs(name, '../../../saves/smlgp/')
+    # kwargs['num_turns'] = 64
     fits = load_fits(**kwargs)
     plot_results(fits, **kwargs)

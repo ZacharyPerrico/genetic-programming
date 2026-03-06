@@ -227,7 +227,7 @@ def lgp_self_rep_rmse(pop, target_func, domains, **kwargs):
 #     b = Linear([[0,0],org1])
 
 def _check_sylver_coinage(n , played_values):
-    
+
     # Invalid by the definition of the game
     if n <= 1:
         return False
@@ -280,14 +280,14 @@ def _smlgp_sylver_coinage(org0, org1, **kwargs):
         a.run(kwargs['timeout'])
         # Extract final value played by a
         a_played = a.mem[0][1]
-        print(a_played)
+        # print(a_played)
 
         # Check if the value is valid and save it
         if _check_sylver_coinage(a_played, played_numbers):
             # played_numbers.append(a_played)
             played_numbers[turn] = a_played
         else:
-            return 0, turn
+            return turn-1, turn
 
         turn += 1
 
@@ -298,14 +298,14 @@ def _smlgp_sylver_coinage(org0, org1, **kwargs):
         b.run(kwargs['timeout'])
         # Extract final value played by a
         b_played = b.mem[0][1]
-        print(b_played)
+        # print(b_played)
 
         # Check if the value is valid and save it
         if _check_sylver_coinage(b_played, played_numbers):
             # played_numbers.append(b_played)
             played_numbers[turn] = b_played
         else:
-            return turn, 0
+            return turn, turn-1
 
     return num_turns+1, num_turns+1
 
