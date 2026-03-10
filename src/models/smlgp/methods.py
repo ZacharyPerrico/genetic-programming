@@ -3,6 +3,7 @@ Genetic programming functions specifically for the evolution of linear models.
 Linear code is represented as a 2D arrays and converted to a Linear objects when evaluating.
 """
 import numpy as np
+import numpy.random
 
 from src.models.smlgp.model import Linear
 from src.utils.utils import cartesian_prod
@@ -12,23 +13,29 @@ from src.utils.utils import cartesian_prod
 # Initialization Functions
 #
 
-def _random_line(**kwargs):
-    """Helper function to generating a single line of code"""
-    return [
-        # kwargs['rng'].choice(kwargs['ops']),
-        kwargs['rng'].integers(kwargs['max_value']),
-        kwargs['rng'].integers(kwargs['max_len']),
-        kwargs['rng'].integers(kwargs['max_value']),
-        # kwargs['rng'].integers(1+2*len(kwargs['mem_lens'])),
-        kwargs['rng'].integers(3),
-    ]
+# def _random_line(**kwargs):
+#     """Returns a single line of code containing 4 values"""
+#     return [
+#         # kwargs['rng'].choice(kwargs['ops']),
+#         kwargs['rng'].integers(kwargs['max_value']),
+#         kwargs['rng'].integers(kwargs['max_len']),
+#         kwargs['rng'].integers(kwargs['max_value']),
+#         # kwargs['rng'].integers(1+2*len(kwargs['mem_lens'])),
+#         kwargs['rng'].integers(3),
+#     ]
+
+# def random_mem(**kwargs):
+#     """Generate a random list of operations"""
+#     init_len = kwargs['rng'].integers(kwargs['init_min_len']//Linear.LINE_LENGTH, kwargs['init_max_len']//Linear.LINE_LENGTH+1)
+#     code = [_random_line(**kwargs) for _ in range(init_len)]
+#     code = sum(code, [])  # Flatten list of lists
+#     return code
 
 
 def random_mem(**kwargs):
-    """Generate a random list of transitions"""
-    init_len = kwargs['rng'].integers(kwargs['init_min_len']//Linear.LINE_LENGTH, kwargs['init_max_len']//Linear.LINE_LENGTH+1)
-    code = [_random_line(**kwargs) for _ in range(init_len)]
-    code = sum(code, [])  # Flatten list of lists
+    """Generate a random list of operations"""
+    init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
+    code = kwargs['rng'].integers(0, kwargs['max_value']+1, init_len)
     return code
 
 
@@ -40,6 +47,7 @@ def random_mems(**kwargs):
         init_max_len = kwargs['init_min_lens'][i]
         code.append(random_mem(init_min_len=init_min_len, init_max_len=init_max_len, **kwargs))
     return code
+
 
 # def random_code(**kwargs):
 #     self_rep = [_random_line(**kwargs) for _ in range(6)]
@@ -91,19 +99,35 @@ def random_code_one_point(**kwargs):
 #
 
 def run_self_rep(code, **kwargs):
-    """Run the given code setup to self replicate"""
-    l = Linear([[0]*4, code, [-1]*len(code)])
+    """Create a Linear object with blank registers, MEM, -1"""
+    l = Linear([[0]*4, code[0], [-1]*len(code[0])], valid_ops=kwargs['ops'])
     l.run(kwargs['timeout'])
     return l
+
+
+# def self_rep(pop, **kwargs):
+#     """Calculate the fitness value of all individuals in a population"""
+#     fits = np.empty(len(pop))
+#     for i, code in enumerate(pop):
+#         l = run_self_rep(code, **kwargs)
+#         # Fitness is number of values equal
+#         fit = sum(code[0] != l.mem[2])
+#         fits[i] = fit
+#     return fits
 
 
 def self_rep(pop, **kwargs):
     """Calculate the fitness value of all individuals in a population"""
     fits = np.empty(len(pop))
-    for i, code in enumerate(pop):
-        code_1d = np.ravel(code)
-        l = run_self_rep(code_1d, **kwargs)
-        fit = sum(code_1d != l.mem[2])
+
+    # c = random_mem(**kwargs)
+
+    for i, org in enumerate(pop):
+        c = [kwargs['rng'].integers(0, kwargs['max_value']+1, len(org[0]))]
+        copied = self_crossover(org, c, two_way=False, **kwargs)[0][0]
+
+        # Fitness is number of values equal
+        fit = sum(np.array(c[0]) != copied)
         fits[i] = fit
     return fits
 
@@ -173,22 +197,18 @@ def self_rep(pop, **kwargs):
 #         fits[i] = fit
 #     return fits
 
-def lgp_rmse(pop, target_func, domains, **kwargs):
-    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
-    return lgp_mse(pop, target_func, domains, rmse=True, **kwargs)
 
-
-def lgp_mse(pop, target_func, domains, rmse=False, **kwargs):
+def lgp_mse(pop, rmse=False, **kwargs):
     """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
     # 2D array of input variables for each test case
-    cases = cartesian_prod(*domains)
-    y_target = np.array([target_func(*list(case)) for case in cases])
+    cases = cartesian_prod(*kwargs['domains'])
+    y_target = np.array([kwargs['target_func'](*list(case)) for case in cases])
     fits = np.empty(len(pop))
     for i, org in enumerate(pop):
         y_actual = []
         for case in cases:
             # Evaluate the organism
-            l = Linear([[0]+list(case)+[0], np.ravel(org)])
+            l = Linear([[0]+list(case)+[0], org[1]], valid_ops=kwargs['ops'])
             l.run(kwargs['timeout'])
             y_actual = np.append(y_actual, l.regs[-1])
         # Calculate MSE
@@ -199,32 +219,18 @@ def lgp_mse(pop, target_func, domains, rmse=False, **kwargs):
     return fits
 
 
-def lgp_self_rep_rmse(pop, target_func, domains, **kwargs):
+def lgp_rmse(pop, **kwargs):
     """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
-    # 2D array of input variables for each test case
-    cases = cartesian_prod(*domains)
-    y_target = np.array([target_func(*list(case)) for case in cases])
-    fits = np.empty(len(pop))
-    for i, org in enumerate(pop):
-        y_actual = []
-        for case in cases:
-            # Evaluate the organism
-            l = Linear([[0]+list(case)+[0], org[0]])
-            l.run(kwargs['timeout'])
-            y_actual = np.append(y_actual, l.regs[-1])
-        # Calculate RMSE
-        fits[i] = (sum((abs(y_target - y_actual)) ** 2) / len(cases)) ** 0.5
-    return fits
+    return lgp_mse(pop, rmse=True, **kwargs)
 
 
-# def _smlgp_nim(org0, org1, **kwargs):
-#
-#     #
-#     a = Linear([[0,21,0],org0])
-#     a.run(kwargs['timeout'])
-#     da = a.mem[0][]
-#
-#     b = Linear([[0,0],org1])
+def dynamic_fitness(pop, gen, **kwargs):
+    if gen < kwargs['dynamic_gen']:
+        return self_rep(pop, **kwargs)
+    else:
+        return lgp_mse(pop, **kwargs)
+
+
 
 def _check_sylver_coinage(n , played_values):
 
@@ -247,15 +253,6 @@ def _check_sylver_coinage(n , played_values):
 
     # Move is invalid if n is in the semigroup
     return not reachable[n]
-
-
-
-
-
-
-
-
-
 
 
 def _smlgp_sylver_coinage(org0, org1, **kwargs):
@@ -381,24 +378,45 @@ def two_point_crossover(a, b, **kwargs):
     return new_a, new_b
 
 
-def self_crossover(a,b,**kwargs):
-    """Use the organisms to replicate and mutate self"""
-    a_vars, a_solv, a_repl = a
-    b_vars, b_solv, b_repl = b
-    # Code used to replicate each sub block of code
-    new_a_solv = [a_vars, a_repl, a_solv, b_solv]
-    new_a_repl = [a_vars, a_repl, a_repl, b_repl]
-    new_b_solv = [b_vars, b_repl, b_solv, a_solv]
-    new_b_repl = [b_vars, b_repl, b_repl, a_repl]
+# def self_crossover(a, b, **kwargs):
+#     """Use the organisms to replicate and mutate self"""
+#     a_vars, a_solv, a_repl = a
+#     b_vars, b_solv, b_repl = b
+#     # Code used to replicate each sub block of code
+#     new_a_solv = [a_vars, a_repl, a_solv, b_solv]
+#     new_a_repl = [a_vars, a_repl, a_repl, b_repl]
+#     new_b_solv = [b_vars, b_repl, b_solv, a_solv]
+#     new_b_repl = [b_vars, b_repl, b_repl, a_repl]
+#     # Create and run a Linear runtime object
+#     new_a_solv = Linear(new_a_solv, rand=True).run(kwargs['timeout']).mem[3]
+#     new_a_repl = Linear(new_a_repl, rand=True).run(kwargs['timeout']).mem[3]
+#     new_b_solv = Linear(new_b_solv, rand=True).run(kwargs['timeout']).mem[3]
+#     new_b_repl = Linear(new_b_repl, rand=True).run(kwargs['timeout']).mem[3]
+#     # Build new organism from the replicated code
+#     new_a = [a_vars, new_a_solv, new_a_repl]
+#     new_b = [b_vars, new_b_solv, new_b_repl]
+#     return new_a, new_b
+
+
+def self_crossover(a, b, two_way=True, **kwargs):
+    """Uses MEM1 in a to copy each MEM of b from MEM2 to MEM3. Then repeats with reversed roles"""
+    children = []
+    orderings = ((a,b),(b,a)) if two_way else ((a,b),)
     # Create and run a Linear runtime object
-    new_a_solv = Linear(new_a_solv, rand=True).run(kwargs['timeout']).mem[3]
-    new_a_repl = Linear(new_a_repl, rand=True).run(kwargs['timeout']).mem[3]
-    new_b_solv = Linear(new_b_solv, rand=True).run(kwargs['timeout']).mem[3]
-    new_b_repl = Linear(new_b_repl, rand=True).run(kwargs['timeout']).mem[3]
-    # Build new organism from the replicated code
-    new_a = [a_vars, new_a_solv, new_a_repl]
-    new_b = [b_vars, new_b_solv, new_b_repl]
-    return new_a, new_b
+    for u,v in orderings:
+        children.append([])
+        for j, mem in enumerate(v):
+            l = Linear([[0]*4, u[0], mem, [-1]*len(mem)], valid_ops=kwargs['ops'])
+            l.run(kwargs['timeout'])
+            children[-1].append(l.mem[3])
+    return children
+
+
+def dynamic_crossover(a, b, gen, **kwargs):
+    if gen < kwargs['dynamic_gen']:
+        return a, b
+    else:
+        return self_crossover(a, b, **kwargs)
 
 #
 # Mutation Functions
@@ -415,45 +433,68 @@ def self_crossover(a,b,**kwargs):
 #     code[index][sub_index] = _random_line(**kwargs)[sub_index]
 #     return code
 
-def point_mutation(code, **kwargs):
+def point_mutation(org, **kwargs):
     """Randomly change a value in a random line"""
-    # Duplicate the original
-    code_copy = code.copy()
-    # Select a random line and sub line
-    index = kwargs['rng'].integers(len(code))
+    # Select a random value
+    index = kwargs['rng'].integers(len(org))
     # Replace the argument
-    code[index] = kwargs['rng'].integers(kwargs['max_value'])
-    return code
+    org[index] = kwargs['rng'].integers(kwargs['max_value'])
+    return org
 
+
+def point_mutation_2d(org, **kwargs):
+    """Randomly change a value in a random line"""
+    # Select a random value
+    index = kwargs['rng'].integers(len(org))
+    # Replace the argument
+    # org[index] = point_mutation(org[index], **kwargs)
+    point_mutation(org[index], **kwargs)
+    return org
+
+
+def dynamic_mutation(org, gen, **kwargs):
+    if gen < kwargs['dynamic_gen']:
+        return point_mutation_2d(org, **kwargs)
+    else:
+        return org
 
 #
 # Debug
 #
 
 if __name__ == '__main__':
-    pass
+    # pass
 
-    org =  [8,  4,  3,  0 ,
-11,  0,  0, 13 ,
- 4, 13, 10,  1 ,
- 4, 15,  1,  8 ,
- 9,  1, 12, 13 ,
- 3, 13,  9,  1 ,
-14, 13,  3, 13 ,
-11, 11,  6,  3 ,
- 4, 13,  4,  0 ,
- 9, 14,  1, 10 ,
- 4,  3, 244,  7,
-13,  0, 13,  5 ,
- 7,  4, 13, 10 ,
- 8,  6, 13,  0 ,
- 7, 10,  1,  1 ,
-35, 13,  0, 11]
+#     org =  [8,  4,  3,  0 ,
+# 11,  0,  0, 13 ,
+#  4, 13, 10,  1 ,
+#  4, 15,  1,  8 ,
+#  9,  1, 12, 13 ,
+#  3, 13,  9,  1 ,
+# 14, 13,  3, 13 ,
+# 11, 11,  6,  3 ,
+#  4, 13,  4,  0 ,
+#  9, 14,  1, 10 ,
+#  4,  3, 244,  7,
+# 13,  0, 13,  5 ,
+#  7,  4, 13, 10 ,
+#  8,  6, 13,  0 ,
+#  7, 10,  1,  1 ,
+# 35, 13,  0, 11]
+#
+#
+#     a = _check_sylver_coinage(16, [7])
+#
+#     print(a)
 
+    from main import kwargs
 
-    a = _check_sylver_coinage(16, [7])
+    kwargs['rng'] = np.random.default_rng()
 
-    print(a)
+    l = random_mems(**kwargs)
+    l = Linear(l)
+
+    print(l)
 
     # prevs = [
     #     [5],

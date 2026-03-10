@@ -34,22 +34,24 @@ src
 
 import numpy as np
 
-from src.models.network.methods import *
+# from src.models.network.methods import *
+#
+# kwargs = load_kwargs('test_0', '../saves/network/')
+# kwargs['interf'] = np.array(kwargs['interf'])
+#
+# org = [1,1,1,1,1,1]
+#
+# pop = [org]
+#
+# pop = np.array(pop)
+#
+# f = total_interference(pop, **kwargs)
+#
+# print(f)
 
-kwargs = load_kwargs('test_0', '../saves/network/')
-kwargs['interf'] = np.array(kwargs['interf'])
+from src.models.smlgp import *
 
-org = [1,1,1,1,1,1]
-
-pop = [org]
-
-pop = np.array(pop)
-
-f = total_interference(pop, **kwargs)
-
-print(f)
-
-
+# l =
 
 
 

@@ -2,14 +2,10 @@
 
 import os
 
-import networkx as nx
-import numpy as np
-from matplotlib import pyplot as plt
-
 from src.models import *
-from src.models.smlgp.methods import _smlgp_sylver_coinage
-from src.utils.save import load_kwargs, load_runs, load_pop, load_fits
+from src.utils.save import load_kwargs, load_pop, load_fits
 from src.utils.utils import cartesian_prod
+
 
 #
 # Data Based Plotting
@@ -30,6 +26,8 @@ def plot_fitness(all_fits, ax=None, save=True, show=True, **kwargs):
             ax.set_ylabel('Average Max Fitness Value')
 
         plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0])
+
+        # Error bands
         y_std = np.std(np.max(all_fits[test], axis=2), axis=0)
         ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
 
@@ -168,23 +166,6 @@ def plot_box(values, ylabel, ax=None, save=True, show=True, **kwargs):
 # Tables
 #
 
-# def table_best(all_pops, all_fits, **kwargs):
-#     """Plot the best result of the given run and gen"""
-#     xs = [np.linspace(*domain) for domain in kwargs['domains']]
-#     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1)).T
-#     y_true = np.array([[kwargs['target_func'](*list(x))] for x in xs])
-#     table = np.concat((xs, y_true), axis=1)
-#     # Iterate over all runs
-#     for run in range(len(kwargs['test_kwargs']) - 1):
-#         i = all_fits[run, :, :, :].argmin()
-#         node = all_pops[run, :, :, :].flatten()[i]
-#         y_node = [[node(*x)] for x in xs]
-#         tab = np.concat((table, y_node), axis=1)
-#         print('\n', node, sep='')
-#         for row in tab:
-#             print(('f(' + ', '.join(['{}'] * len(kwargs['domains'])) + ') = {} | {}').format(*row))
-
-
 def table_best(obj, **kwargs):
     """Plot the best result of the given run and gen"""
     table = []
@@ -225,69 +206,25 @@ def table_best(obj, **kwargs):
 # Control
 #
 
-def plot_grid(all_pops, all_fits, plot_func, title=None, save=True, show=True, **kwargs):
-    """Plots a grid of plots over the test kwargs"""
-    best = get_best(all_pops, all_fits, **kwargs)
-    if len(kwargs['test_kwargs'][0]) < 2:
-        print(f'Plotting failed for {plot_func.__name__}')
-    else:
-        # Values of first test_kwargs
-        zipped0 = list(zip(*kwargs['test_kwargs'][1:]))[1]
-        array0 = np.empty((len(zipped0),), 'object')
-        array0[:] = zipped0
-        values0, counts0 = np.unique(array0, return_counts=True)
-        # Values of second test_kwargs
-        zipped1 = list(zip(*kwargs['test_kwargs'][1:]))[2]
-        array1 = np.empty((len(zipped1),), 'object')
-        array1[:] = zipped1
-        values1, counts1 = np.unique(array1, return_counts=True)
-        # Setup grid
-        nrows = len(counts0)
-        ncols = len(counts1)
-        if not ((counts0 == counts0[0]).all() and (counts1 == counts1[0]).all() and nrows * ncols == len(
-                kwargs['test_kwargs'][1:])):
-            print(f'Plotting failed for {plot_func.__name__}')
-        else:
-            scale, dpi = 4, 400 # Save resolution
-            # scale, dpi = 2, 200
-            fig, axs = plt.subplots(nrows, ncols, figsize=(nrows * scale, ncols * scale), dpi=dpi)
-
-        # Plot best results of each test
-        for i, tm in enumerate(best):
-            print(f'Plotting grid {i+1} of {len(best)} for {plot_func.__name__}')
-            plot_func(tm, ax=axs.ravel()[i], title=kwargs['test_kwargs'][i+1][0], show=False, save=False, **kwargs)
-        fig.supxlabel(kwargs['test_kwargs'][0][2])
-        for col in range(ncols):
-            axs[-1, col].set_xlabel(values1[col])
-        fig.supylabel(kwargs['test_kwargs'][0][1])
-        for row in range(nrows):
-            axs[row, 0].set_ylabel(values0[row])
-        if save:
-            plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{title}.png')
-        if show:
-            plt.show()
-        plt.close()
-
-
 def get_best(all_fits, gen=slice(None), **kwargs):
     """Get the best result of the given run and gen"""
-    best_objs = []
+    best_orgs = []
     best_fits = []
     for test in range(all_fits.shape[0]):
         if kwargs['minimize_fitness']:
             index = np.unravel_index(all_fits[test,:,gen,:].argmin(), all_fits[test,:,gen,:].shape)
         else:
             index = np.unravel_index(all_fits[test,:,gen,:].argmax(), all_fits[test,:,gen,:].shape)
-        # Unpack the index as either including gen or not
+        # Unpack the index as either including generation or not
         if len(index) == 3:
             run, gen_index, org = index
         else:
             run, org = index
             gen_index = gen
-        # Store the best object and its fitness
-        best_objs.append(load_pop(test,run,**kwargs)[gen_index,org])
+        # Store the best organisms and its fitness
+        best_orgs.append(load_pop(test,run,**kwargs)[gen_index,org])
         best_fits.append(all_fits[test,run,gen_index,org])
-    return best_objs, best_fits
+    return best_orgs, best_fits
 
 
 def plot_results(all_fits, **kwargs):
@@ -296,81 +233,32 @@ def plot_results(all_fits, **kwargs):
     os.makedirs(path, exist_ok=True)
     print('Plotting results')
 
-    plot_fitness(all_fits, show=not False, **kwargs)
+    # plot_fitness(all_fits, show=True, **kwargs)
 
-    # plot_mean_fitness(all_fits, show=not False, **kwargs)
+    # print(all_fits.shape)
 
-    # plot_mean_fitness(all_fits, show=False, **kwargs)
+    plot_fitness(all_fits[:,:,:kwargs['dynamic_gen'],:], show=True, **kwargs)
+    plot_fitness(all_fits[:,:,kwargs['dynamic_gen']:,:], show=True, **kwargs)
 
     # plot_means(np.vectorize(lambda x: len(x))(all_pops), 'Average Length', show=False, **kwargs)
     # plot_medians(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
     # plot_hist(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
-
     # plot_box(all_fits[:,:,-1], 'Final Fitness', show=False, **kwargs)
 
-    # plot_grid(all_pops, all_fits, plot_func=plot_tm_maze, title='Best Solutions', show=False, **kwargs)
-    # plot_grid(all_pops, all_fits, plot_func=plot_tm_graph, title='Best Graphs', show=False, **kwargs)
-    # plot_grid(all_pops, all_fits, plot_func=plot_trans_array, title='Best Transition Arrays', show=False, **kwargs)
-    # plot_grid(all_pops, all_fits, plot_func=plot_fitness, title='Best Solutions', show=False, **kwargs)
-
-    # plot_network(**kwargs)
 
     # Plot best results of each test
     bests = zip(*get_best(all_fits, **kwargs))
     for i, best in enumerate(bests):
-        best_obj, best_fit = best
+        best_org, best_fit = best
         test_name = kwargs['test_kwargs'][i+1][0]
         print(best_fit)
 
-        # plot_network(org=best_obj, title=test_name, **kwargs)
-
-        # contour(best_obj, title=test_name, show=True, **kwargs)
-        #
-        # org = load_pop(i, 0, **kwargs)[0, 0]
-        #
-        # contour(org, title=test_name, show=True, **kwargs)
-
-        # print(best_obj.simplify())
-        # print(best_obj.latex())
-        # plot_nodes([best_obj], **kwargs)
-
-        # plot
-
-        # print(f'Test: {test_name}, Fitness: {best_fit}')
-        # table_best(best_obj, **kwargs)
-
-        l = Linear([[0,0] + kwargs['num_turns']*[0], best_obj], valid_ops=kwargs['ops'])
+        l = run_self_rep(best_org, **kwargs)
         print(l)
-        # l = run_self_rep(l.mem[2], **kwargs)
-        # print(l)
-
-        print(_smlgp_sylver_coinage(best_obj, best_obj.copy(), **kwargs))
-
-
-
-# self.mem[1] (PROGRAM)
-  #  0 │  8,  4,  3,  0 │ 'STORE',  4,  3, 'IMMEDIATE',
-  #  4 │ 11,  0,  0, 13 │ 'IFEQ',   0,  0, 'CODE_DIRECT',
-  #  8 │  4, 13, 10,  1 │ 'SUB',   13, 10, 'REGS_DIRECT',
-  # 12 │  4, 15,  1,  8 │ 'SUB',   15,  1, 'CODE_DIRECT',
-  # 16 │  9,  1, 12, 13 │ 'ADD',    1, 12, 'CODE_DIRECT',
-  # 20 │  3, 13,  9,  1 │ 'ADD',   13,  9, 'REGS_DIRECT',
-  # 24 │ 14, 13,  3, 13 │ 'STORE', 13,  3, 'CODE_DIRECT',
-  # 28 │ 11, 11,  6,  3 │ 'IFEQ',  11,  6, 'CODE_DIRECT',
-  # 32 │  4, 13,  4,  0 │ 'SUB',   13,  4, 'IMMEDIATE',
-  # 36 │  9, 14,  1, 10 │ 'ADD',   14,  1, 'IMMEDIATE',
-  # 40 │  4,  3, 244,  7 │ 'SUB',    3, 244, 'REGS_INDIRECT',
-  # 44 │ 13,  0, 13,  5 │ 'LOAD',   0, 13, 'IMMEDIATE',
-  # 48 │  7,  4, 13, 10 │ 'LOAD',   4, 13, 'IMMEDIATE',
-  # 52 │  8,  6, 13,  0 │ 'STORE',  6, 13, 'IMMEDIATE',
-  # 56 │  7, 10,  1,  1 │ 'LOAD',  10,  1, 'REGS_DIRECT',
-  # 60 │ 35, 13,  0, 11 │ 'IFEQ',  13,  0, 'REGS_DIRECT',
 
 
 if __name__ == '__main__':
-    # name = 'sylver_coinage_tuning'
-    name = 'sylver_coinage_tuning_fit_2'
+    name = 'project_test_2'
     kwargs = load_kwargs(name, '../../../saves/smlgp/')
-    # kwargs['num_turns'] = 64
     fits = load_fits(**kwargs)
     plot_results(fits, **kwargs)

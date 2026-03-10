@@ -4,13 +4,13 @@ import numpy as np
 class Linear:
     """
     Class representing a linear program during execution.
-
     """
 
-    PC_INDEX = 0
+    PC_INDEX = 0 # Index of the program counter in MEM0
     LINE_LENGTH = 4
     MAX_VALUE = 256
 
+    # Tuple of all operations and ordering to use if none is provided
     DEFAULT_OPS = (
         'STOP',
         'LOAD',
@@ -23,6 +23,7 @@ class Linear:
     )
 
     # Addressing modes
+    # Does not include MEMx_DIRECT and MEMx_INDIRECT
     DEFAULT_ADDR_MODES = (
         'IMMEDIATE',
         'REGS_DIRECT',
@@ -46,6 +47,7 @@ class Linear:
         self.valid_addr_modes_dict = {v:u for u,v in enumerate(self.valid_addr_modes_list)}
 
         # Mem can also be passed as containing strings
+        # All instances of this must be replaced before execution
         valid_dict = self.valid_ops_dict | self.valid_addr_modes_dict
         for i, mem_bank in enumerate(mem):
             for j, value in enumerate(mem_bank):
@@ -78,8 +80,6 @@ class Linear:
         #     operand = self.mem[mem_index][self.regs[int(operand_spec) % len(self.regs)] % len(self.mem[mem_index])]
         # else:
         #     operand = operand_spec
-
-        # mem_pointer
 
         # Fetch the operand
         if addr_mode % 2 == 1:

@@ -43,7 +43,7 @@ def tournament_selection(pop, fits, k, **kwargs):
 # Simulation and Iteration
 #
 
-def next_pop(pop, **kwargs):
+def next_pop(pop, gen, **kwargs):
     """Returns the fitness values for the given population and the next population"""
 
     # Truncate Selection
@@ -75,7 +75,7 @@ def next_pop(pop, **kwargs):
         kwargs['pop'] = pop
 
         # Evaluation
-        kwargs['fits'] = kwargs['fitness_func'](**kwargs)
+        kwargs['fits'] = kwargs['fitness_func'](gen=gen, **kwargs)
 
         # Elitism
         pool = [(kwargs['fits'][i], i) for i in range(kwargs['pop_size'])]
@@ -96,14 +96,14 @@ def next_pop(pop, **kwargs):
             a, p = zip(*kwargs['crossover_funcs'])
             crossover_func = kwargs['rng'].choice(a=a, p=p)
             if crossover_func is not None:
-                org_0, org_1 = crossover_func(org_0, org_1, **kwargs)
+                org_0, org_1 = crossover_func(org_0, org_1, gen=gen, **kwargs)
 
             # Mutation
             a, p = zip(*kwargs['mutate_funcs'])
             mutate_func = kwargs['rng'].choice(a=a, p=p)
             if mutate_func is not None:
-                org_0 = mutate_func(org_0, **kwargs)
-                org_1 = mutate_func(org_1, **kwargs)
+                org_0 = mutate_func(org_0, gen=gen, **kwargs)
+                org_1 = mutate_func(org_1, gen=gen, **kwargs)
 
             new_pop.append(org_0)
             new_pop.append(org_1)
@@ -135,7 +135,7 @@ def simulate_run(**kwargs):
         #         kwargs['interf_mask'] = remove_node(node_index, **kwargs)
 
         # Next generation and previous fitness
-        fit, pop = next_pop(pop=pop, **kwargs)
+        fit, pop = next_pop(pop=pop, gen=generation, **kwargs)
 
         # Save results
         # all_pops[generation + 1] = [n.to_lists() for n in pop]
@@ -143,7 +143,7 @@ def simulate_run(**kwargs):
         run_fits[generation] = fit
 
     # Final fitness values
-    run_fits[-1] = kwargs['fitness_func'](pop, is_final=True, **kwargs)
+    run_fits[-1] = kwargs['fitness_func'](pop, gen=generation, is_final=True, **kwargs)
 
     return run_pops, run_fits
 
