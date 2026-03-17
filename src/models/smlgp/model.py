@@ -8,7 +8,7 @@ class Linear:
 
     PC_INDEX = 0 # Index of the program counter in MEM0
     LINE_LENGTH = 4
-    MAX_VALUE = 256
+    DEFAULT_VALUE_LIM = 256
 
     # Tuple of all operations and ordering to use if none is provided
     DEFAULT_OPS = (
@@ -32,13 +32,15 @@ class Linear:
         'CODE_INDIRECT',
     )
 
-    def __init__(self, mem, valid_ops=DEFAULT_OPS):
+    def __init__(self, mem, ops=DEFAULT_OPS, value_lim=DEFAULT_VALUE_LIM):
+        self.value_lim = value_lim
+        
         self.mem = mem
         self.regs = self.mem[0]
         self.code = self.mem[1]
 
         # Create a list and dict to map between op code strings and values
-        self.valid_ops_list = valid_ops
+        self.valid_ops_list = ops
         self.valid_ops_dict = {v:u for u,v in enumerate(self.valid_ops_list)}
 
         # Create a list and dict to map between addr mode strings and values
@@ -99,19 +101,23 @@ class Linear:
         # Perform the operation
         match self.valid_ops_list[op_code]:
             case 'STOP': return True
-            case 'STORE': self.mem[i][j] = self.regs[target_reg]
-            case 'LOAD': self.regs[target_reg] =                          operand  % Linear.MAX_VALUE
-            case 'ADD':  self.regs[target_reg] = (self.regs[target_reg] + operand) % Linear.MAX_VALUE
-            case 'SUB':  self.regs[target_reg] = (self.regs[target_reg] - operand) % Linear.MAX_VALUE
-            case 'MUL':  self.regs[target_reg] = (self.regs[target_reg] * operand) % Linear.MAX_VALUE
-            case 'DIV':  self.regs[target_reg] = (self.regs[target_reg] / operand) % Linear.MAX_VALUE
+            case 'STORE': self.mem[i][j] = self.regs[target_reg] % self.value_lim
+            case 'LOAD': self.regs[target_reg] =                          operand  % self.value_lim
+            case 'ADD':  self.regs[target_reg] = (self.regs[target_reg] + operand) % self.value_lim
+            case 'SUB':  self.regs[target_reg] = (self.regs[target_reg] - operand) % self.value_lim
+            case 'MUL':  self.regs[target_reg] = (self.regs[target_reg] * operand) % self.value_lim
+            case 'DIV':
+                if self.regs[target_reg] != 0:
+                    self.regs[target_reg] = (self.regs[target_reg] / operand) % self.value_lim
+                else:
+                    self.regs[target_reg] = self.value_lim - 1
             case 'IFEQ':
                 if self.regs[target_reg] != operand:
-                    self.regs[Linear.PC_INDEX] += Linear.LINE_LENGTH
+                    self.regs[Linear.PC_INDEX] = (self.regs[Linear.PC_INDEX] + Linear.LINE_LENGTH) % self.value_lim
             case 'RAND':
                 low  = min(0, target_reg)
                 high = max(0, target_reg)
-                self.mem[i][j] = np.random.randint(low, high + 1)
+                self.mem[i][j] = np.random.randint(low, high + 1) % self.value_lim
             case 'DEL': del self.mem[i][j]
             # case 'DUPE':
         return False
@@ -229,6 +235,15 @@ if __name__ == '__main__':
     #     [1] * 32,
     #     [2] * 32,
     # ]
+
+    code = [[
+
+    ],[
+        'LOAD', 3, 19, 'CODE_INDIRECT',
+        'ADD', 3, 27, 'REGS_INDIRECT',
+        'ADD', 0, 17, 'CODE_INDIRECT',
+        'ADD', 1, 12, 'REGS_INDIRECT',
+    ]]
 
     l = Linear(code)
     print(l)

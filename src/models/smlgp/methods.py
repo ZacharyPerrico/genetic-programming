@@ -2,8 +2,9 @@
 Genetic programming functions specifically for the evolution of linear models.
 Linear code is represented as a 2D arrays and converted to a Linear objects when evaluating.
 """
+import math
+
 import numpy as np
-import numpy.random
 
 from src.models.smlgp.model import Linear
 from src.utils.utils import cartesian_prod
@@ -13,29 +14,11 @@ from src.utils.utils import cartesian_prod
 # Initialization Functions
 #
 
-# def _random_line(**kwargs):
-#     """Returns a single line of code containing 4 values"""
-#     return [
-#         # kwargs['rng'].choice(kwargs['ops']),
-#         kwargs['rng'].integers(kwargs['max_value']),
-#         kwargs['rng'].integers(kwargs['max_len']),
-#         kwargs['rng'].integers(kwargs['max_value']),
-#         # kwargs['rng'].integers(1+2*len(kwargs['mem_lens'])),
-#         kwargs['rng'].integers(3),
-#     ]
-
-# def random_mem(**kwargs):
-#     """Generate a random list of operations"""
-#     init_len = kwargs['rng'].integers(kwargs['init_min_len']//Linear.LINE_LENGTH, kwargs['init_max_len']//Linear.LINE_LENGTH+1)
-#     code = [_random_line(**kwargs) for _ in range(init_len)]
-#     code = sum(code, [])  # Flatten list of lists
-#     return code
-
-
 def random_mem(**kwargs):
     """Generate a random list of operations"""
     init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
-    code = kwargs['rng'].integers(0, kwargs['max_value']+1, init_len)
+    code = kwargs['rng'].integers(0, kwargs['value_lim'], init_len)
+    code = list(code)
     return code
 
 
@@ -58,51 +41,52 @@ def random_mems(**kwargs):
 #     code = [code, self_rep]
 #     return code
 
-def random_code_uniform(**kwargs):
-    self_rep = [
-        Linear.RAND,  2,  1, Linear.VARS_DIRECT,   # Generate random value
-        Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Execute next line if random value is 0
-        Linear.LOAD,  3,  2, Linear.MEM2_INDIRECT, # Load temp value from MEM2
-        Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Execute next line if random value is 0
-        Linear.STORE, 3,  2, Linear.MEM3_INDIRECT, # Store temp value into MEM2
-        Linear.ADD,   2,  1, Linear.IMMEDIATE,     # Increment copy pointer
-    ]
-    init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
-    code = [_random_line(**kwargs) for _ in range(init_len)]
-    code = sum(code, [])
-    code = [code, self_rep]
-    return code
+# def random_code_uniform(**kwargs):
+#     self_rep = [
+#         Linear.RAND,  2,  1, Linear.VARS_DIRECT,   # Generate random value
+#         Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Execute next line if random value is 0
+#         Linear.LOAD,  3,  2, Linear.MEM2_INDIRECT, # Load temp value from MEM2
+#         Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Execute next line if random value is 0
+#         Linear.STORE, 3,  2, Linear.MEM3_INDIRECT, # Store temp value into MEM2
+#         Linear.ADD,   2,  1, Linear.IMMEDIATE,     # Increment copy pointer
+#     ]
+#     init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
+#     code = [_random_line(**kwargs) for _ in range(init_len)]
+#     code = sum(code, [])
+#     code = [code, self_rep]
+#     return code
 
-def random_code_one_point(**kwargs):
-    self_rep = [
-        Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Check if copy pointer is 0
-        Linear.RAND,4*7,  1, Linear.VARS_DIRECT,   # Randomly move the copy pointer
-        Linear.LOAD,  2,  1, Linear.MEM2_INDIRECT, # Load temp value from MEM2
-        Linear.STORE, 2,  1, Linear.MEM3_INDIRECT, # Store temp value into MEM3
-        Linear.ADD,   1,  1, Linear.IMMEDIATE,     # Increment copy pointer
-        Linear.IFEQ,  1,4*7, Linear.IMMEDIATE,     # Check if copy pointer is at last position
-        Linear.STOP,  0,  0, Linear.IMMEDIATE,     # End execution
-    ]
-    init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
-    code = [_random_line(**kwargs) for _ in range(init_len)]
-    code = sum(code, [])
-    code = [code, self_rep]
-    return code
+# def random_code_one_point(**kwargs):
+#     self_rep = [
+#         Linear.IFEQ,  1,  0, Linear.IMMEDIATE,     # Check if copy pointer is 0
+#         Linear.RAND,4*7,  1, Linear.VARS_DIRECT,   # Randomly move the copy pointer
+#         Linear.LOAD,  2,  1, Linear.MEM2_INDIRECT, # Load temp value from MEM2
+#         Linear.STORE, 2,  1, Linear.MEM3_INDIRECT, # Store temp value into MEM3
+#         Linear.ADD,   1,  1, Linear.IMMEDIATE,     # Increment copy pointer
+#         Linear.IFEQ,  1,4*7, Linear.IMMEDIATE,     # Check if copy pointer is at last position
+#         Linear.STOP,  0,  0, Linear.IMMEDIATE,     # End execution
+#     ]
+#     init_len = kwargs['rng'].integers(kwargs['init_min_len'], kwargs['init_max_len']+1)
+#     code = [_random_line(**kwargs) for _ in range(init_len)]
+#     code = sum(code, [])
+#     code = [code, self_rep]
+#     return code
 
 # def random_random_code(**kwargs):
 #     func_index = kwargs['rng'].integers(0, 3)
 #     funcs = [random_code_uniform, random_code_one_point, random_non_self_rep_code]
 #     return funcs[func_index](**kwargs)
 
+
 #
 # Fitness Functions
 #
 
-def run_self_rep(code, **kwargs):
-    """Create a Linear object with blank registers, MEM, -1"""
-    l = Linear([[0]*4, code[0], [-1]*len(code[0])], valid_ops=kwargs['ops'])
-    l.run(kwargs['timeout'])
-    return l
+# def run_self_rep(code, **kwargs):
+#     """Create a Linear object with blank registers, MEM, -1"""
+#     l = Linear([[0]*4, code[0], [-1]*len(code[0])], ops=kwargs['ops'])
+#     l.run(kwargs['timeout'])
+#     return l
 
 
 # def self_rep(pop, **kwargs):
@@ -116,15 +100,22 @@ def run_self_rep(code, **kwargs):
 #     return fits
 
 
-def self_rep(pop, **kwargs):
+def run_self_rep(code, **kwargs):
+    """Create a Linear object with blank registers, MEM, -1"""
+    l = Linear([[0]*4, code[0], [-1]*len(code[0])], ops=kwargs['ops'])
+    l.run(kwargs['timeout'])
+    return l
+
+
+def self_rep_fitness(pop, **kwargs):
     """Calculate the fitness value of all individuals in a population"""
     fits = np.empty(len(pop))
 
-    # c = random_mem(**kwargs)
-
     for i, org in enumerate(pop):
-        c = [kwargs['rng'].integers(0, kwargs['max_value']+1, len(org[0]))]
-        copied = self_crossover(org, c, two_way=False, **kwargs)[0][0]
+        # Random code to be copied
+        c = [kwargs['rng'].integers(0, kwargs['value_lim'], len(org[0]))]
+        # Execute the self replication crossover method to get children
+        copied = self_rep_crossover(org, c.copy(), two_way=False, **kwargs)[0][0]
 
         # Fitness is number of values equal
         fit = sum(np.array(c[0]) != copied)
@@ -132,70 +123,108 @@ def self_rep(pop, **kwargs):
     return fits
 
 
-# def self_mutate(pop, **kwargs):
+def setup_self_crossover_overwrite(self_rep_code, a, b, **kwargs):
+    """Use the self_rep_code to copy a onto b"""
+    return Linear([[0]*4, self_rep_code.copy(), a.copy(), b.copy()], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+
+
+def self_crossover_overwrite_fitness(pop, **kwargs):
+    """Calculate the fitness value of all individuals in a population"""
+    fits = np.empty(len(pop))
+
+    for i, org in enumerate(pop):
+        # Code used to replicate
+        rep_code = org[0]
+        # Random code to be copied
+        a = kwargs['rng'].integers(0, kwargs['value_lim'], len(org[0]))
+        b = kwargs['rng'].integers(0, kwargs['value_lim'], len(org[0]))
+        # Prevent a == b for any values
+        b = [(b[i] + 1) % kwargs['value_lim'] if a[i] == b[i] else b[i] for i in range(len(a))]
+        # Execute the self replication crossover method to get children
+        child = setup_self_crossover_overwrite(rep_code, a, b, **kwargs)
+        child.run(kwargs['timeout'])
+        child = child.mem[-1]
+        child = np.array(child)
+
+        # Values in c must be equal to a value in a or b
+        a_matches = sum(child == a)
+        b_matches = sum(child == b)
+
+        fit = ((len(a)-a_matches)**2 + (len(b)-b_matches)**2) / (2*(len(a)/2)**2) - 1
+        fits[i] = fit
+
+    return fits
+
+
+# def self_crossover_fitness(pop, **kwargs):
 #     """Calculate the fitness value of all individuals in a population"""
 #     fits = np.empty(len(pop))
-#     for i,code in enumerate(pop):
 #
-#         input_0 = [0] * 4
-#         input_1 = [0] * 4
-#         l_0 = Linear(code, [0], 4)
-#         l_1 = Linear(code, [0], 4)
-#         l_0.run(kwargs['timeout'])
-#         l_1.run(kwargs['timeout'])
-#         output_0 = l_0.out
-#         output_1 = l_1.out
-#         output_0 = np.array(output_0)
-#         output_1 = np.array(output_1)
-#
-#         diff_0 = input_0 != output_0
-#         diff_1 = input_1 != output_1
-#
-#         fit = 0
-#         fit += sum(diff_0)
-#         fit += sum(diff_1)
-#
-#         if sum(diff_0) + sum(diff_1) == 0:
-#             fit = 1000
-#
-#         if (output_0 == output_1).all():
-#             fit = 1000
-#
+#     for i, org in enumerate(pop):
+#         # Random code to be copied
+#         c = [kwargs['rng'].integers(0, kwargs['value_lim']+1, len(org[0]))]
+#         # Execute the self replication crossover method to get children
+#         result = self_crossover([org[0]], c.copy(), two_way=False, **kwargs)
+#         # Fitness is number of values equal
+#         fit = sum(np.array(c[0]) != result[0][0])
 #         fits[i] = fit
+#
 #     return fits
 
 
-# def self_crossover(pop, **kwargs):
-#     """Calculate the fitness value of all individuals in a population"""
-#     fits = np.empty(len(pop))
-#     for i, code in enumerate(pop):
-#
-#         input_0 = [0] * 4
-#         input_1 = [0] * 4
-#         l_0 = Linear(code, [0], 4)
-#         l_1 = Linear(code, [0], 4)
-#         l_0.run(kwargs['timeout'])
-#         l_1.run(kwargs['timeout'])
-#         output_0 = l_0.out
-#         output_1 = l_1.out
-#         output_0 = np.array(output_0)
-#         output_1 = np.array(output_1)
-#
-#         diff_0 = input_0 != output_0
-#         diff_1 = input_1 != output_1
-#
-#         fit = 0
-#         fit += sum(diff_0)
-#         fit += sum(diff_1)
-#
-#         if sum(diff_0) + sum(diff_1) == 0:
-#             fit = 1000
-#
-#         if (output_0 == output_1).all():
-#             fit = 1000
-#
-#         fits[i] = fit
-#     return fits
+def setup_self_crossover(self_rep_code, a, b, **kwargs):
+    return Linear([[0]*4, self_rep_code.copy(), a.copy(), b.copy(), [-1]*len(a)], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+
+
+def self_crossover_fitness(pop, **kwargs):
+    """Calculate the fitness value of all individuals in a population"""
+    fits = np.empty(len(pop))
+
+    for i, org in enumerate(pop):
+        # Code used to replicate
+        rep_code = org[0]
+        # Random code to be copied
+        a = [[kwargs['value_lim']] * len(org[0])]
+        # Prevent a == b for any values
+        b = [(b[i] + 1) % kwargs['value_lim'] if a[i] == b[i] else b[i] for i in range(len(a))]
+        # Execute the self replication crossover method to get children
+        child = setup_self_crossover(rep_code, a, b, **kwargs)
+        child.run(kwargs['timeout'])
+        child = child.mem[-1]
+        child = np.array(child)
+
+        # Values in c must be equal to a value in a or b
+        fit = sum(child != a)
+        fits[i] = fit
+
+    return fits
+
+
+def setup_mutual_rep(self_rep_code, a, **kwargs):
+    return Linear([[0]*4, self_rep_code.copy(), a.copy(), [kwargs['value_lim']]*len(a)], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+
+
+def mutual_rep_fitness(pop, **kwargs):
+    """Calculate the fitness value of all individuals in a population"""
+    fits = np.empty(len(pop))
+
+    for i, org in enumerate(pop):
+        # Code used to replicate
+        rep_code = org[0]
+        # Execute the self replication crossover method to get children
+        a = kwargs['rng'].integers(0, kwargs['value_lim'], len(org[0]))
+        child = setup_mutual_rep(rep_code, a, **kwargs)
+        child.run(kwargs['timeout'])
+        child = child.mem[-1]
+        child = np.array(child)
+
+        # Values in c must be equal to a value in a or b
+        fit = sum(child != a)
+        fits[i] = fit
+
+    return fits
+
+
 
 
 def lgp_mse(pop, rmse=False, **kwargs):
@@ -208,7 +237,7 @@ def lgp_mse(pop, rmse=False, **kwargs):
         y_actual = []
         for case in cases:
             # Evaluate the organism
-            l = Linear([[0]+list(case)+[0], org[1]], valid_ops=kwargs['ops'])
+            l = Linear([[0]+list(case)+[0], org[0].copy()], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
             l.run(kwargs['timeout'])
             y_actual = np.append(y_actual, l.regs[-1])
         # Calculate MSE
@@ -224,70 +253,65 @@ def lgp_rmse(pop, **kwargs):
     return lgp_mse(pop, rmse=True, **kwargs)
 
 
+# def dynamic_fitness(pop, gen, **kwargs):
+#     if gen < kwargs['dynamic_gen']:
+#         return self_crossover_overwrite_fitness(pop, **kwargs)
+#     else:
+#         return lgp_rmse(pop, **kwargs) + (100 * self_crossover_overwrite_fitness(pop, **kwargs))
+
+
 def dynamic_fitness(pop, gen, **kwargs):
     if gen < kwargs['dynamic_gen']:
-        return self_rep(pop, **kwargs)
+        return mutual_rep_fitness(pop, **kwargs)
     else:
-        return lgp_mse(pop, **kwargs)
+        return lgp_rmse(pop, **kwargs) + (1 * mutual_rep_fitness(pop, **kwargs))
+
 
 
 
 def _check_sylver_coinage(n , played_values):
-
     # Invalid by the definition of the game
     if n <= 1:
         return False
     # No previous moves
     elif not played_values:
         return True
-
     # Dynamic programming to test representability
     reachable = [False] * (n + 1)
     reachable[0] = True
-
     for i in range(1, n + 1):
         for a in played_values:
             if i - a >= 0 and reachable[i - a]:
                 reachable[i] = True
                 break
-
     # Move is invalid if n is in the semigroup
     return not reachable[n]
 
 
 def _smlgp_sylver_coinage(org0, org1, **kwargs):
-
     num_turns = kwargs['num_turns']
-
     played_numbers = [0] * (num_turns * 2)
     # played_numbers = [0] * (num_turn
-
     # Initialize organism a
-    a = Linear([[0] + played_numbers, org0], valid_ops=kwargs['ops'])
+    a = Linear([[0] + played_numbers, org0], ops=kwargs['ops'])
     # Initialize organism b
-    b = Linear([[0] + played_numbers, org1], valid_ops=kwargs['ops'])
-
+    b = Linear([[0] + played_numbers, org1], ops=kwargs['ops'])
     for turn in range(0, num_turns, 2):
-
         # Update memory of played values
         a.mem[0] = [0] + [0] + played_numbers
         a.regs = a.mem[0]
-
         # Run until timeout
         a.run(kwargs['timeout'])
         # Extract final value played by a
         a_played = a.mem[0][1]
         # print(a_played)
-
         # Check if the value is valid and save it
         if _check_sylver_coinage(a_played, played_numbers):
             # played_numbers.append(a_played)
             played_numbers[turn] = a_played
         else:
             return turn-1, turn
-
         turn += 1
-
         # Update memory of played values
         b.mem[0] = [0] + [0] + played_numbers
         b.regs = b.mem[0]
@@ -296,38 +320,29 @@ def _smlgp_sylver_coinage(org0, org1, **kwargs):
         # Extract final value played by a
         b_played = b.mem[0][1]
         # print(b_played)
-
         # Check if the value is valid and save it
         if _check_sylver_coinage(b_played, played_numbers):
             # played_numbers.append(b_played)
             played_numbers[turn] = b_played
         else:
             return turn, turn-1
-
     return num_turns+1, num_turns+1
 
 
 def smlgp_compete(pop, **kwargs):
     """Randomly compete each organism against another organism"""
-
     shuffle_map = np.arange(len(pop))
     kwargs['rng'].shuffle(shuffle_map)
     fits = np.empty(len(pop))
-
     for i in range(0, len(pop), 2):
-
         index0 = shuffle_map[i]
         index1 = shuffle_map[i+1]
         org0 = pop[index0]
         org1 = pop[index1]
-
         fit0, fit1 = _smlgp_sylver_coinage(org0, org1, **kwargs)
-
         fits[index0] = fit0
         fits[index1] = fit1
-
     return fits
-
 
 
 #
@@ -337,6 +352,10 @@ def smlgp_compete(pop, **kwargs):
 def x2(x): return 2 * x
 def multiply(x0,x1): return x0 * x1
 def power(x0,x1): return x0 ** x1
+def factorial(x): return math.factorial(x)
+def koza_1(x): return x**4 + x**3 + x**2 + x
+def koza_2(x): return x**5 - 2*x**3 + x
+def koza_3(x): return x**6 - 2*x**4 + x**2
 
 
 #
@@ -378,27 +397,19 @@ def two_point_crossover(a, b, **kwargs):
     return new_a, new_b
 
 
-# def self_crossover(a, b, **kwargs):
-#     """Use the organisms to replicate and mutate self"""
-#     a_vars, a_solv, a_repl = a
-#     b_vars, b_solv, b_repl = b
-#     # Code used to replicate each sub block of code
-#     new_a_solv = [a_vars, a_repl, a_solv, b_solv]
-#     new_a_repl = [a_vars, a_repl, a_repl, b_repl]
-#     new_b_solv = [b_vars, b_repl, b_solv, a_solv]
-#     new_b_repl = [b_vars, b_repl, b_repl, a_repl]
-#     # Create and run a Linear runtime object
-#     new_a_solv = Linear(new_a_solv, rand=True).run(kwargs['timeout']).mem[3]
-#     new_a_repl = Linear(new_a_repl, rand=True).run(kwargs['timeout']).mem[3]
-#     new_b_solv = Linear(new_b_solv, rand=True).run(kwargs['timeout']).mem[3]
-#     new_b_repl = Linear(new_b_repl, rand=True).run(kwargs['timeout']).mem[3]
-#     # Build new organism from the replicated code
-#     new_a = [a_vars, new_a_solv, new_a_repl]
-#     new_b = [b_vars, new_b_solv, new_b_repl]
-#     return new_a, new_b
+def two_point_crossover_2d(a, b, **kwargs):
+    new_a = [None] * len(a)
+    new_b = [None] * len(b)
+    for i in range(len(a)):
+         new_a[i], new_b[i] = two_point_crossover(a[i], b[i], min_len=kwargs['min_lens'][i], max_len=kwargs['max_lens'][i], **kwargs)
+    return new_a, new_b
 
 
-def self_crossover(a, b, two_way=True, **kwargs):
+def setup_self_rep_crossover(self_rep_code, code_to_rep, **kwargs):
+    return Linear([[0]*4, self_rep_code.copy(), code_to_rep.copy(), [-1]*len(code_to_rep)], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+
+
+def self_rep_crossover(a, b, two_way=True, **kwargs):
     """Uses MEM1 in a to copy each MEM of b from MEM2 to MEM3. Then repeats with reversed roles"""
     children = []
     orderings = ((a,b),(b,a)) if two_way else ((a,b),)
@@ -406,9 +417,53 @@ def self_crossover(a, b, two_way=True, **kwargs):
     for u,v in orderings:
         children.append([])
         for j, mem in enumerate(v):
-            l = Linear([[0]*4, u[0], mem, [-1]*len(mem)], valid_ops=kwargs['ops'])
+            # l = Linear([[0]*4, u[0], mem, [-1]*len(mem)], ops=kwargs['ops'])
+            l = setup_self_rep_crossover(u[0], mem, **kwargs)
             l.run(kwargs['timeout'])
             children[-1].append(l.mem[3])
+    return children
+
+
+def self_crossover_overwrite(a, b, two_way=True, **kwargs):
+    """Uses a[0] to copy each MEM from a onto b. Then repeats with reversed roles"""
+    children = []
+    orderings = ((a,b),(b,a)) if two_way else ((a,b),)
+    # Create and run a Linear runtime object
+    for u,v in orderings:
+        children.append([])
+        for j in range(len(u)):
+            l = setup_self_crossover(u[0], u[j], v[j], **kwargs)
+            l.run(kwargs['timeout'])
+            children[-1].append(l.mem[-1])
+    return children
+
+
+
+def self_crossover(a, b, two_way=True, **kwargs):
+    """Uses a.MEM1 as MEM1 and b.MEM1 as MEM2 to create a new parent in MEM3. Then repeats with reversed roles"""
+    children = []
+    orderings = ((a,b),(b,a)) if two_way else ((a,b),)
+    # Create and run a Linear runtime object
+    for u,v in orderings:
+        children.append([])
+        for j in range(len(u)):
+            l = setup_self_crossover(u[0], v[j], u[j], **kwargs)
+            l.run(kwargs['timeout'])
+            children[-1].append(l.mem[3])
+    return children
+
+
+def mutual_rep(a, b, two_way=True, **kwargs):
+    """Uses a.MEM1 as MEM1 and b.MEM1 as MEM2 to create a new parent in MEM3. Then repeats with reversed roles"""
+    children = []
+    orderings = ((a,b),(b,a)) if two_way else ((a,b),)
+    # Create and run a Linear runtime object
+    for u,v in orderings:
+        children.append([])
+        for j in range(len(u)):
+            l = setup_mutual_rep(u[0], v[j], **kwargs)
+            l.run(kwargs['timeout'])
+            children[-1].append(l.mem[-1])
     return children
 
 
@@ -416,29 +471,19 @@ def dynamic_crossover(a, b, gen, **kwargs):
     if gen < kwargs['dynamic_gen']:
         return a, b
     else:
-        return self_crossover(a, b, **kwargs)
+        return mutual_rep(a, b, **kwargs)
+
 
 #
 # Mutation Functions
 #
-
-# def point_mutation(code, **kwargs):
-#     """Randomly change a value in a random line"""
-#     # Duplicate the original
-#     code = [line.copy() for line in code]
-#     # Select a random line and sub line
-#     index = kwargs['rng'].integers(len(code))
-#     sub_index = kwargs['rng'].integers(4)
-#     # Replace the argument
-#     code[index][sub_index] = _random_line(**kwargs)[sub_index]
-#     return code
 
 def point_mutation(org, **kwargs):
     """Randomly change a value in a random line"""
     # Select a random value
     index = kwargs['rng'].integers(len(org))
     # Replace the argument
-    org[index] = kwargs['rng'].integers(kwargs['max_value'])
+    org[index] = kwargs['rng'].integers(kwargs['value_lim'])
     return org
 
 

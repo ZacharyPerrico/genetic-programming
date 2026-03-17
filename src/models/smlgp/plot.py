@@ -11,7 +11,7 @@ from src.utils.utils import cartesian_prod
 # Data Based Plotting
 #
 
-def plot_fitness(all_fits, ax=None, save=True, show=True, **kwargs):
+def plot_fitness(all_fits, ax=None, save='Fitness', show=True, **kwargs):
     """Plot the average of the runs' minimum fitness for each test"""
     if ax is None:
         fig, ax = plt.subplots()
@@ -20,7 +20,6 @@ def plot_fitness(all_fits, ax=None, save=True, show=True, **kwargs):
         if kwargs['minimize_fitness']:
             y = np.mean(np.min(all_fits[test], axis=2), axis=0)
             ax.set_ylabel('Average Min Fitness Value')
-
         else:
             y = np.mean(np.max(all_fits[test], axis=2), axis=0)
             ax.set_ylabel('Average Max Fitness Value')
@@ -28,8 +27,22 @@ def plot_fitness(all_fits, ax=None, save=True, show=True, **kwargs):
         plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0])
 
         # Error bands
-        y_std = np.std(np.max(all_fits[test], axis=2), axis=0)
-        ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
+        # y_std = np.std(np.max(all_fits[test], axis=2), axis=0)
+        # ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
+
+        # Min bands
+        y = np.min(np.min(all_fits[test], axis=2), axis=0)
+        plt.plot(x, y,  ':', label=kwargs['test_kwargs'][test + 1][0]+' (min-min)')
+
+        # y = np.max(np.max(all_fits[test], axis=2), axis=0)
+        # plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0]+' (max-max)')
+
+        # y = np.max(np.min(all_fits[test], axis=2), axis=0)
+        # plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0]+' (max-min)')
+
+        # for run in range(all_fits[test].shape[0]):
+        #     y = np.mean(all_fits[test,run], axis=1)
+        #     plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0] + f' ({run})')
 
         # Scatter plot all points
         # xx = x.reshape((1,len(x),1)).repeat(all_fits.shape[1], axis=0).repeat(all_fits.shape[3], axis=2).ravel()
@@ -40,7 +53,7 @@ def plot_fitness(all_fits, ax=None, save=True, show=True, **kwargs):
     ax.set_xlabel('Generation')
     plt.legend(title=kwargs['test_kwargs'][0][0])
     if save:
-        plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/Fitness.png')
+        plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{save}.png')
     if show:
         plt.show()
     plt.close()
@@ -51,6 +64,7 @@ def plot_mean_fitness(all_fits, ax=None, save=True, show=True, **kwargs):
     """Plot the average of the runs' minimum fitness for each test"""
     if ax is None:
         fig, ax = plt.subplots()
+
     x = np.array(range(all_fits.shape[2]))
     for test in range(all_fits.shape[0]):
         y = np.mean(np.mean(all_fits[test], axis=2), axis=0)
@@ -59,10 +73,12 @@ def plot_mean_fitness(all_fits, ax=None, save=True, show=True, **kwargs):
         plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0])
         y_std = np.std(np.mean(all_fits[test], axis=2), axis=0)
         ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
+
         # Scatter plot all points
         # xx = x.reshape((1,len(x),1)).repeat(all_fits.shape[1], axis=0).repeat(all_fits.shape[3], axis=2).ravel()
         # yy = all_fits[test].ravel()
         # plt.scatter(xx, yy, 0.1)
+
     # ax.set_yscale('log')
     ax.set_xlabel('Generation')
     plt.legend(title=kwargs['test_kwargs'][0][0])
@@ -174,7 +190,7 @@ def table_best(obj, **kwargs):
     # Calculate values
     y_actual = []
     for case in cases:
-        l = Linear([[0] + list(case) + [0], obj[0]])
+        l = Linear([[0] + list(case) + [0], obj[0]], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
         l.run(kwargs['timeout'])
         y_actual = np.append(y_actual, l.regs[-1])
     # Append rows as columns to table
@@ -186,7 +202,9 @@ def table_best(obj, **kwargs):
     table.append(abs(y_target - y_actual) ** 2)
     # Transpose the table and print each row
     for row in zip(*table):
-        row = '{:2} │ {} │ {:2} │ {:4.1f} │ {:4.1f} │ {:5.1f} │'.format(*row)
+        row = list(row)
+        row[1] = str(row[1])
+        row = '{:2} │ {:5} │ {:3} │ {:6.1f} │ {:6.1f} │ {:8.1f} │'.format(*row)
         print(row)
     # Print the total's row
     row = []
@@ -198,7 +216,7 @@ def table_best(obj, **kwargs):
     row.append(sum((abs(y_target - y_actual)) ** 2))
     row.append(sum((abs(y_target - y_actual)) ** 2) / len(cases))
     row.append((sum((abs(y_target - y_actual)) ** 2) / len(cases)) ** (1 / 2))
-    row = '{:2} │ {:5} │ {:2} │ {:4} │ {:4.1f} │ {:5.1f} │ {} │ {} │'.format(*row)
+    row = '{:2} │ {:5} │ {:3} │ {:6} │ {:6.1f} │ {:8.1f} │ {} │ {} │'.format(*row)
     print(row)
 
 
@@ -233,12 +251,13 @@ def plot_results(all_fits, **kwargs):
     os.makedirs(path, exist_ok=True)
     print('Plotting results')
 
-    # plot_fitness(all_fits, show=True, **kwargs)
 
-    # print(all_fits.shape)
 
-    plot_fitness(all_fits[:,:,:kwargs['dynamic_gen'],:], show=True, **kwargs)
-    plot_fitness(all_fits[:,:,kwargs['dynamic_gen']:,:], show=True, **kwargs)
+
+    plot_fitness(all_fits, show=True, **kwargs)
+
+    # plot_fitness(all_fits[:,:,:kwargs['dynamic_gen'],:], save='First Fitness', show=True, **kwargs)
+    # plot_fitness(all_fits[:,:,kwargs['dynamic_gen']:,:], save='Second Fitness', show=True, **kwargs)
 
     # plot_means(np.vectorize(lambda x: len(x))(all_pops), 'Average Length', show=False, **kwargs)
     # plot_medians(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
@@ -247,18 +266,84 @@ def plot_results(all_fits, **kwargs):
 
 
     # Plot best results of each test
-    bests = zip(*get_best(all_fits, **kwargs))
+    bests = zip(*get_best(all_fits, gen=-1, **kwargs))
     for i, best in enumerate(bests):
         best_org, best_fit = best
         test_name = kwargs['test_kwargs'][i+1][0]
-        print(best_fit)
+        print(test_name)
+        print('Fitness: ', best_fit)
 
-        l = run_self_rep(best_org, **kwargs)
+        table_best(best_org, **kwargs)
+
+        l = Linear([[0]+[1]+[0],best_org[0]], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+        # l.run(kwargs['timeout'])
         print(l)
 
 
+
+
+
+
+
+    # # Plot best results of each test
+    # bests = zip(*get_best(all_fits, gen=kwargs['dynamic_gen']-1, **kwargs))
+    # for i, best in enumerate(bests):
+    #     best_org, best_fit = best
+    #     test_name = kwargs['test_kwargs'][i+1][0]
+    #     print(test_name)
+    #     print('Fitness: ', best_fit)
+    #     f = kwargs['fitness_func']([best_org], gen=kwargs['dynamic_gen']-1, rng=np.random.default_rng(), **kwargs)
+    #     print('Recalculated fitness:', f)
+    #     f = kwargs['fitness_func']([best_org], gen=kwargs['dynamic_gen']+1, rng=np.random.default_rng(), **kwargs)
+    #     print('Recalculated fitness:', f)
+    #
+    #     # l = run_self_rep(best_org, **kwargs)
+    #     # print(l)
+    #
+    #     # l = setup_self_crossover_overwrite(best_org[0], [-1]*len(best_org[0]), [-2]*len(best_org[0]), **kwargs)
+    #     l = setup_mutual_rep(best_org[0], best_org[0], **kwargs)
+    #     # print(l)
+    #     l.run(kwargs['timeout'])
+    #     print(l)
+    #
+    #
+    #     # l = Linear(([0,2,3,0],best_org[1]), ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+    #     # l.run(kwargs['timeout'])
+    #     # print(l)
+    #
+    #
+    # # Plot best results of each test
+    # bests = zip(*get_best(all_fits, gen=slice(kwargs['dynamic_gen'],None), **kwargs))
+    # for i, best in enumerate(bests):
+    #     best_org, best_fit = best
+    #     test_name = kwargs['test_kwargs'][i + 1][0]
+    #     print(test_name)
+    #     print('Fitness: ', best_fit)
+    #     f = kwargs['fitness_func']([best_org], gen=kwargs['dynamic_gen'] - 1, rng=np.random.default_rng(), **kwargs)
+    #     print('Recalculated fitness:', f)
+    #     f = kwargs['fitness_func']([best_org], gen=kwargs['dynamic_gen'] + 1, rng=np.random.default_rng(), **kwargs)
+    #     print('Recalculated fitness:', f)
+    #
+    #     # l = run_self_rep(best_org, **kwargs)
+    #     # print(l)
+    #
+    #     # l = setup_self_crossover_overwrite(best_org[0], [-1] * len(best_org[0]), [-2] * len(best_org[0]), **kwargs)
+    #     # print(l)
+    #     l = setup_mutual_rep(best_org[0], best_org[0], **kwargs)
+    #     l.run(kwargs['timeout'])
+    #     print(l)
+    #
+    #     l = Linear(([0, 2, 3, 0], best_org[1]), ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+    #     l.run(kwargs['timeout'])
+    #     print(l)
+    #
+    #     table_best([best_org[1]], **kwargs)
+
+
+
 if __name__ == '__main__':
-    name = 'project_test_2'
+    name = 'project_test_8'
+    name = 'symb_reg_0'
     kwargs = load_kwargs(name, '../../../saves/smlgp/')
     fits = load_fits(**kwargs)
     plot_results(fits, **kwargs)
