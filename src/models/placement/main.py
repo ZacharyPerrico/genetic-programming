@@ -1,0 +1,56 @@
+from src.evolve import simulate_tests
+from src.models.placement import *
+from src.models.placement.plot import plot_results
+from src.utils.save import load_runs, load_fits
+
+kwargs = {
+    'name': 'example_0',  # Name of folder to contain all results
+    'seed': None,
+    'verbose': True,
+    'parallelize': True,
+    'saves_path': '../../../saves/placement/',  # Save path relative to this file
+    ## Size ##
+    'num_runs': 24,
+    'num_gens': 500,
+    'pop_size': 16,
+    'num_routers': 6,
+    'num_clients': 16,
+    'min_value': 0,  # Min value of a position (inclusive)
+    'max_value': 1,  # Max value of a position (exclusive)
+    'radius': 0.2,  # Coverage radius of each router
+    ## Setup ##
+    'setup_func': setup_uniform_clients,  # Function that runs for each unique job and returns updated kwargs
+    ## Initialization ##
+    'init_individual_func': random_uniform_router_coords,  # Function used to generate a new organism
+    ## Evaluation ##
+    'fitness_func': num_cov,
+    ## Selection ##
+    'minimize_fitness': False,
+    'keep_parents': 2,  # Elitism, must be even
+    'k': 2,  # Number of randomly chosen parents for each tournament
+    ## Repopulation ##
+    'crossover_funcs': [
+        [coords_two_point_crossover, 1.0],
+    ],
+    'mutate_funcs': [
+        [coords_point_mutation_2d, 0.5],
+    ],
+    ## Tests ##
+    'test_kwargs': [
+        ['Crossover, Mutation', 'crossover_funcs', 'mutate_funcs'],
+        # ['0.0 0.0', [[two_point_crossover, 0.0]], [[point_mutation, 0.0]]],
+        *[
+            [f'{c}, {m}', [[coords_two_point_crossover, m]], [[coords_point_mutation_2d, m]]]
+            for c in [.2]
+            for m in [.2]
+        ]
+    ]
+}
+
+if __name__ == '__main__':
+    simulate_tests(**kwargs)
+    fits = load_fits(**kwargs)
+    plot_results(fits, **kwargs)
+
+
+

@@ -7,7 +7,6 @@ from multiprocessing import Pool, cpu_count
 
 import numpy as np
 
-from src.models import remove_node
 from src.utils.save import save_kwargs, save_run
 
 #
@@ -160,6 +159,7 @@ def _simulate_and_save_test_run(test_num, run_num, test_kwargs, base_kwargs):
     for key, value in zip(test_keys, test_values):
         kwargs[key] = value
 
+
     # Set path and create directory (thread-safe)
     test_name = test_values[0]
     test_path = f'{kwargs["saves_path"]}{kwargs["name"]}/data/{test_values[0]}'
@@ -168,6 +168,9 @@ def _simulate_and_save_test_run(test_num, run_num, test_kwargs, base_kwargs):
     if kwargs['seed'] is None:
         kwargs['seed'] = np.random.randint(0, 2**64, dtype='uint64')
     kwargs['rng'] = np.random.default_rng(kwargs['seed'])
+
+    if 'setup_func' in kwargs:
+        kwargs = kwargs['setup_func'](**kwargs)
 
     # Add no-operation as a possible crossover
     prob_noop = 1 - sum(list(zip(*kwargs['crossover_funcs']))[1])

@@ -128,6 +128,14 @@ def load_pop(test, run, **kwargs):
     return pop
 
 
+def load_seed(test, run, **kwargs):
+    """Returns a 4D array of all individuals and fitness values"""
+    test_name = kwargs['test_kwargs'][1:][test][0]
+    test_path = f'{kwargs['saves_path']}{kwargs['name']}/data/{test_name}/*/'
+    run_file_name = sorted(glob.glob(test_path))[run]
+    run_seed = run_file_name.split('\\')[-2]
+    return run_seed
+
 
 if __name__ == '__main__':
     # name = 'unstable_self_rep_0'
