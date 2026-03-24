@@ -239,48 +239,6 @@ def plot_box(values, ylabel, ax=None, save=True, show=True, **kwargs):
 
 
 #
-# Tables
-#
-
-def table_best(obj, **kwargs):
-    """Plot the best result of the given run and gen"""
-    table = []
-    cases = cartesian_prod(*kwargs['domains'])
-    y_target = np.array([kwargs['target_func'](*list(xs)) for xs in cases])
-    # Calculate values
-    y_actual = []
-    # for case in cases:
-        # l = Linear([[0] + list(case) + [0], obj[0]], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
-        # l.run(kwargs['timeout'])
-        # y_actual = np.append(y_actual, l.regs[-1])
-    # Append rows as columns to table
-    table.append(range(len(cases)))
-    table.append(cases)
-    table.append(y_target)
-    table.append(y_actual)
-    table.append(abs(y_target - y_actual))
-    table.append(abs(y_target - y_actual) ** 2)
-    # Transpose the table and print each row
-    for row in zip(*table):
-        row = list(row)
-        row[1] = str(row[1])
-        row = '{:2} │ {:5} │ {:3} │ {:6.1f} │ {:6.1f} │ {:8.1f} │'.format(*row)
-        print(row)
-    # Print the total's row
-    row = []
-    row.append('')
-    row.append('')
-    row.append('')
-    row.append('')
-    row.append(sum(abs(y_target - y_actual)))
-    row.append(sum((abs(y_target - y_actual)) ** 2))
-    row.append(sum((abs(y_target - y_actual)) ** 2) / len(cases))
-    row.append((sum((abs(y_target - y_actual)) ** 2) / len(cases)) ** (1 / 2))
-    row = '{:2} │ {:5} │ {:3} │ {:6} │ {:6.1f} │ {:8.1f} │ {} │ {} │'.format(*row)
-    print(row)
-
-
-#
 # Control
 #
 

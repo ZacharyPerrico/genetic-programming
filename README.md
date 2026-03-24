@@ -12,9 +12,9 @@ Methods contained withing the evolve.py are standard methods used for evolution 
 
 Individual modules used to implement new forms of evolution. Broken into several files:
 
-- main: File used to run experiment
+- main: File used to run experiments
 - methods: General evolution methods such as mutation and recombination
-- model: Class based implementation
+- model: Optional class based implementation used to represent the 
 - plot: Specific methods of graphic results or models
 
 Models can be added and removed without impacting any other part of the FAE.

@@ -102,7 +102,7 @@ def load_fits(**kwargs):
     return fits
 
 
-def load_pops(test, run, **kwargs):
+def load_pops(**kwargs):
     """Returns a 4D array of all individuals and fitness values"""
     pops = []
     test_names = [test[0] for test in kwargs['test_kwargs'][1:]]
@@ -114,8 +114,7 @@ def load_pops(test, run, **kwargs):
             pops[-1].append(np.load(run_file_name+'pops.npy', allow_pickle=True))
     # pops = np.array(pops, dtype=[('verts','object'),('edges','object')])
     pops = np.array(pops, dtype=object)
-    fits = np.array(fits)
-    return pops, fits
+    return pops
 
 
 def load_pop(test, run, **kwargs):
@@ -129,7 +128,7 @@ def load_pop(test, run, **kwargs):
 
 
 def load_seed(test, run, **kwargs):
-    """Returns a 4D array of all individuals and fitness values"""
+    """Returns the seed used for a run given the test name and the index of the run"""
     test_name = kwargs['test_kwargs'][1:][test][0]
     test_path = f'{kwargs['saves_path']}{kwargs['name']}/data/{test_name}/*/'
     run_file_name = sorted(glob.glob(test_path))[run]

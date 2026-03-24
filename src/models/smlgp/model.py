@@ -32,14 +32,14 @@ class Linear:
         'CODE_INDIRECT',
     )
 
-    def __init__(self, mem, ops=DEFAULT_OPS, value_lim=DEFAULT_VALUE_LIM):
+    def __init__(self, mem, ops=DEFAULT_OPS, value_lim=DEFAULT_VALUE_LIM, **kwargs):
         self.value_lim = value_lim
         
-        self.mem = mem
+        self.mem = mem.copy()
         self.regs = self.mem[0]
         self.code = self.mem[1]
 
-        # Create a list and dict to map between op code strings and values
+        # Create a list and dict to map between op org strings and values
         self.valid_ops_list = ops
         self.valid_ops_dict = {v:u for u,v in enumerate(self.valid_ops_list)}
 
@@ -71,19 +71,9 @@ class Linear:
         addr_mode  = int(addr_mode)  % (len(self.mem) * 2 + 1)
 
         # Fetch the operand
+        # Odd values are DIRECT
+        # Nonzero even values are INDIRECT
         # Value of 0 is IMMEDIATE
-        # Odd numbers are DIRECT
-        # Even values are INDIRECT
-        # if addr_mode % 2 == 1:
-        #     mem_index = (addr_mode - 1) // 2
-        #     operand = self.mem[mem_index][int(operand_spec) % len(self.mem[mem_index])]
-        # elif addr_mode % 2 == 0 and addr_mode != 0:
-        #     mem_index = (addr_mode - 2) // 2
-        #     operand = self.mem[mem_index][self.regs[int(operand_spec) % len(self.regs)] % len(self.mem[mem_index])]
-        # else:
-        #     operand = operand_spec
-
-        # Fetch the operand
         if addr_mode % 2 == 1:
             i = (addr_mode - 1) // 2
             j = int(operand_spec) % len(self.mem[i])
@@ -97,20 +87,22 @@ class Linear:
 
         # Increment program counter
         self.regs[Linear.PC_INDEX] += Linear.LINE_LENGTH
+        self.regs[Linear.PC_INDEX] %= self.value_lim
 
         # Perform the operation
         match self.valid_ops_list[op_code]:
             case 'STOP': return True
-            case 'STORE': self.mem[i][j] = self.regs[target_reg] % self.value_lim
-            case 'LOAD': self.regs[target_reg] =                          operand  % self.value_lim
+            case 'STORE': self.mem[i][j] = self.regs[target_reg] #% self.value_lim
+            case 'LOAD': self.regs[target_reg] =                          operand  #% self.value_lim
             case 'ADD':  self.regs[target_reg] = (self.regs[target_reg] + operand) % self.value_lim
             case 'SUB':  self.regs[target_reg] = (self.regs[target_reg] - operand) % self.value_lim
             case 'MUL':  self.regs[target_reg] = (self.regs[target_reg] * operand) % self.value_lim
             case 'DIV':
-                if self.regs[target_reg] != 0:
-                    self.regs[target_reg] = (self.regs[target_reg] / operand) % self.value_lim
+                if operand != 0:
+                    self.regs[target_reg] = (self.regs[target_reg] // operand) % self.value_lim
                 else:
-                    self.regs[target_reg] = self.value_lim - 1
+                    # self.regs[target_reg] = self.value_lim - 1
+                    self.regs[target_reg] = 1
             case 'IFEQ':
                 if self.regs[target_reg] != operand:
                     self.regs[Linear.PC_INDEX] = (self.regs[Linear.PC_INDEX] + Linear.LINE_LENGTH) % self.value_lim
@@ -145,7 +137,7 @@ class Linear:
                 string += f'  {pc:2} │ '
                 # Line values
                 string += ', '.join([f'{j:2}' for j in line])
-                # Formated line as code
+                # Formated line as org
                 if step_size != 1:
                     op_code, target_reg, operand_spec, addr_mode = line
                     op_code = int(op_code) % len(self.valid_ops_dict)
@@ -163,7 +155,7 @@ if __name__ == '__main__':
     pass
 
     ## Mutate ##
-    # code = [[
+    # org = [[
     #     0,
     #     0,
     # ],[
@@ -175,7 +167,7 @@ if __name__ == '__main__':
     # ]]
 
     ## Self-Rep / Crossover / Mutation ##
-    # code = [[
+    # org = [[
     #     0, # PC
     #     0, # Random value
     #     0, # Copy pointer
@@ -210,7 +202,7 @@ if __name__ == '__main__':
     # ]]
 
     ## Evolved Self Rep ##
-    # code = [
+    # org = [
     #     [Linear.SUB   ,  1 ,  3 , Linear.IMMEDIATE],
     #     [Linear.LOAD  ,  2 ,  4 , Linear.MEM_INDIRECT],
     #     [Linear.STORE ,  2 , 10 , Linear.OUT_INDIRECT],
@@ -219,7 +211,7 @@ if __name__ == '__main__':
     # ]
 
     ## One Point Crossover ##
-    # code = [[
+    # org = [[
     #     0, # PC
     #     0, # Copy pointer
     #     0, # Temp
@@ -236,19 +228,27 @@ if __name__ == '__main__':
     #     [2] * 32,
     # ]
 
-    code = [[
+    # org = [[
+    #
+    # ],[
+    #     'LOAD', 3, 19, 'CODE_INDIRECT',
+    #     'ADD', 3, 27, 'REGS_INDIRECT',
+    #     'ADD', 0, 17, 'CODE_INDIRECT',
+    #     'ADD', 1, 12, 'REGS_INDIRECT',
+    # ]]
 
-    ],[
-        'LOAD', 3, 19, 'CODE_INDIRECT',
-        'ADD', 3, 27, 'REGS_INDIRECT',
-        'ADD', 0, 17, 'CODE_INDIRECT',
-        'ADD', 1, 12, 'REGS_INDIRECT',
-    ]]
+    x = sum([
+        15, 10, 11, 14,
+        13, 13, 6, 6,
+        3, 5, 2, 11,
+        2, 5, 6, 6,
+    ])
+    print(x)
 
-    l = Linear(code)
-    print(l)
-    l.run(100)
-    print(l)
+    # l = Linear(code, ops=('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'IFEQ'), value_lim=32)
+    # print(l)
+    # l.run(100)
+    # print(l)
     # l.run(4000)
     # print(l)
 

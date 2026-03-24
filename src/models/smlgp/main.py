@@ -371,7 +371,7 @@ from src.utils.save import load_runs, load_fits
 # }
 
 # kwargs = {
-#     'name': 'symb_reg_1',  # Name of folder to contain all results
+#     'name': 'symb_reg_0',  # Name of folder to contain all results
 #     'seed': None,
 #     'verbose': True,
 #     'parallelize': True,
@@ -387,21 +387,21 @@ from src.utils.save import load_runs, load_fits
 #     'init_individual_func': random_mems,  # Function used to generate a new organism
 #     'init_min_lens': (64,),  # Length of each memory bank excluding regs
 #     'init_max_lens': (128,),  # Length of each memory bank excluding regs
-#     'value_lim': 2**10,  # The largest value that can be used in the model plus one
+#     'value_lim': 256,  # The largest value that can be used in the model plus one
 #     'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'MUL', 'IFEQ'),
 #     ## Evaluation ##
 #     'fitness_func': lgp_rmse,
 #     'timeout': 128,  # Number of evaluation iterations before forced termination
 #     'target_func': factorial,
 #     # 'domains': [[2,3,5],[4,5,6]],
-#     'domains': [list(range(7))],
+#     'domains': [list(range(5))],
 #     ## Selection ##
 #     'minimize_fitness': True,
 #     'keep_parents': 2,  # Elitism, must be even
 #     'k': 2,  # Number of randomly chosen parents for each tournament
 #     ## Repopulation ##
 #     'crossover_funcs': [
-#         [dynamic_crossover, 1.0],
+#         [two_point_crossover_2d, 1.0],
 #     ],
 #     'mutate_funcs': [
 #         [point_mutation_2d, 0.5],
@@ -418,14 +418,173 @@ from src.utils.save import load_runs, load_fits
 #     ]
 # }
 
+
+# kwargs = {
+#     'name': 'mult_13',  # Name of folder to contain all results
+#     'seed': None,
+#     'verbose': True,
+#     'parallelize': True,
+#     'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
+#     ## Size ##
+#     'num_runs': 3,
+#     'num_gens': 2000,
+#     'pop_size': 256,
+#     'min_lens': (16,),  # Length of each memory bank excluding regs
+#     'max_lens': (16,),  # Length of each memory bank excluding regs
+#     'num_regs': 4,
+#     ## Initialization ##
+#     'init_individual_func': random_contextual_mems,  # Function used to generate a new organism
+#     'init_min_lens': (16,),  # Length of each memory bank excluding regs
+#     'init_max_lens': (16,),  # Length of each memory bank excluding regs
+#     'value_lim': 64,  # One more than the largest value that can be used in the model
+#     'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'IFEQ'),
+#     # 'ops': ('STOP', 'ADD', 'SUB', 'IFEQ'),
+#     ## Evaluation ##
+#     'fitness_func': lgp_rmse,
+#     'timeout': 32,  # Number of evaluation iterations before forced termination
+#     'target_func': multiply,
+#     # 'domains': [[0,1,2,3,4,5,6,7],[0,1,2,3,4,5,6,7]],
+#     'domains': [[0,1,6,7],[0,1,6,7]],
+#     # 'domains': [[4,5,6],[2,3,4]],
+#     ## Selection ##
+#     'minimize_fitness': True,
+#     'keep_parents': 2,  # Elitism, must be even
+#     'k': 2,  # Number of randomly chosen parents for each tournament
+#     ## Repopulation ##
+#     'crossover_funcs': [
+#         [two_point_block_crossover_2d, 0.9],
+#     ],
+#     'mutate_funcs': [
+#         [contextual_point_mutation_2d, 0.9],
+#     ],
+#     ## Tests ##
+#     'test_kwargs': [
+#         ['Crossover, Mutation', 'crossover_funcs', 'mutate_funcs'],
+#         # ['0.0 0.0', [[two_point_crossover, 0.0]], [[point_mutation, 0.0]]],
+#         *[
+#             [f'{c}, {m}', [[two_point_block_crossover_2d, m]], [[contextual_point_mutation_2d, m]]]
+#             for c in [.5,.7,.9]
+#             for m in [.1,.3,.5]
+#             # for c in [.1, .5, .9]
+#             # for m in [.1, .5, .9]
+#         ]
+#     ]
+#     # 'test_kwargs': [
+#     #     ['Crossover', 'crossover_funcs'],
+#     #     ['Fixed Block', [[two_point_block_crossover_2d, 0.9]]],
+#     #     # ['Fixed', [[fixed_two_point_crossover_2d, 0.9]]],
+#     #     # ['Regular', [[two_point_crossover_2d, 0.9]]],
+#     # ]
+#     # 'test_kwargs': [
+#     #     ['Value Limit', 'value_lim'],
+#     #     *[
+#     #         [f'{t}', t]
+#     #         for t in [64,128,256]
+#     #     ]
+#     # ]
+# }
+
+
+
+# kwargs = {
+#     'name': 'self_rep_0',  # Name of folder to contain all results
+#     'seed': None,
+#     'verbose': True,
+#     'parallelize': True,
+#     'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
+#     ## Size ##
+#     'num_runs': 20,
+#     'num_gens': 1000,
+#     'pop_size': 256,
+#     'min_lens': (16,),  # Length of each memory bank excluding regs
+#     'max_lens': (16,),  # Length of each memory bank excluding regs
+#     'num_regs': 4,
+#     ## Initialization ##
+#     'init_individual_func': random_mems,  # Function used to generate a new organism
+#     'init_min_lens': (16,),  # Length of each memory bank excluding regs
+#     'init_max_lens': (16,),  # Length of each memory bank excluding regs
+#     'value_lim': 16,  # One more than the largest value that can be used in the model
+#     'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'IFEQ'),
+#     ## Evaluation ##
+#     'fitness_func': self_rep_fitness,
+#     'timeout': 64,  # Number of evaluation iterations before forced termination
+#     ## Selection ##
+#     'minimize_fitness': True,
+#     'keep_parents': 2,  # Elitism, must be even
+#     'k': 2,  # Number of randomly chosen parents for each tournament
+#     ## Repopulation ##
+#     'crossover_funcs': [
+#         [two_point_crossover_2d, 0.9],
+#     ],
+#     'mutate_funcs': [
+#         [point_mutation_2d, 0.9],
+#     ],
+#     # Tests ##
+#     'test_kwargs': [
+#         ['Crossover, Mutation', 'crossover_funcs', 'mutate_funcs'],
+#         # ['0.0 0.0', [[two_point_crossover, 0.0]], [[point_mutation, 0.0]]],
+#         *[
+#             [f'{c}, {m}', [[two_point_crossover_2d, m]], [[point_mutation_2d, m]]]
+#             for c in [.7,]
+#             for m in [.7,]
+#         ]
+#     ],
+# }
+
+
+# kwargs = {
+#     'name': 'self_match_1',  # Name of folder to contain all results
+#     'seed': None,
+#     'verbose': True,
+#     'parallelize': True,
+#     'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
+#     ## Size ##
+#     'num_runs': 30,
+#     'num_gens': 200,
+#     'pop_size': 256,
+#     'min_lens': (12,),  # Length of each memory bank excluding regs
+#     'max_lens': (12,),  # Length of each memory bank excluding regs
+#     'num_regs': 4,
+#     ## Initialization ##
+#     'init_individual_func': random_mems,  # Function used to generate a new organism
+#     'init_min_lens': (12,),  # Length of each memory bank excluding regs
+#     'init_max_lens': (12,),  # Length of each memory bank excluding regs
+#     'value_lim': 12,  # One more than the largest value that can be used in the model
+#     'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'IFEQ'),
+#     ## Evaluation ##
+#     'fitness_func': self_match_fitness,
+#     'timeout': 48,  # Number of evaluation iterations before forced termination
+#     ## Selection ##
+#     'minimize_fitness': True,
+#     'keep_parents': 2,  # Elitism, must be even
+#     'k': 2,  # Number of randomly chosen parents for each tournament
+#     ## Repopulation ##
+#     'crossover_funcs': [
+#         [two_point_crossover_2d, 0.9],
+#     ],
+#     'mutate_funcs': [
+#         [point_mutation_2d, 0.9],
+#     ],
+#     # Tests ##
+#     'test_kwargs': [
+#         ['Crossover, Mutation', 'crossover_funcs', 'mutate_funcs'],
+#         # ['0.0 0.0', [[two_point_crossover, 0.0]], [[point_mutation, 0.0]]],
+#         *[
+#             [f'{c}, {m}', [[two_point_crossover_2d, m]], [[point_mutation_2d, m]]]
+#             for c in [.9,]
+#             for m in [.1,]
+#         ]
+#     ],
+# }
+
 kwargs = {
-    'name': 'mult_0',  # Name of folder to contain all results
+    'name': 'self_match_1',  # Name of folder to contain all results
     'seed': None,
     'verbose': True,
     'parallelize': True,
     'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
     ## Size ##
-    'num_runs': 24,
+    'num_runs': 30,
     'num_gens': 200,
     'pop_size': 256,
     'min_lens': (16,),  # Length of each memory bank excluding regs
@@ -435,40 +594,101 @@ kwargs = {
     'init_individual_func': random_mems,  # Function used to generate a new organism
     'init_min_lens': (16,),  # Length of each memory bank excluding regs
     'init_max_lens': (16,),  # Length of each memory bank excluding regs
-    'value_lim': 64,  # One more than the largest value that can be used in the model
+    'value_lim': 16,  # One more than the largest value that can be used in the model
     'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'IFEQ'),
     ## Evaluation ##
-    'fitness_func': lgp_rmse,
+    'fitness_func': self_match_fitness,
     'timeout': 64,  # Number of evaluation iterations before forced termination
-    'target_func': multiply,
-    'domains': [[0,1,2,3,4],[0,1,2,3,4]],
     ## Selection ##
     'minimize_fitness': True,
     'keep_parents': 2,  # Elitism, must be even
     'k': 2,  # Number of randomly chosen parents for each tournament
     ## Repopulation ##
     'crossover_funcs': [
-        [two_point_crossover_2d, 1.0],
+        [two_point_crossover_2d, 0.9],
     ],
     'mutate_funcs': [
-        [point_mutation_2d, 0.5],
+        [point_mutation_2d, 0.9],
     ],
-    ## Tests ##
+    # Tests ##
     'test_kwargs': [
         ['Crossover, Mutation', 'crossover_funcs', 'mutate_funcs'],
         # ['0.0 0.0', [[two_point_crossover, 0.0]], [[point_mutation, 0.0]]],
         *[
             [f'{c}, {m}', [[two_point_crossover_2d, m]], [[point_mutation_2d, m]]]
-            for c in [.9]
-            for m in [.9]
+            for c in [.9,]
+            for m in [.1,]
         ]
-    ]
+    ],
 }
+
+
+# kwargs = {
+#     # 'name': 'triangular_4',  # Name of folder to contain all results
+#     'name': 'sum_squares_0',  # Name of folder to contain all results
+#     'seed': None,
+#     'verbose': True,
+#     'parallelize': True,
+#     'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
+#     ## Size ##
+#     'num_runs': 15,
+#     'num_gens': 40,
+#     'pop_size': 512,
+#     'min_lens': (16,),  # Length of each memory bank excluding regs
+#     'max_lens': (32,),  # Length of each memory bank excluding regs
+#     'num_regs': 6,
+#     ## Initialization ##
+#     'init_individual_func': random_contextual_mems,  # Function used to generate a new organism
+#     'init_min_lens': (16,),  # Length of each memory bank excluding regs
+#     'init_max_lens': (32,),  # Length of each memory bank excluding regs
+#     'value_lim': 256,  # The largest value that can be used in the model plus one
+#     'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'MUL', 'DIV', 'IFEQ'),
+#     ## Evaluation ##
+#     # 'fitness_func': repeated_lgp_rmse,
+#     'timeout': 8,  # Number of evaluation iterations before forced termination
+#     'target_func': sum_squares,
+#     'domains': [list(range(1,8))],
+#     ## Selection ##
+#     'minimize_fitness': True,
+#     'keep_parents': 2,  # Elitism, must be even
+#     'k': 2,  # Number of randomly chosen parents for each tournament
+#     ## Repopulation ##
+#     'crossover_funcs': [
+#         [two_point_block_crossover_2d, 0.9],
+#     ],
+#     'mutate_funcs': [
+#         [contextual_point_mutation_2d, 0.1],
+#     ],
+#     ## Tests ##
+#     # 'test_kwargs': [
+#     #     ['Crossover', 'crossover_funcs'],
+#     #     # ['Regular', [[two_point_crossover_2d, 0.9]]],
+#     #     # ['Fixed', [[fixed_two_point_crossover_2d, 0.9]]],
+#     #     ['Block', [[two_point_block_crossover_2d, 0.9]]],
+#     #     # ['Fixed Block', [[fixed_two_point_crossover_2d, 0.9]]],
+#     # ]
+#     # 'test_kwargs': [
+#     #     ['Ops', 'ops'],
+#     #     ['Sub', ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'IFEQ')],
+#     #     ['No Sub', ('STOP', 'LOAD', 'STORE', 'ADD', 'IFEQ')],
+#     # ]
+#     # 'test_kwargs': [
+#     #     ['Fitness', 'fitness_func', 'timeout'],
+#     #     ['Regular', lgp_rmse, 8*8],
+#     #     ['Repeated', repeated_lgp_rmse, 8],
+#     # ]
+#     'test_kwargs': [
+#         ['Generic Test', 'fitness_func', 'timeout'],
+#         ['Test 0', lgp_rmse, 8],
+#         ['Test 1', repeated_lgp_rmse, 8],
+#     ]
+# }
+
+
 
 if __name__ == '__main__':
     simulate_tests(**kwargs)
     fits = load_fits(**kwargs)
     plot_results(fits, **kwargs)
-
 
 
