@@ -28,7 +28,11 @@ A more classic methods of GP which is also used to evolve standard trees.
 ### Turing Machine Genetic Programming (tmgp)
 A simple model used to evolve multi dimensional Turing Machines.
 
-### Channel Assignment Problem (network)
-A basic model used to find solutions to the channel assignment problem.
+### Channel Assignment Problem (cap)
+Basic methods used to find solutions to the channel assignment problem.
+
+### Router Placement Problem (wmn)
+Basic methods used to find solutions to the placement of wireless mesh networks.
+
 
 [//]: # (## 💾 Saving)

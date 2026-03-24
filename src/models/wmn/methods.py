@@ -1,13 +1,12 @@
 """
 Genetic programming functions specifically for the evolution of linear models.
 """
-import math
 
 import numpy as np
+from matplotlib import pyplot as plt
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
-from src.utils.utils import cartesian_prod
 
 #
 # Setup Functions
@@ -35,19 +34,8 @@ def random_uniform_router_coords(**kwargs):
 # Fitness Functions
 #
 
-# def coverage(routers, **kwargs):
-#     """Returns an array for each client indicating if they are covered or not"""
-#     cov_arr = [False] * len(kwargs['clients'])
-#     for i,client in enumerate(kwargs['clients']):
-#         for j,router in enumerate(routers):
-#             dist = np.linalg.norm(client - router)
-#             if dist < kwargs['radius']:
-#                 cov_arr[i] = True
-#                 break
-#     return cov_arr
-
-def covered(routers, **kwargs):
-    """Returns an array for each client indicating if they are covered or not"""
+def coverage_arr(routers, **kwargs):
+    """Returns an array with a value for each client with the index of the router covering it, -1 is used for uncovered clients"""
     cov_arr = [-1] * len(kwargs['clients'])
     for i,client in enumerate(kwargs['clients']):
         for j,router in enumerate(routers):
@@ -57,7 +45,9 @@ def covered(routers, **kwargs):
                 break
     return cov_arr
 
-def calc_adj_mat(routers, **kwargs):
+
+def router_adj_mat(routers, **kwargs):
+    """Returns the adjacency matrix of the routers"""
     adj_mat = np.zeros((len(routers),len(routers)), int)
     for i,r0 in enumerate(routers):
         for j,router in enumerate(routers):
@@ -68,20 +58,23 @@ def calc_adj_mat(routers, **kwargs):
                     adj_mat[j,i] = 1
     return adj_mat
 
-def connected(adj_mat, **kwargs):
+
+def num_connected(adj_mat, **kwargs):
+    """Returns the number of connected components given the adjacency matrix of routers"""
     return connected_components(
         csgraph=csr_matrix(adj_mat),
         directed=False,
         return_labels=False
     )
 
-def num_cov(pop, **kwargs):
-    """Fitness function based on the total interference"""
+
+def cov_con_fitness(pop, **kwargs):
+    """Calculate the fitness for each organism based on the coverage minus connectedness"""
     fits = np.empty(len(pop))
     for i,org in enumerate(pop):
-        N_cov = sum(np.array(covered(org, **kwargs)) != -1)
-        N_con = connected(calc_adj_mat(org, **kwargs))
-        fits[i] = N_cov - N_con
+        n_cov = sum(np.array(coverage_arr(org, **kwargs)) != -1)
+        n_con = num_connected(router_adj_mat(org, **kwargs))
+        fits[i] = n_cov - n_con
     fits = np.array(fits)
     return fits
 
@@ -99,9 +92,7 @@ def coords_one_point_crossover(a, b, **kwargs):
     cut_b = kwargs['rng'].integers(cut_b_min, cut_b_max + 1)
     new_a = a[:cut_a] + b[cut_b:]
     new_b = b[:cut_b] + a[cut_a:]
-
     return new_a, new_b
-
 
 def coords_two_point_crossover(a, b, **kwargs):
     """Modified crossover to work for fixed lengths"""
@@ -134,6 +125,21 @@ def coords_two_point_crossover(a, b, **kwargs):
     new_b = np.array(new_b)
     return new_a, new_b
 
+
+def coords_reorder_crossover(a, b, **kwargs):
+
+    adjusted_b = b.copy()
+    new_b = np.empty_like(b)
+
+    for i in range(len(a)):
+        dists = np.linalg.norm(adjusted_b - a[i], axis=1)
+        min_dist_index = np.argmin(dists)
+        new_b[i] = b[min_dist_index]
+        adjusted_b[min_dist_index] = 1000000
+
+    return coords_two_point_crossover(a, new_b, **kwargs)
+
+
 #
 # Mutation Functions
 #
@@ -155,6 +161,7 @@ def coords_point_mutation_2d(org, **kwargs):
     coords_point_mutation(org[index], **kwargs)
     return org
 
+
 #
 # Debug
 #
@@ -162,70 +169,49 @@ def coords_point_mutation_2d(org, **kwargs):
 if __name__ == '__main__':
     # pass
 
-#     org =  [8,  4,  3,  0 ,
-# 11,  0,  0, 13 ,
-#  4, 13, 10,  1 ,
-#  4, 15,  1,  8 ,
-#  9,  1, 12, 13 ,
-#  3, 13,  9,  1 ,
-# 14, 13,  3, 13 ,
-# 11, 11,  6,  3 ,
-#  4, 13,  4,  0 ,
-#  9, 14,  1, 10 ,
-#  4,  3, 244,  7,
-# 13,  0, 13,  5 ,
-#  7,  4, 13, 10 ,
-#  8,  6, 13,  0 ,
-#  7, 10,  1,  1 ,
-# 35, 13,  0, 11]
-#
-#
-#     a = _check_sylver_coinage(16, [7])
-#
-#     print(a)
+    l = 6
+    a = np.random.random((l, 2))
+    b = np.random.random((l, 2))
 
-    # from main import kwargs
-    #
-    # kwargs['rng'] = np.random.default_rng()
-    #
-    # l = random_mems(**kwargs)
-    # l = Linear(l)
-    #
-    # print(l)
-
-    # prevs = [
-    #     [5],
-    #     [5,4],
-    #     [5,4,11],
-    #     [5,4,11,6],
-    #     [5,4,11,6,7],
-    #     [5,4,11,6,7,2],
-    #     [5,4,11,6,7,2,3],
-    # ]
-    #
-    # ns = range(15)
-    #
-    # vss = []
-    # for prev in prevs:
-    #     vs = []
-    #     for n in ns:
-    #         s = _check_sylver_coinage(n, prev)
-    #         vs.append(n * s)
-    #     vss.append(vs)
-    #
-    # # prev = [5]
-    # # n = 10
-    # # a = _check_sylver_coinage(n, prev)
-    #
-    # vss = np.array(vss, int)
-    #
-    # print(vss)
-
-    a = [
-        [0, 1, 0],
-        [1, 0, 0],
-        [0, 0, 0],
-    ]
-
-    b = n_con(a)
+    print('a')
+    print(a)
+    print('b')
     print(b)
+
+    adjusted_b = b.copy()
+    new_b = np.empty_like(b)
+
+    inds = []
+
+    print('calc')
+    for i in range(len(a)):
+        dists = np.linalg.norm(adjusted_b - a[i], axis=1)
+        # print(dists)
+        min_dist_index = np.argmin(dists)
+        # inds.append(min_dist_index)
+        new_b[i] = b[min_dist_index]
+        adjusted_b[min_dist_index] = 100000
+
+
+    print(inds)
+    print('new')
+    print(new_b)
+
+
+    # c = np.abs(a-b)
+
+    # d = np.linalg.norm(a - b, axis=1)
+    # print(d)
+    #
+    # i = np.argmin(np.linalg.norm(a - b, axis=1))
+    #
+    # print(i)
+    # router_adj_mat(a, radius=.2)
+
+    plt.scatter(*a.T, color='blue', marker='d')
+    plt.scatter(*b.T, color='orange', marker='s')
+    for i in range(len(a)):
+        x = (a[i][0], new_b[i][0])
+        y = (a[i][1], new_b[i][1])
+        plt.plot(x,y)
+    plt.show()

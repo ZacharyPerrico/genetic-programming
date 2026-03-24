@@ -1,5 +1,5 @@
 from src.evolve import simulate_tests
-from src.models.network import *
+from src.models.cap import *
 from src.utils.plot import plot_results
 from src.utils.save import load_fits
 
