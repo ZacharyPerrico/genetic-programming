@@ -4,7 +4,7 @@ from src.models.wmn.plot import plot_results
 from src.utils.save import load_fits
 
 kwargs = {
-    'name': 'example_0',  # Name of folder to contain all results
+    'name': 'example_3',  # Name of folder to contain all results
     'seed': None,
     'verbose': True,
     'parallelize': True,
@@ -23,7 +23,7 @@ kwargs = {
     ## Initialization ##
     'init_individual_func': random_uniform_router_coords,  # Function used to generate a new organism
     ## Evaluation ##
-    'fitness_func': cov_con_fitness,
+    'fitness_func': sum_cov_con_fitness,
     ## Selection ##
     'minimize_fitness': False,
     'keep_parents': 2,  # Elitism, must be even

@@ -58,7 +58,6 @@ def router_adj_mat(routers, **kwargs):
                     adj_mat[j,i] = 1
     return adj_mat
 
-
 def num_connected(adj_mat, **kwargs):
     """Returns the number of connected components given the adjacency matrix of routers"""
     return connected_components(
@@ -68,13 +67,46 @@ def num_connected(adj_mat, **kwargs):
     )
 
 
-def cov_con_fitness(pop, **kwargs):
+
+def sum_cov_con_fitness(pop, **kwargs):
     """Calculate the fitness for each organism based on the coverage minus connectedness"""
     fits = np.empty(len(pop))
-    for i,org in enumerate(pop):
-        n_cov = sum(np.array(coverage_arr(org, **kwargs)) != -1)
-        n_con = num_connected(router_adj_mat(org, **kwargs))
-        fits[i] = n_cov - n_con
+    for k,routers in enumerate(pop):
+        n_cov = sum(np.array(coverage_arr(routers, **kwargs)) != -1)
+        n_con = num_connected(router_adj_mat(routers, **kwargs))
+        fits[k] = n_cov - n_con
+    fits = np.array(fits)
+    return fits
+
+
+def cov_con_fitness(pop, **kwargs):
+    """Calculate the fitness for each organism based on the coverage minus connectedness"""
+
+    # Constants from paper
+    n = len(kwargs['clients'])
+    m = kwargs['num_routers']
+
+    fits = np.empty(len(pop))
+    for k,routers in enumerate(pop):
+
+        # Equations from paper
+        n_j = np.zeros(len(routers))
+        for i, router in enumerate(routers):
+            for j, client in kwargs['clients']:
+                dist = np.linalg.norm(client - router)
+                if dist < kwargs['radius']:
+                    n_j[i] += 1
+        P_i = n_j / n
+        H_cov = - sum(np.nan_to_num(P_i * np.log(P_i))) / np.log(m)
+        G_n, G_labels = connected_components(csgraph=csr_matrix(router_adj_mat(routers, **kwargs)), directed=False, return_labels=True)
+        _, G_i_size = np.unique(G_labels, return_counts=True, equal_nan=False)
+        P_j = G_i_size / (n + m)
+        H_con = - sum(P_j * np.log(P_j)) / np.log(G_n) if G_n > 1 else 0
+        fits[k] = H_cov - H_con
+
+        # n_cov = sum(np.array(coverage_arr(org, **kwargs)) != -1)
+        # n_con = num_connected(router_adj_mat(org, **kwargs))
+        # fits[i] = n_cov - n_con
     fits = np.array(fits)
     return fits
 

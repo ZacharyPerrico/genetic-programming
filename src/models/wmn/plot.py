@@ -40,7 +40,7 @@ def plot_network(routers, ax=None, save='Points', show=True, **kwargs):
         nodelist=range(len(routers)),
         node_color='green',
         edgecolors='green',
-        node_size=600 * scale,
+        node_size=120 * scale,
     )
 
     if 'setup_func' in kwargs:
@@ -71,18 +71,17 @@ def plot_network(routers, ax=None, save='Points', show=True, **kwargs):
         pos,
         ax=ax,
         edgelist=G.edges,  # Specify edge order
-        arrowsize=20 * scale,
         # edge_color = edge_props,
         # edge_cmap = plt.cm.tab10,
         # edge_vmax = 9,
         width=2 * scale,
-        # alpha=0.5,
+        alpha=0.5,
         node_size=600 * scale,
     )
 
     # Add axis labels which are removed by default
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-
+    ax.set_aspect('equal')
     ax.set_title(save)
     if save:
         plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{save}.png')
@@ -188,8 +187,11 @@ def plot_results(all_fits, **kwargs):
         kwargs['seed'] = int(best_seed)
         print(f'Best of {test_name}, Fitness {best_fit}')
 
-        # f = kwargs['fitness_func']([best_org], **kwargs)
-        # print(f)
+        # Reconstruct the clients from the setup function
+        kwargs = kwargs['setup_func'](**kwargs)
+
+        f = kwargs['fitness_func']([best_org], **kwargs)
+        print(f)
 
         print(best_org)
 
@@ -200,16 +202,16 @@ def plot_results(all_fits, **kwargs):
 
 
 if __name__ == '__main__':
-    # name = 'example_0'
-    # kwargs = load_kwargs(name, '../../../saves/placement/')
-    # fits = load_fits(**kwargs)
-    # plot_results(fits, **kwargs)
+    name = 'example_1'
+    kwargs = load_kwargs(name, '../../../saves/placement/')
+    fits = load_fits(**kwargs)
+    plot_results(fits, **kwargs)
 
 
 
-    a = np.random.random((8,2))
-    b = np.random.random((8,2))
+    # a = np.random.random((8,2))
+    # b = np.random.random((8,2))
 
     # router_adj_mat(a, radius=.2)
 
-    plot_network(a, radius=.2, save=False)
+    # plot_network(a, radius=.2, save=False)
