@@ -70,6 +70,8 @@ def num_connected(adj_mat, **kwargs):
 
 def cov_con_sum_fitness(pop, **kwargs):
     """Calculate the fitness for each organism based on the coverage minus connectedness"""
+    # if 'clients' not in kwargs: kwargs = kwargs['setup_func'](**kwargs)
+
     n = len(kwargs['clients'])
     m = kwargs['num_routers']
     fits = np.empty(len(pop))
@@ -85,6 +87,7 @@ def cov_con_sum_fitness(pop, **kwargs):
 
 def cov_con_entropy_fitness(pop, **kwargs):
     """Calculate the fitness for each organism based on the coverage minus connectedness"""
+    # if 'clients' not in kwargs: kwargs = kwargs['setup_func'](**kwargs)
 
     # Constants from paper
     n = len(kwargs['clients'])
@@ -198,9 +201,21 @@ def coords_two_point_crossover(a, b, **kwargs):
     return new_a, new_b
 
 
+def coords_fixed_two_point_crossover(a, b, **kwargs):
+    a = list(a)
+    b = list(b)
+    cut_0 = kwargs['rng'].integers(0, len(a)-1)
+    cut_1 = kwargs['rng'].integers(0, len(a))
+    if cut_0 > cut_1: cut_0, cut_1 = cut_1, cut_0
+    # Swap the two sections
+    new_a = a[:cut_0] + b[cut_0:cut_1] + a[cut_1:]
+    new_b = b[:cut_0] + a[cut_0:cut_1] + b[cut_1:]
+    return new_a, new_b
+
+
 def coords_reorder_crossover(a, b, **kwargs):
 
-    adjusted_b = b.copy()
+    adjusted_b = np.array(b.copy())
     new_b = np.empty_like(b)
 
     for i in range(len(a)):
@@ -209,7 +224,7 @@ def coords_reorder_crossover(a, b, **kwargs):
         new_b[i] = b[min_dist_index]
         adjusted_b[min_dist_index] = 1000000
 
-    return coords_two_point_crossover(a, new_b, **kwargs)
+    return coords_fixed_two_point_crossover(a, new_b, **kwargs)
 
 
 #

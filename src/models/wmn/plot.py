@@ -7,7 +7,8 @@ import numpy as np
 from matplotlib import pyplot as plt, patches
 
 from src.models import router_adj_mat, coverage_arr
-from src.utils.save import load_kwargs, load_pop, load_fits, load_seed
+from src.models.wmn import cov_con_entropy_fitness
+from src.utils.save import load_kwargs, load_pop, load_fits, load_seed, load_pops, load_seeds
 from src.utils.utils import cartesian_prod
 
 #
@@ -179,6 +180,23 @@ def plot_results(all_fits, **kwargs):
 
     plot_fitness(all_fits, show=True, **kwargs)
 
+
+
+    # Recalculate fitness using alternate fitness function
+    # all_pops = load_pops(**kwargs)
+    # new_fits = np.array(all_fits).copy()
+    # seeds = load_seeds(0, **kwargs)
+    # for run, seed in enumerate(seeds):
+    #     kwargs['seed'] = seed
+    #     print(run)
+    #     kwargs = kwargs['setup_func'](**kwargs)
+    #     for gen in range(all_pops.shape[2]):
+    #         new_fits[0,run,gen] = kwargs['fitness_func'](all_pops[0,run,gen], **kwargs)
+    # plot_fitness(new_fits, show=True, **kwargs)
+
+
+
+
     # Iterate over the best individuals of each test
     bests = zip(*get_best(all_fits, **kwargs))
     for i, best in enumerate(bests):
@@ -202,10 +220,10 @@ def plot_results(all_fits, **kwargs):
 
 
 if __name__ == '__main__':
-    name = 'example_4'
+    name = 'fitness_0'
     kwargs = load_kwargs(name, '../../../saves/placement/')
-    # fits = load_fits(**kwargs)
-    # plot_results(fits, **kwargs)
+    fits = load_fits(**kwargs)
+    plot_results(fits, **kwargs)
 
 
 
@@ -216,19 +234,19 @@ if __name__ == '__main__':
 
     # plot_network(a, radius=.2, save=False)
 
-    dx = 1
-    dy = 1
-
-    del kwargs['setup_func']
-    kwargs['clients'] = [
-        [x*dx,y*dy] for x in [-1,0,1] for y in [-1,0,1]
-    ]
-    kwargs['num_clients'] = len(kwargs['clients'])
-    print(kwargs['clients'])
-    r = np.array([[x * dx, 0] for x in [-1, 0, 1]])
-    kwargs['num_routers'] = len(r)
-
-    f = kwargs['fitness_func']([r], **kwargs)
-    print(f)
-
-    plot_network(r, **kwargs)
+    # dx = 1
+    # dy = 1
+    #
+    # del kwargs['setup_func']
+    # kwargs['clients'] = [
+    #     [x*dx,y*dy] for x in [-1,0,1] for y in [-1,0,1]
+    # ]
+    # kwargs['num_clients'] = len(kwargs['clients'])
+    # print(kwargs['clients'])
+    # r = np.array([[x * dx, 0] for x in [-1, 0, 1]])
+    # kwargs['num_routers'] = len(r)
+    #
+    # f = kwargs['fitness_func']([r], **kwargs)
+    # print(f)
+    #
+    # plot_network(r, **kwargs)

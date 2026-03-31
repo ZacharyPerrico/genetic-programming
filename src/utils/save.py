@@ -136,6 +136,14 @@ def load_seed(test, run, **kwargs):
     return run_seed
 
 
+def load_seeds(test, **kwargs):
+    """Returns the seed used for a run given the test name and the index of the run"""
+    test_name = kwargs['test_kwargs'][1:][test][0]
+    test_path = f'{kwargs['saves_path']}{kwargs['name']}/data/{test_name}/*/'
+    run_file_names = sorted(glob.glob(test_path))
+    run_seeds = [int(run_file_name.split('\\')[-2]) for run_file_name in run_file_names]
+    return run_seeds
+
 if __name__ == '__main__':
     # name = 'unstable_self_rep_0'
     name = 'mult_1'
