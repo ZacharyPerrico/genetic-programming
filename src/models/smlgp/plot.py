@@ -27,8 +27,8 @@ def plot_fitness(all_fits, ax=None, save='Fitness', show=True, **kwargs):
         plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0])
 
         # Error bands
-        y_std = np.std(np.min(all_fits[test], axis=2), axis=0)
-        ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
+        # y_std = np.std(np.min(all_fits[test], axis=2), axis=0)
+        # ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
 
         # Plot every run
         # y = np.min(all_fits[test], axis=2)
@@ -195,9 +195,11 @@ def table_best(obj, **kwargs):
     # Calculate values
     y_actual = []
     for case in cases:
-        l = Linear([[0] + list(case) + [0], obj[0].copy()], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+        l = Linear([[0] * kwargs['num_regs'], obj[0].copy()], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+        for j, x in enumerate(case):
+            l.mem[0][1+j] = x
         l.run(kwargs['timeout'])
-        y_actual = np.append(y_actual, l.regs[-1])
+        y_actual = np.append(y_actual, l.mem[0][-1])
     # Append rows as columns to table
     table.append(range(len(cases)))
     table.append(cases)
@@ -304,6 +306,8 @@ def plot_results(all_fits, **kwargs):
 
     plot_fitness(all_fits, show=True, **kwargs)
 
+    print(all_fits.shape)
+
     # all_pops = load_pops(**kwargs)
     # lens = np.vectorize(lambda x: len(x[0]))(all_pops)
     # print(lens.shape)
@@ -324,29 +328,41 @@ def plot_results(all_fits, **kwargs):
         kwargs['seed'] = int(best_seed)
         print(f'Best of {test_name}, Fitness {best_fit}')
 
-        f = kwargs['fitness_func']([best_org.copy()], **kwargs)
-        print(f'Fitness check {f}')
+        # kwargs['fitness_func'] = lgp_rmse
+        kwargs['num_regs'] = 2
+        # kwargs['timeout'] = 8*8
 
-        print(best_org)
-        l = setup_self_rep(best_org, **kwargs)
-        print(l)
-        l.run(kwargs['timeout'])
-        print(l)
+        # f = kwargs['fitness_func']([best_org.copy()], **kwargs)
+        # print(f'Fitness check {f}')
 
-
+        # print(best_org)
+        # l = setup_self_rep(best_org, **kwargs)
+        # print(l)
+        # l.run(kwargs['timeout'])
+        # print(l)
 
         if 'target_func' in kwargs:
             # kwargs['ops'] = ('STOP', 'LOAD', 'STORE', 'ADD', 'IFEQ')
             # table_best(best_org.copy(), **kwargs)
-            l = Linear([[0]*3, best_org[0]], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
-            print(l)
+
+
+            l = Linear([[0]*kwargs['num_regs'], best_org[0]], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+            print(l.to_string(not True))
+
+            # if best_fit == 0:
+            #     while True:
+            #         t = input('Step: ')
+            #         t = 1 if t=='' else int(t)
+            #         l.run(t)
+            #         print(l)
+
 
             # kwargs['domains'] = [[0,1,2,3,4,5,6],[0,1,2,3,4,5,6]]
             # kwargs['domains'] = [[0, 1, 2, 3, 4, 5, 6, 7, 8]]
             # kwargs['timeout'] = 2**8
             # kwargs['value_lim'] = 2**16
             repeated_table_best(best_org.copy(), **kwargs)
-
+            # table_best(best_org.copy(), **kwargs)
 
         # l = setup_self_rep(best_org, **kwargs)
         # l.run(kwargs['timeout'])
@@ -419,43 +435,47 @@ def plot_results(all_fits, **kwargs):
 if __name__ == '__main__':
     # name = 'factorial_0'
     # name = 'mult_9'
-    name = 'self_match_1'
+    # name = 'self_match_1'
     # name = 'triangular_4'
+    name = 'lim_reg_sum_squares_3'
     kwargs = load_kwargs(name, '../../../saves/smlgp/')
     fits = load_fits(**kwargs)
     plot_results(fits, **kwargs)
+    quit()
 
+    #
+    # kwargs = {}
+    kwargs['timeout'] = 8
+    kwargs['num_regs'] = 4
+    kwargs['target_func'] = sum_squares
+    kwargs['rng'] = np.random.default_rng()
 
+    a = [[
+        'LOAD', 3, 1, 'REGS_DIRECT', # x
+        'LOAD', 2, 1, 'REGS_DIRECT', # (x + 1)
+        'ADD', 2, 1, 'IMMEDIATE',
+        'MUL', 3, 2, 'REGS_DIRECT',
+        'MUL', 1, 2, 'IMMEDIATE', # 2x + 1
+        'ADD', 1, 1, 'IMMEDIATE',
+        'MUL', 3, 1, 'REGS_DIRECT',
+        'DIV', 3, 6, 'IMMEDIATE', # / 6
+    ]]
 
-    # kwargs['rng'] = np.random.default_rng()
-    #
-    # a = [[
-    #     'LOAD', 4, 1, 'REGS_DIRECT',
-    #
-    #     'LOAD', 2, 1, 'REGS_DIRECT',
-    #     'ADD', 2, 1, 'IMMEDIATE',
-    #     'MUL', 4, 2, 'REGS_DIRECT',
-    #
-    #     'LOAD', 3, 1, 'REGS_DIRECT',
-    #     'MUL', 3, 2, 'IMMEDIATE',
-    #     'ADD', 3, 1, 'IMMEDIATE',
-    #     'MUL', 1, 3, 'REGS_DIRECT',
-    #
-    #     'DIV', 1,
-    # ]]
-
-    # a = [[
-    #     'ADD', 2, 1, 'REGS_DIRECT',
-    #     'STOP', 0,0,0,
-    # ]]
     # a = [[
     #     'ADD', 2, 1, 'REGS_DIRECT',
     #     'STOP', 0,0,0,
     # ]]
-    # l = Linear([[0]*kwargs['num_regs']]+a, **kwargs)
-    # print(l)
+    # a = [[
+    #     'ADD', 2, 1, 'REGS_DIRECT',
+    #     'STOP', 0,0,0,
+    # ]]
+    l = Linear([[0]*kwargs['num_regs']]+a, **kwargs)
+    l.mem[0][1] = 2
+    print(l)
+    l.run(8)
+    print(l.to_string(True))
     #
-    # table_best(a, **kwargs)
+    table_best(a, **kwargs)
     # repeated_table_best(a, **kwargs)
     # f = lgp_rmse([a], **kwargs)
     # print(f)

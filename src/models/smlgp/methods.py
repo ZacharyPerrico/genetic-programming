@@ -267,6 +267,7 @@ def repeated_lgp_mse(pop, rmse=False, **kwargs):
         y_actual = []
         l = Linear([[0]*kwargs['num_regs'], org[0].copy()], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
         for case in cases:
+            l.mem[0][0] = 0 # Reset PC
             for j,x in enumerate(case):
                 l.mem[0][1+j] = x
             # Evaluate the organism

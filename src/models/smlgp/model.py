@@ -17,9 +17,11 @@ class Linear:
         'STORE',
         'ADD',
         'SUB',
+        'MUL',
+        'DIV',
         'IFEQ',
-        'RAND',
-        'DEL',
+        # 'RAND',
+        # 'DEL',
     )
 
     # Addressing modes
@@ -122,21 +124,27 @@ class Linear:
                 break
         return self
 
-
-    def __str__(self):
+    def to_string(self, latex=False):
+        SECTION_DELIM = ' & ' if latex else ' │ '
+        STR_START = '\\mono{' if latex else "'"
+        STR_END = '}' if latex else "'"
+        VALUE_JOIN = ' & ' if latex else ', '
+        LINE_END = '\\\\\n' if latex else '\n'
         string = ''
-        for i,mem in enumerate(self.mem):
+        for i, mem in enumerate(self.mem):
             string += f'self.mem[{i}]'
-            if i == 0: string += ' (REGISTERS)'
-            elif i == 1: string += ' (PROGRAM)'
+            if i == 0:
+                string += ' (REGISTERS)'
+            elif i == 1:
+                string += ' (PROGRAM)'
             string += '\n'
             step_size = 1 if i == 0 else Linear.LINE_LENGTH
             for pc in range(0, len(mem), step_size):
                 line = [mem[(pc + j) % len(mem)] for j in range(step_size)]
                 # Line index
-                string += f'  {pc:2} │ '
+                string += f'  {pc:2}{SECTION_DELIM}'
                 # Line values
-                string += ', '.join([f'{j:2}' for j in line])
+                string += f'{VALUE_JOIN}'.join([f'{j:3}' for j in line])
                 # Formated line as org
                 if step_size != 1:
                     op_code, target_reg, operand_spec, addr_mode = line
@@ -144,11 +152,15 @@ class Linear:
                     target_reg = int(target_reg) % len(self.regs) if self.valid_ops_list[op_code] != 'RAND' else int(target_reg)
                     addr_mode = int(addr_mode) % (len(self.mem) * 2 + 1)
                     # Replace number with constant reference
-                    op_code = "'" + self.valid_ops_list[op_code] + "',"
-                    addr_mode = self.valid_addr_modes_list[addr_mode] if addr_mode < len(self.valid_addr_modes_list) else addr_mode
-                    string += f" │ {op_code:8} {target_reg:2}, {operand_spec:2}, '{addr_mode}',"
-                string += '\n'
+                    op_code = STR_START + self.valid_ops_list[op_code] + STR_END + VALUE_JOIN
+                    addr_mode = self.valid_addr_modes_list[addr_mode] if addr_mode < len(
+                        self.valid_addr_modes_list) else addr_mode
+                    string += f'{SECTION_DELIM}{op_code:8}{target_reg:3}{VALUE_JOIN}{operand_spec:3}{VALUE_JOIN}{STR_START}{addr_mode}{STR_END}'
+                string += LINE_END
         return string
+
+    def __str__(self):
+        return self.to_string()
 
 
 if __name__ == '__main__':
