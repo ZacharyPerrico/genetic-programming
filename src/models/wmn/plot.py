@@ -14,7 +14,7 @@ from src.utils.utils import cartesian_prod
 # Model Based Plotting
 #
 
-def plot_network(routers, ax=None, save='Points', show=True, **kwargs):
+def plot_network(routers, ax=None, save=False, show=True, **kwargs):
 
     if ax is None:
         fig, ax = plt.subplots()
@@ -44,10 +44,10 @@ def plot_network(routers, ax=None, save='Points', show=True, **kwargs):
     )
 
     if 'setup_func' in kwargs:
-
         # Reconstruct the clients from the setup function
         kwargs = kwargs['setup_func'](**kwargs)
 
+    if 'clients' in kwargs:
         pos += list(kwargs['clients'])
 
         # Edges between routers and clients
@@ -202,10 +202,10 @@ def plot_results(all_fits, **kwargs):
 
 
 if __name__ == '__main__':
-    name = 'example_1'
+    name = 'example_4'
     kwargs = load_kwargs(name, '../../../saves/placement/')
-    fits = load_fits(**kwargs)
-    plot_results(fits, **kwargs)
+    # fits = load_fits(**kwargs)
+    # plot_results(fits, **kwargs)
 
 
 
@@ -215,3 +215,20 @@ if __name__ == '__main__':
     # router_adj_mat(a, radius=.2)
 
     # plot_network(a, radius=.2, save=False)
+
+    dx = 1
+    dy = 1
+
+    del kwargs['setup_func']
+    kwargs['clients'] = [
+        [x*dx,y*dy] for x in [-1,0,1] for y in [-1,0,1]
+    ]
+    kwargs['num_clients'] = len(kwargs['clients'])
+    print(kwargs['clients'])
+    r = np.array([[x * dx, 0] for x in [-1, 0, 1]])
+    kwargs['num_routers'] = len(r)
+
+    f = kwargs['fitness_func']([r], **kwargs)
+    print(f)
+
+    plot_network(r, **kwargs)

@@ -4,14 +4,14 @@ from src.models.wmn.plot import plot_results
 from src.utils.save import load_fits
 
 kwargs = {
-    'name': 'example_3',  # Name of folder to contain all results
+    'name': 'example_4',  # Name of folder to contain all results
     'seed': None,
     'verbose': True,
     'parallelize': True,
     'saves_path': '../../../saves/placement/',  # Save path relative to this file
     ## Size ##
     'num_runs': 15,
-    'num_gens': 500,
+    'num_gens': 50,
     'pop_size': 16,
     'num_routers': 16,
     'num_clients': 48,
@@ -23,7 +23,7 @@ kwargs = {
     ## Initialization ##
     'init_individual_func': random_uniform_router_coords,  # Function used to generate a new organism
     ## Evaluation ##
-    'fitness_func': sum_cov_con_fitness,
+    'fitness_func': cov_con_sum_fitness,
     ## Selection ##
     'minimize_fitness': False,
     'keep_parents': 2,  # Elitism, must be even

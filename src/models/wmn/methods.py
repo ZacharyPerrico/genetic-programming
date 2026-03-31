@@ -1,7 +1,7 @@
 """
 Genetic programming functions specifically for the evolution of linear models.
 """
-
+import networkx as nx
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.sparse import csr_matrix
@@ -68,18 +68,22 @@ def num_connected(adj_mat, **kwargs):
 
 
 
-def sum_cov_con_fitness(pop, **kwargs):
+def cov_con_sum_fitness(pop, **kwargs):
     """Calculate the fitness for each organism based on the coverage minus connectedness"""
+    n = len(kwargs['clients'])
+    m = kwargs['num_routers']
     fits = np.empty(len(pop))
     for k,routers in enumerate(pop):
         n_cov = sum(np.array(coverage_arr(routers, **kwargs)) != -1)
         n_con = num_connected(router_adj_mat(routers, **kwargs))
-        fits[k] = n_cov - n_con
+        n_cov_norm = n_cov/n
+        n_con_norm = (m-n_con)/(m-1)
+        fits[k] = (n_cov_norm + n_con_norm) / 2
     fits = np.array(fits)
     return fits
 
 
-def cov_con_fitness(pop, **kwargs):
+def cov_con_entropy_fitness(pop, **kwargs):
     """Calculate the fitness for each organism based on the coverage minus connectedness"""
 
     # Constants from paper
@@ -89,24 +93,60 @@ def cov_con_fitness(pop, **kwargs):
     fits = np.empty(len(pop))
     for k,routers in enumerate(pop):
 
-        # Equations from paper
+        # Number of covered clients in j-th router
         n_j = np.zeros(len(routers))
         for i, router in enumerate(routers):
-            for j, client in kwargs['clients']:
+            for j, client in enumerate(kwargs['clients']):
                 dist = np.linalg.norm(client - router)
-                if dist < kwargs['radius']:
+                if dist <= kwargs['radius']:
                     n_j[i] += 1
+
+        # Probability of coverage
         P_i = n_j / n
-        H_cov = - sum(np.nan_to_num(P_i * np.log(P_i))) / np.log(m)
-        G_n, G_labels = connected_components(csgraph=csr_matrix(router_adj_mat(routers, **kwargs)), directed=False, return_labels=True)
+
+        # Coverage entropy
+        H_cov_0 = np.log(P_i)
+        H_cov_1 = np.nan_to_num(H_cov_0)
+        H_cov_2 = P_i * H_cov_1
+        H_cov_3 = sum(H_cov_2)
+        H_cov_4 = np.log(m)
+        H_cov_5 = H_cov_3 / H_cov_4
+        H_cov = -H_cov_5
+        # H_cov = - sum(P_i * np.nan_to_num(np.log(P_i))) / np.log(m)
+
+        # Construct graph adj matrix from routers and clients
+        G = nx.from_numpy_array(router_adj_mat(routers, **kwargs))
+        G.add_nodes_from(range(kwargs['num_routers'], kwargs['num_routers'] + kwargs['num_clients']))
+        client_edges = coverage_arr(routers, **kwargs)
+        client_edges = tuple([(i + kwargs['num_routers'], j) for i, j in enumerate(client_edges) if j != -1])
+        G.add_edges_from(client_edges)
+        adj = nx.to_numpy_array(G)
+        G_n, G_labels = connected_components(csgraph=csr_matrix(adj), directed=False,return_labels=True)
+
+        # Construct graph adj matrix from routers
+        # G_n, G_labels = connected_components(csgraph=csr_matrix(router_adj_mat(routers, **kwargs)), directed=False, return_labels=True)
+
+        # Size of the i-th sub-network
         _, G_i_size = np.unique(G_labels, return_counts=True, equal_nan=False)
+
+        # Probability of connectivity
         P_j = G_i_size / (n + m)
-        H_con = - sum(P_j * np.log(P_j)) / np.log(G_n) if G_n > 1 else 0
+
+        # Connectivity entropy
+        if G_n > 1:
+            H_con_0 = np.log(P_j)
+            H_con_1 = np.nan_to_num(H_con_0)
+            H_con_2 = P_j * H_con_1
+            H_con_3 = sum(H_con_2)
+            H_con_4 = np.log(G_n)
+            H_con_5 = H_con_3 / H_con_4
+            H_con = -H_con_5
+            # H_con = - sum(P_j * np.log(P_j)) / np.log(G_n)
+        else:
+            H_con = 0
+
         fits[k] = H_cov - H_con
 
-        # n_cov = sum(np.array(coverage_arr(org, **kwargs)) != -1)
-        # n_con = num_connected(router_adj_mat(org, **kwargs))
-        # fits[i] = n_cov - n_con
     fits = np.array(fits)
     return fits
 
@@ -199,51 +239,52 @@ def coords_point_mutation_2d(org, **kwargs):
 #
 
 if __name__ == '__main__':
-    # pass
+    pass
 
-    l = 6
-    a = np.random.random((l, 2))
-    b = np.random.random((l, 2))
-
-    print('a')
-    print(a)
-    print('b')
-    print(b)
-
-    adjusted_b = b.copy()
-    new_b = np.empty_like(b)
-
-    inds = []
-
-    print('calc')
-    for i in range(len(a)):
-        dists = np.linalg.norm(adjusted_b - a[i], axis=1)
-        # print(dists)
-        min_dist_index = np.argmin(dists)
-        # inds.append(min_dist_index)
-        new_b[i] = b[min_dist_index]
-        adjusted_b[min_dist_index] = 100000
-
-
-    print(inds)
-    print('new')
-    print(new_b)
-
-
-    # c = np.abs(a-b)
-
-    # d = np.linalg.norm(a - b, axis=1)
-    # print(d)
+    # l = 6
+    # a = np.random.random((l, 2))
+    # b = np.random.random((l, 2))
     #
-    # i = np.argmin(np.linalg.norm(a - b, axis=1))
+    # print('a')
+    # print(a)
+    # print('b')
+    # print(b)
     #
-    # print(i)
-    # router_adj_mat(a, radius=.2)
+    # adjusted_b = b.copy()
+    # new_b = np.empty_like(b)
+    #
+    # inds = []
+    #
+    # print('calc')
+    # for i in range(len(a)):
+    #     dists = np.linalg.norm(adjusted_b - a[i], axis=1)
+    #     # print(dists)
+    #     min_dist_index = np.argmin(dists)
+    #     # inds.append(min_dist_index)
+    #     new_b[i] = b[min_dist_index]
+    #     adjusted_b[min_dist_index] = 100000
+    #
+    #
+    # print(inds)
+    # print('new')
+    # print(new_b)
+    #
+    #
+    # # c = np.abs(a-b)
+    #
+    # # d = np.linalg.norm(a - b, axis=1)
+    # # print(d)
+    # #
+    # # i = np.argmin(np.linalg.norm(a - b, axis=1))
+    # #
+    # # print(i)
+    # # router_adj_mat(a, radius=.2)
+    #
+    # plt.scatter(*a.T, color='blue', marker='d')
+    # plt.scatter(*b.T, color='orange', marker='s')
+    # for i in range(len(a)):
+    #     x = (a[i][0], new_b[i][0])
+    #     y = (a[i][1], new_b[i][1])
+    #     plt.plot(x,y)
+    # plt.show()
 
-    plt.scatter(*a.T, color='blue', marker='d')
-    plt.scatter(*b.T, color='orange', marker='s')
-    for i in range(len(a)):
-        x = (a[i][0], new_b[i][0])
-        y = (a[i][1], new_b[i][1])
-        plt.plot(x,y)
-    plt.show()
