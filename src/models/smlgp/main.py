@@ -357,50 +357,50 @@ from src.utils.save import load_runs, load_fits
 # }
 
 
-kwargs = {
-    'name': 'lim_reg_sum_squares_3',  # Name of folder to contain all results
-    'seed': None,
-    'verbose': True,
-    'parallelize': True,
-    'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
-    ## Size ##
-    'num_runs': 8,
-    'num_gens': 1000,
-    'pop_size': 512,
-    'min_lens': (16,),  # Length of each memory bank excluding regs
-    'max_lens': (32,),  # Length of each memory bank excluding regs
-    # 'num_regs': 2,
-    ## Initialization ##
-    'init_individual_func': random_contextual_mems,  # Function used to generate a new organism
-    'init_min_lens': (16,),  # Length of each memory bank excluding regs
-    'init_max_lens': (32,),  # Length of each memory bank excluding regs
-    'value_lim': 512,  # The largest value that can be used in the model plus one
-    'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'MUL', 'DIV', 'IFEQ'),
-    ## Evaluation ##
-    # 'fitness_func': repeated_lgp_rmse,
-    'timeout': 8,  # Number of evaluation iterations before forced termination
-    'target_func': sum_squares,
-    'domains': [list(range(1,6))],
-    ## Selection ##
-    'minimize_fitness': True,
-    'keep_parents': 2,  # Elitism, must be even
-    'k': 4,  # Number of randomly chosen parents for each tournament
-    ## Repopulation ##
-    'crossover_funcs': [
-        [two_point_block_crossover_2d, 0.5],
-    ],
-    'mutate_funcs': [
-        [contextual_point_mutation_2d, 0.5],
-    ],
-    ## Tests ##
-    'test_kwargs': [
-        ['Fitness', 'fitness_func', 'num_regs'],
-        ['Reset 4 Registers', lgp_rmse, 4],
-        ['Reset 2 Registers', lgp_rmse, 2],
-        ['Retained 4 Registers', repeated_lgp_rmse, 4],
-        ['Retained 2 Registers', repeated_lgp_rmse, 2],
-    ]
-}
+# kwargs = {
+#     'name': 'lim_reg_sum_squares_3',  # Name of folder to contain all results
+#     'seed': None,
+#     'verbose': True,
+#     'parallelize': True,
+#     'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
+#     ## Size ##
+#     'num_runs': 8,
+#     'num_gens': 1000,
+#     'pop_size': 512,
+#     'min_lens': (16,),  # Length of each memory bank excluding regs
+#     'max_lens': (32,),  # Length of each memory bank excluding regs
+#     # 'num_regs': 2,
+#     ## Initialization ##
+#     'init_individual_func': random_contextual_mems,  # Function used to generate a new organism
+#     'init_min_lens': (16,),  # Length of each memory bank excluding regs
+#     'init_max_lens': (32,),  # Length of each memory bank excluding regs
+#     'value_lim': 512,  # The largest value that can be used in the model plus one
+#     'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'MUL', 'DIV', 'IFEQ'),
+#     ## Evaluation ##
+#     # 'fitness_func': repeated_lgp_rmse,
+#     'timeout': 8,  # Number of evaluation iterations before forced termination
+#     'target_func': sum_squares,
+#     'domains': [list(range(1,6))],
+#     ## Selection ##
+#     'minimize_fitness': True,
+#     'keep_parents': 2,  # Elitism, must be even
+#     'k': 4,  # Number of randomly chosen parents for each tournament
+#     ## Repopulation ##
+#     'crossover_funcs': [
+#         [two_point_block_crossover_2d, 0.5],
+#     ],
+#     'mutate_funcs': [
+#         [contextual_point_mutation_2d, 0.5],
+#     ],
+#     ## Tests ##
+#     'test_kwargs': [
+#         ['Fitness', 'fitness_func', 'num_regs'],
+#         ['Reset 4 Registers', lgp_rmse, 4],
+#         ['Reset 2 Registers', lgp_rmse, 2],
+#         ['Retained 4 Registers', repeated_lgp_rmse, 4],
+#         ['Retained 2 Registers', repeated_lgp_rmse, 2],
+#     ]
+# }
 
 # kwargs = {
 #     'name': 'lim_reg_sum_squares_tuning_1',  # Name of folder to contain all results
@@ -498,6 +498,51 @@ kwargs = {
 #         ['Repeated', repeated_lgp_rmse, 8],
 #     ]
 # }
+
+kwargs = {
+    'name': 'lim_reg_sum_squares_4000',  # Name of folder to contain all results
+    'seed': None,
+    'verbose': True,
+    'parallelize': True,
+    'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
+    ## Size ##
+    'num_runs': 8,
+    'num_gens': 4000,
+    'pop_size': 512,
+    'min_lens': (16,),  # Length of each memory bank excluding regs
+    'max_lens': (64,),  # Length of each memory bank excluding regs
+    # 'num_regs': 2,
+    ## Initialization ##
+    'init_individual_func': random_contextual_mems,  # Function used to generate a new organism
+    'init_min_lens': (16,),  # Length of each memory bank excluding regs
+    'init_max_lens': (32,),  # Length of each memory bank excluding regs
+    'value_lim': 512,  # The largest value that can be used in the model plus one
+    'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'MUL', 'DIV', 'IFEQ'),
+    ## Evaluation ##
+    # 'fitness_func': repeated_lgp_rmse,
+    'timeout': 16,  # Number of evaluation iterations before forced termination
+    'target_func': sum_squares,
+    'domains': [list(range(1,6))],
+    ## Selection ##
+    'minimize_fitness': True,
+    'keep_parents': 2,  # Elitism, must be even
+    'k': 2,  # Number of randomly chosen parents for each tournament
+    ## Repopulation ##
+    'crossover_funcs': [
+        [two_point_block_crossover_2d, 0.5],
+    ],
+    'mutate_funcs': [
+        [contextual_point_mutation_2d, 0.5],
+    ],
+    ## Tests ##
+    'test_kwargs': [
+        ['Fitness', 'fitness_func', 'num_regs'],
+        ['Reset 4 Registers', lgp_rmse, 4],
+        ['Reset 2 Registers', lgp_rmse, 2],
+        ['Retained 4 Registers', repeated_lgp_rmse, 4],
+        ['Retained 2 Registers', repeated_lgp_rmse, 2],
+    ]
+}
 
 if __name__ == '__main__':
     simulate_tests(**kwargs)
