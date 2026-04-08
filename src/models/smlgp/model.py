@@ -91,6 +91,8 @@ class Linear:
         self.regs[Linear.PC_INDEX] += Linear.LINE_LENGTH
         self.regs[Linear.PC_INDEX] %= self.value_lim
 
+        print(code_line)
+
         # Perform the operation
         match self.valid_ops_list[op_code]:
             case 'STOP': return True
@@ -249,13 +251,13 @@ if __name__ == '__main__':
     #     'ADD', 1, 12, 'REGS_INDIRECT',
     # ]]
 
-    x = sum([
-        15, 10, 11, 14,
-        13, 13, 6, 6,
-        3, 5, 2, 11,
-        2, 5, 6, 6,
-    ])
-    print(x)
+    # x = sum([
+    #     15, 10, 11, 14,
+    #     13, 13, 6, 6,
+    #     3, 5, 2, 11,
+    #     2, 5, 6, 6,
+    # ])
+    # print(x)
 
     # l = Linear(code, ops=('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'IFEQ'), value_lim=32)
     # print(l)

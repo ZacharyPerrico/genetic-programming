@@ -2,11 +2,9 @@
 Genetic programming functions specifically for the evolution of linear models.
 Linear org is represented as a 2D arrays and converted to a Linear objects when evaluating.
 """
-import copy
 import math
 
 import numpy as np
-from fontTools.unicodedata import block
 
 from src.models.smlgp.model import Linear
 from src.utils.utils import cartesian_prod
@@ -41,9 +39,7 @@ def _random_contextual_line(**kwargs):
         kwargs['rng'].integers(len(kwargs['ops']), dtype=int),
         kwargs['rng'].integers(kwargs['num_regs'], dtype=int),
         kwargs['rng'].integers(kwargs['value_lim'], dtype=int),
-        # kwargs['rng'].integers(16, dtype=int),
         kwargs['rng'].integers(1+2*(1+len(kwargs['max_lens'])), dtype=int),
-        # kwargs['rng'].integers(7, dtype=int),
     ]
 
 def _random_contextual_mem(**kwargs):
@@ -59,6 +55,40 @@ def random_contextual_mems(**kwargs):
         init_min_len = kwargs['init_min_lens'][i]
         init_max_len = kwargs['init_max_lens'][i]
         code.append(_random_contextual_mem(init_min_len=init_min_len, init_max_len=init_max_len, **kwargs))
+    return code
+
+
+
+def _random_weighted_contextual_line(**kwargs):
+    """Helper function to generating a single line of org"""
+
+    op_code = kwargs['rng'].integers(len(kwargs['ops']))
+
+    a = list(range(kwargs['num_regs']))
+    p = [kwargs['pc_weight']] + [1] * (kwargs['num_regs']-1)
+    p = np.array(p) / sum(p)
+    target_reg = kwargs['rng'].choice(a, p=p)
+
+    # operand_spec = kwargs['rng'].integers(kwargs['value_lim'])
+    operand_spec = kwargs['rng'].choice(a, p=p)
+
+    a = list(range(1+2*(1+len(kwargs['max_lens']))))
+    p = kwargs['addr_weights']
+    p = np.array(p) / sum(p)
+    addr_mode =  kwargs['rng'].choice(a, p=p)
+
+    return [op_code, target_reg, operand_spec, addr_mode]
+
+def random_weighted_contextual_mems(**kwargs):
+    """Generate a random list of transitions"""
+    code = []
+    for i in range(len(kwargs['init_max_lens'])):
+        init_min_len = kwargs['init_min_lens'][i]
+        init_max_len = kwargs['init_max_lens'][i]
+        init_len = kwargs['rng'].integers(init_min_len//Linear.LINE_LENGTH, (init_max_len//Linear.LINE_LENGTH)+1)
+        code.append([])
+        for j in range(init_len):
+            code[-1] += _random_weighted_contextual_line(init_min_len=init_min_len, init_max_len=init_max_len, **kwargs)
     return code
 
 
@@ -600,6 +630,24 @@ def contextual_point_mutation_2d(org, **kwargs):
 
 
 
+def weighted_contextual_point_mutation(org, **kwargs):
+    """Randomly change a value in a random line"""
+    # Select a random line and sub line
+    index = kwargs['rng'].integers(len(org))
+    sub_index = index % Linear.LINE_LENGTH
+    # Replace the argument
+    org[index] = _random_weighted_contextual_line(**kwargs)[sub_index]
+    return org
+
+def weighted_contextual_point_mutation_2d(org, **kwargs):
+    """Randomly change a value in a random line"""
+    # Select a random value
+    index = kwargs['rng'].integers(len(org))
+    weighted_contextual_point_mutation(org[index], **kwargs)
+    return org
+
+
+
 def dynamic_mutation(org, gen, **kwargs):
     if gen < kwargs['dynamic_gen']:
         return point_mutation_2d(org, **kwargs)
@@ -613,14 +661,21 @@ def dynamic_mutation(org, gen, **kwargs):
 if __name__ == '__main__':
     from main import kwargs
     kwargs['rng'] = np.random.default_rng()
+    kwargs['num_regs'] = 4
 
-    pop = [random_mems(**kwargs) for i in range(1000)]
+    pop = [random_weighted_contextual_mems(**kwargs) for i in range(1)]
 
-    pop = [point_mutation_2d(i, **kwargs) for i in pop]
+    # print([[0,0,0,0], pop[0]])
 
-    pop = np.array(pop)
+    l = Linear([[0,0,0,0], pop[0][0]], **kwargs)
 
-    print(np.max(pop))
+    print(l)
+
+    # pop = [point_mutation_2d(i, **kwargs) for i in pop]
+
+    # pop = np.array(pop)
+
+    # print(np.max(pop))
 
     # a = [[
     #     'LOAD', 1, 0, 'IMMEDIATE',

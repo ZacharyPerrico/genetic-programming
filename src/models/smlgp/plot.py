@@ -27,8 +27,8 @@ def plot_fitness(all_fits, ax=None, save='Fitness', show=True, **kwargs):
         plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0])
 
         # Error bands
-        # y_std = np.std(np.min(all_fits[test], axis=2), axis=0)
-        # ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
+        y_std = np.std(np.min(all_fits[test], axis=2), axis=0)
+        ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
 
         # Plot every run
         # y = np.min(all_fits[test], axis=2)
@@ -36,8 +36,8 @@ def plot_fitness(all_fits, ax=None, save='Fitness', show=True, **kwargs):
         #     plt.plot(x, y[run], label=kwargs['test_kwargs'][test + 1][0])
 
         # Min bands
-        y = np.min(np.min(all_fits[test], axis=2), axis=0)
-        plt.plot(x, y,  ':', label=kwargs['test_kwargs'][test + 1][0]+' (min-min)')
+        # y = np.min(np.min(all_fits[test], axis=2), axis=0)
+        # plt.plot(x, y,  ':', label=kwargs['test_kwargs'][test + 1][0]+' (min-min)')
 
         # y = np.max(np.max(all_fits[test], axis=2), axis=0)
         # plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0]+' (max-max)')
@@ -235,11 +235,13 @@ def repeated_table_best(obj, **kwargs):
     y_actual = []
     l = Linear([[0] * kwargs['num_regs'], obj[0].copy()], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
     for case in cases:
+        l.mem[0][0] = 0
         for j, x in enumerate(case):
             l.mem[0][1+j] = x
         # Evaluate the organism
         l.run(kwargs['timeout'])
         y_actual.append(l.mem[0][-1])
+        print(l)
     # Append rows as columns to table
     table.append(range(len(cases)))
     table.append(cases)
@@ -304,7 +306,7 @@ def plot_results(all_fits, **kwargs):
     os.makedirs(path, exist_ok=True)
     print('Plotting results')
 
-    plot_fitness(all_fits, show=True, **kwargs)
+    # plot_fitness(all_fits, show=True, **kwargs)
 
     print(all_fits.shape)
 
@@ -328,12 +330,14 @@ def plot_results(all_fits, **kwargs):
         kwargs['seed'] = int(best_seed)
         print(f'Best of {test_name}, Fitness {best_fit}')
 
-        # kwargs['fitness_func'] = lgp_rmse
+        kwargs['fitness_func'] = repeated_lgp_rmse
         kwargs['num_regs'] = 2
         # kwargs['timeout'] = 8*8
+        # kwargs['value_lim'] = 2**12
+        # kwargs['domains'] = [[1,2,3,4,5,6,7,8,9,10]]
 
-        # f = kwargs['fitness_func']([best_org.copy()], **kwargs)
-        # print(f'Fitness check {f}')
+        f = kwargs['fitness_func']([best_org.copy()], **kwargs)
+        print(f'Fitness check {f}')
 
         # print(best_org)
         # l = setup_self_rep(best_org, **kwargs)
@@ -341,27 +345,35 @@ def plot_results(all_fits, **kwargs):
         # l.run(kwargs['timeout'])
         # print(l)
 
+        if f != 0:
+            continue
+
+        repeated_table_best(best_org.copy(), **kwargs)
+
         if 'target_func' in kwargs:
             # kwargs['ops'] = ('STOP', 'LOAD', 'STORE', 'ADD', 'IFEQ')
             # table_best(best_org.copy(), **kwargs)
 
-
             l = Linear([[0]*kwargs['num_regs'], best_org[0]], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
-            print(l.to_string(not True))
+            l.mem[0][1] = 1
+            l.run(8)
+            l.mem[0][0] = 0
+            l.mem[0][1] = 2
+            print(l.to_string(True))
 
-            # if best_fit == 0:
-            #     while True:
-            #         t = input('Step: ')
-            #         t = 1 if t=='' else int(t)
-            #         l.run(t)
-            #         print(l)
+            if f == 0:
+                while True:
+                    t = input('Step: ')
+                    t = 1 if t=='' else int(t)
+                    l.run(t)
+                    print(l)
 
 
             # kwargs['domains'] = [[0,1,2,3,4,5,6],[0,1,2,3,4,5,6]]
             # kwargs['domains'] = [[0, 1, 2, 3, 4, 5, 6, 7, 8]]
             # kwargs['timeout'] = 2**8
             # kwargs['value_lim'] = 2**16
-            repeated_table_best(best_org.copy(), **kwargs)
+            # repeated_table_best(best_org.copy(), **kwargs)
             # table_best(best_org.copy(), **kwargs)
 
         # l = setup_self_rep(best_org, **kwargs)
@@ -438,10 +450,30 @@ if __name__ == '__main__':
     # name = 'self_match_1'
     # name = 'triangular_4'
     name = 'lim_reg_sum_squares_3'
+    # name = 'weighted_lim_reg_sum_squares_4'
     kwargs = load_kwargs(name, '../../../saves/smlgp/')
     fits = load_fits(**kwargs)
     plot_results(fits, **kwargs)
     quit()
+
+    c = [
+        [0,0],
+        [3,  0, 310,   2,
+        5,  1, 389,   1,
+        7,  0, 211,   2,
+        1,  0, 426,   3,
+        3,  3,   1, 173,
+        2,  3,   1, 218,
+        2,  3,   1, 310,
+        0,  3,   1, 310
+    ]]
+
+    l = Linear(c, **kwargs)
+
+    print(l)
+
+
+
 
     #
     # kwargs = {}

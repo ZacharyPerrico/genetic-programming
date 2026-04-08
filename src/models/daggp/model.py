@@ -579,11 +579,17 @@ if __name__ == '__main__':
     # d = Node(len(xs))
     # f = -a * e**(-b*(1/d * sum(x**2 for x in xs))**(Node(1)/2)) - e**(1/d * sum(Node.cos(c*x) for x in xs)) + a + e
 
-    f = x - x
+    f = x ** 2 + 1
+
+    g = 2 * f + f
+
+    print(g.simplify())
 
     xs = np.array([1, 2])
 
-    print(f(xs, eval_method='zero'))
+    print(f(xs))
+
+    # print(f(xs, eval_method='zero'))
 
     # print(f(np.array([1,2]), eval_method='zero'))
 
