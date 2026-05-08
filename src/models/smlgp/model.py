@@ -91,8 +91,6 @@ class Linear:
         self.regs[Linear.PC_INDEX] += Linear.LINE_LENGTH
         self.regs[Linear.PC_INDEX] %= self.value_lim
 
-        print(code_line)
-
         # Perform the operation
         match self.valid_ops_list[op_code]:
             case 'STOP': return True
@@ -125,6 +123,7 @@ class Linear:
             if self.step():
                 break
         return self
+
 
     def to_string(self, latex=False):
         SECTION_DELIM = ' & ' if latex else ' │ '
@@ -159,14 +158,63 @@ class Linear:
                         self.valid_addr_modes_list) else addr_mode
                     string += f'{SECTION_DELIM}{op_code:8}{target_reg:3}{VALUE_JOIN}{operand_spec:3}{VALUE_JOIN}{STR_START}{addr_mode}{STR_END}'
                 string += LINE_END
+        if latex:
+            string.replace('_','\\_')
         return string
 
     def __str__(self):
         return self.to_string()
 
 
+    def debug(self):
+        """Enter debug mode"""
+        print(self)
+        while True:
+            i = input('Steps: ')
+            if i == '':
+                self.step()
+            else:
+                self.run(int(i))
+            print(self)
+
+
 if __name__ == '__main__':
     pass
+
+    REGS = [0,10,0,0]
+
+    REGS[2] += REGS[1]
+    REGS[3] += REGS[2]
+    REGS[3] /= 3
+    REGS[2] *= REGS[1]
+
+    REGS[2] += REGS[1]
+    REGS[3] += REGS[2]
+    REGS[3] /= 3
+    REGS[2] *= REGS[1]
+
+    REGS[2] += REGS[1]
+    REGS[3] += REGS[2]
+    REGS[3] /= 3
+
+    print(REGS)
+
+    k = sum(i**2 for i in range(11))
+    print(k)
+
+
+    # c = [[
+    #     0,6,0,0
+    # ],[
+    #     'ADD',    2,   1, 'REGS_DIRECT',
+    #     'DIV',    2,   1, 'IMMEDIATE',
+    #     'ADD',    3,   2, 'REGS_DIRECT',
+    #     'DIV',    3,   3, 'IMMEDIATE',
+    #     'MUL',    2,   1, 'REGS_DIRECT',
+    # ]]
+    #
+    # l = Linear(c, value_lim=512, ops=('STOP', 'LOAD', 'ADD', 'SUB', 'MUL', 'DIV'))
+    # l.debug()
 
     ## Mutate ##
     # org = [[

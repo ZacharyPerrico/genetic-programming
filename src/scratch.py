@@ -1,7 +1,49 @@
 """File for testing ideas"""
 import sqlite3
 
-db_name = 'data.db'
+# from sympy import *
+import sympy
+
+# a = sympy.Symbol('a')
+# b = sympy.Symbol('b')
+# c = sympy.Symbol('c')
+#
+# REGS = [0, a, 0, 0]
+#
+# REGS[2] += REGS[1]
+# REGS[3] += REGS[2]
+# REGS[3] //= 3
+# REGS[2] *= REGS[1]
+#
+# REGS[2] += REGS[1]
+# REGS[3] += REGS[2]
+# REGS[3] //= 3
+# REGS[2] *= REGS[1]
+#
+# REGS[2] += REGS[1]
+# REGS[3] += REGS[2]
+# REGS[3] //= 3
+#
+# print(REGS[3].simplify())
+
+
+# REGS[1] *= REGS[1]
+# REGS[3] += REGS[1]
+# STOP
+# REGS[3] += REGS[REGS[3]]
+
+# REGS = [0, 0]
+# CODE = [0] *
+# # REGS[0] += REGS[REGS[0]]
+# REGS[1] *= REGS[1]
+# # if REGS[0] == REGS[REGS[1]]:
+# #    REGS[1] -= 205
+# # REGS[0] = CODE[10]
+# REGS[1] += CODE[1]
+# CODE[1] = REGS[1]
+# # CODE[29] = REGS[1]
+
+# db_name = 'data.db'
 
 
 

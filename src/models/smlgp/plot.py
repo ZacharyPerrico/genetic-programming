@@ -330,11 +330,10 @@ def plot_results(all_fits, **kwargs):
         kwargs['seed'] = int(best_seed)
         print(f'Best of {test_name}, Fitness {best_fit}')
 
-        kwargs['fitness_func'] = repeated_lgp_rmse
-        kwargs['num_regs'] = 2
-        # kwargs['timeout'] = 8*8
-        # kwargs['value_lim'] = 2**12
-        # kwargs['domains'] = [[1,2,3,4,5,6,7,8,9,10]]
+        # kwargs['fitness_func'] = repeated_lgp_rmse
+        kwargs['fitness_func'] = lgp_rmse
+        kwargs['num_regs'] = 4
+        kwargs['timeout'] = 16
 
         f = kwargs['fitness_func']([best_org.copy()], **kwargs)
         print(f'Fitness check {f}')
@@ -348,18 +347,24 @@ def plot_results(all_fits, **kwargs):
         if f != 0:
             continue
 
-        repeated_table_best(best_org.copy(), **kwargs)
+        kwargs['value_lim'] = 2**12
+        kwargs['domains'] = [[1,2,3,4,5,6,7,8,9,10]]
+
+        # print(best_org)
+
+        # repeated_table_best(best_org.copy(), **kwargs)
+        table_best(best_org.copy(), **kwargs)
 
         if 'target_func' in kwargs:
             # kwargs['ops'] = ('STOP', 'LOAD', 'STORE', 'ADD', 'IFEQ')
             # table_best(best_org.copy(), **kwargs)
 
             l = Linear([[0]*kwargs['num_regs'], best_org[0]], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
-            l.mem[0][1] = 1
-            l.run(8)
-            l.mem[0][0] = 0
+            # l.mem[0][1] = 1
+            # l.run(8)
+            # l.mem[0][0] = 0
             l.mem[0][1] = 2
-            print(l.to_string(True))
+            print(l.to_string(not True))
 
             if f == 0:
                 while True:
@@ -449,24 +454,24 @@ if __name__ == '__main__':
     # name = 'mult_9'
     # name = 'self_match_1'
     # name = 'triangular_4'
-    name = 'lim_reg_sum_squares_3'
-    # name = 'weighted_lim_reg_sum_squares_4'
+    # name = 'lim_reg_sum_squares_3'
+    name = 'weighted_lim_reg_sum_squares_4'
     kwargs = load_kwargs(name, '../../../saves/smlgp/')
     fits = load_fits(**kwargs)
     plot_results(fits, **kwargs)
     quit()
 
-    c = [
-        [0,0],
-        [3,  0, 310,   2,
-        5,  1, 389,   1,
-        7,  0, 211,   2,
-        1,  0, 426,   3,
-        3,  3,   1, 173,
-        2,  3,   1, 218,
-        2,  3,   1, 310,
-        0,  3,   1, 310
-    ]]
+    # c = [
+    #     [0,0],
+    #     [3,  0, 310,   2,
+    #     5,  1, 389,   1,
+    #     7,  0, 211,   2,
+    #     1,  0, 426,   3,
+    #     3,  3,   1, 173,
+    #     2,  3,   1, 218,
+    #     2,  3,   1, 310,
+    #     0,  3,   1, 310
+    # ]]
 
     l = Linear(c, **kwargs)
 
