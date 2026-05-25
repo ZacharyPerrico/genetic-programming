@@ -1,7 +1,7 @@
-from src.evolve import simulate_tests
+from src.old_evolve import simulate_tests
+from src.evolve import generate_tests, generate_reps, run_tests
 from src.models.smlgp import *
 from src.models.smlgp.plot import plot_results
-from src.utils.save import load_runs, load_fits
 
 # kwargs = {
 #     'name': 'symb_reg_0',  # Name of folder to contain all results
@@ -544,30 +544,78 @@ from src.utils.save import load_runs, load_fits
 #     ]
 # }
 
+# kwargs = {
+#     'name': 'weighted_lim_reg_sum_squares_4',  # Name of folder to contain all results
+#     'seed': None,
+#     'verbose': True,
+#     'parallelize': True,
+#     'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
+#     ## Size ##
+#     'num_runs': 8,
+#     'num_gens': 1000,
+#     'pop_size': 512,
+#     'min_lens': (16,),  # Length of each memory bank excluding regs
+#     'max_lens': (64,),  # Length of each memory bank excluding regs
+#     # 'num_regs': 2,
+#     ## Initialization ##
+#     'init_individual_func': random_weighted_contextual_mems,  # Function used to generate a new organism
+#     'init_min_lens': (16,),  # Length of each memory bank excluding regs
+#     'init_max_lens': (32,),  # Length of each memory bank excluding regs
+#     'value_lim': 512,  # The largest value that can be used in the model plus one
+#     # 'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'MUL', 'DIV', 'IFEQ'),
+#     'ops': ('STOP', 'LOAD', 'ADD', 'SUB', 'MUL', 'DIV'),
+#     'addr_weights': [1, 2, 0, 0, 0],
+#     'pc_weight': 0,
+#     ## Evaluation ##
+#     # 'fitness_func': repeated_lgp_rmse,
+#     'timeout': 16,  # Number of evaluation iterations before forced termination
+#     'target_func': sum_squares,
+#     'domains': [list(range(1,6))],
+#     ## Selection ##
+#     'minimize_fitness': True,
+#     'keep_parents': 2,  # Elitism, must be even
+#     'k': 2,  # Number of randomly chosen parents for each tournament
+#     ## Repopulation ##
+#     'crossover_funcs': [
+#         [two_point_block_crossover_2d, 0.9],
+#     ],
+#     'mutate_funcs': [
+#         [weighted_contextual_point_mutation_2d, 0.9],
+#     ],
+#     ## Tests ##
+#     'test_kwargs': [
+#         ['Fitness', 'fitness_func', 'num_regs'],
+#         ['Reset 4 Registers', lgp_rmse, 4],
+#         ['Reset 2 Registers', lgp_rmse, 2],
+#         ['Retained 4 Registers', repeated_lgp_rmse, 4],
+#         ['Retained 2 Registers', repeated_lgp_rmse, 2],
+#     ]
+# }
+
+
+
 kwargs = {
-    'name': 'weighted_lim_reg_sum_squares_4',  # Name of folder to contain all results
+    'name': 'test',  # Name of folder to contain all results
     'seed': None,
     'verbose': True,
-    'parallelize': True,
+    'parallelize': not True,
     'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
+    'checkpoint_interval': 2,
     ## Size ##
-    'num_runs': 8,
-    'num_gens': 1000,
-    'pop_size': 512,
-    'min_lens': (16,),  # Length of each memory bank excluding regs
-    'max_lens': (64,),  # Length of each memory bank excluding regs
+    'num_reps': 1,
+    'num_gens': 10,
+    'pop_size': 100,
+    'min_lens': [16],  # Length of each memory bank excluding regs
+    'max_lens': [64],  # Length of each memory bank excluding regs
     # 'num_regs': 2,
     ## Initialization ##
-    'init_individual_func': random_weighted_contextual_mems,  # Function used to generate a new organism
-    'init_min_lens': (16,),  # Length of each memory bank excluding regs
-    'init_max_lens': (32,),  # Length of each memory bank excluding regs
+    'init_individual_func': random_contextual_mems,  # Function used to generate a new organism
+    'init_min_lens': [16],  # Length of each memory bank excluding regs
+    'init_max_lens': [32],  # Length of each memory bank excluding regs
     'value_lim': 512,  # The largest value that can be used in the model plus one
-    # 'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'MUL', 'DIV', 'IFEQ'),
-    'ops': ('STOP', 'LOAD', 'ADD', 'SUB', 'MUL', 'DIV'),
-    'addr_weights': [1, 2, 0, 0, 0],
-    'pc_weight': 0,
+    'ops': ('STOP', 'LOAD', 'STORE', 'ADD', 'SUB', 'MUL', 'DIV', 'IFEQ'),
     ## Evaluation ##
-    # 'fitness_func': repeated_lgp_rmse,
+    'fitness_func': lgp_rmse,
     'timeout': 16,  # Number of evaluation iterations before forced termination
     'target_func': sum_squares,
     'domains': [list(range(1,6))],
@@ -576,24 +624,33 @@ kwargs = {
     'keep_parents': 2,  # Elitism, must be even
     'k': 2,  # Number of randomly chosen parents for each tournament
     ## Repopulation ##
-    'crossover_funcs': [
-        [two_point_block_crossover_2d, 0.9],
-    ],
-    'mutate_funcs': [
-        [weighted_contextual_point_mutation_2d, 0.9],
-    ],
+    'recombination_funcs': [two_point_block_crossover_2d],
+    'recombination_probs': [0.9],
+    'mutation_funcs': [contextual_point_mutation_2d],
+    'mutation_probs': [0.9],
     ## Tests ##
-    'test_kwargs': [
-        ['Fitness', 'fitness_func', 'num_regs'],
-        ['Reset 4 Registers', lgp_rmse, 4],
-        ['Reset 2 Registers', lgp_rmse, 2],
-        ['Retained 4 Registers', repeated_lgp_rmse, 4],
-        ['Retained 2 Registers', repeated_lgp_rmse, 2],
-    ]
+    'test_label': 'Number Registers',  # Label to use when comparing all tests
+    'test_keys': ['test_name', 'num_regs'],  # Keys of each parameter to be changed for each test
+    'test_values': [  # Tuple of tuples representing all values to change for each test
+        ['2 Registers', 2],
+        ['4 Registers', 4],
+    ],
 }
 
 if __name__ == '__main__':
-    simulate_tests(**kwargs)
-    fits = load_fits(**kwargs)
-    plot_results(fits, **kwargs)
+
+    # kwargs =
+
+    # for i in generate_tests(**kwargs):
+    #     for j in generate_reps(**i):
+    #         print(j)
+
+    # for k in kwargs:
+    #     print(k)
+
+    # print(list(i))
+
+    run_tests(**kwargs)
+    # fits = load_fits(**kwargs)
+    # plot_results(fits, **kwargs)
 

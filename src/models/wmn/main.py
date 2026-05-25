@@ -1,4 +1,4 @@
-from src.evolve import simulate_tests
+from src.old_evolve import simulate_tests
 from src.models.wmn import *
 from src.models.wmn.plot import plot_results
 from src.utils.save import load_fits

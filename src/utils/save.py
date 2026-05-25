@@ -3,16 +3,18 @@
 import glob
 import json
 import os
+import sqlite3
 
 import numpy as np
 
 from src.utils.utils import to_tuple
 
 
+FUNC_PREFIX = '$'
+
 def save_kwargs(**kwargs):
-    FUNC_PREFIX = 'src.genetics'
     def func_to_string(obj):
-        """Recursively replace functions with its name preceded by src.genetics"""
+        """Recursively replace functions with its name preceded by the FUNC_PREFIX"""
         if type(obj) == dict:
             obj = obj.copy()
             for key in obj:
@@ -30,26 +32,15 @@ def save_kwargs(**kwargs):
         else:
             return obj
     kwargs_path = f'{kwargs['saves_path']}{kwargs['name']}/'
-    os.makedirs(kwargs_path, exist_ok=True)
     print(f'Saving kwargs to {kwargs_path}kwargs.json')
+    os.makedirs(kwargs_path, exist_ok=True)
     with open(kwargs_path + 'kwargs.json', 'w') as f:
         json.dump(func_to_string(kwargs.copy()), f, indent=4)
 
 
-def save_run(test_path, pops, fits, **kwargs):
-    # Each test is saved in its own directory which is passed through the path
-    os.makedirs(test_path, exist_ok=True)
-    test_path = f'{test_path}/{kwargs["seed"]}/'
-    print(f'Saving run to {test_path}')
-    os.makedirs(test_path, exist_ok=True)
-    np.save(test_path + 'pops', pops)
-    np.save(test_path + 'fits', fits)
-
-
 def load_kwargs(name, saves_path):
-    FUNC_PREFIX = 'src.genetics'
     def string_to_func(obj):
-        """Recursively replace strings preceded by src.genetics with the imported function of the same name"""
+        """Recursively replace strings preceded by the FUNC_PREFIX with the imported function of the same name"""
         if type(obj) is dict:
             for key in obj:
                 obj[key] = string_to_func(obj[key])
@@ -67,6 +58,19 @@ def load_kwargs(name, saves_path):
         kwargs = string_to_func(json.load(f))
     kwargs['saves_path'] = saves_path
     return kwargs
+
+
+
+
+def save_run(test_path, pops, fits, **kwargs):
+    # Each test is saved in its own directory which is passed through the path
+    os.makedirs(test_path, exist_ok=True)
+    test_path = f'{test_path}/{kwargs["seed"]}/'
+    print(f'Saving run to {test_path}')
+    os.makedirs(test_path, exist_ok=True)
+    np.save(test_path + 'pops', pops)
+    np.save(test_path + 'fits', fits)
+
 
 
 def load_runs(**kwargs):
@@ -144,15 +148,113 @@ def load_seeds(test, **kwargs):
     run_seeds = [int(run_file_name.split('\\')[-2]) for run_file_name in run_file_names]
     return run_seeds
 
+
+
+schema = """
+DROP TABLE IF EXISTS data;
+
+CREATE TABLE IF NOT EXISTS data (
+  test TEXT,
+  seed INT NOT NULL,
+  gen INT,
+  id INT,
+  fitness REAL,
+  data TEXT,
+  PRIMARY KEY (test, seed, gen, id)
+);
+
+CREATE TABLE IF NOT EXISTS kwargs (
+    test TEXT,
+    PRIMARY KEY (test)
+)
+"""
+
+sql_file = '../../utils/data.sql'
+db_name = 'data.db'
+
+def create_db(**kwargs):
+    # Each test is saved in its own directory which is passed through the path
+    # path = f'{kwargs['saves_path']}{kwargs['name']}/'
+
+    os.makedirs(kwargs['path'], exist_ok=True)
+    print(f'Creating database at {kwargs['path']}')
+    con = sqlite3.connect(kwargs['path']+db_name)
+    # try:
+    with open(sql_file, 'r') as f:
+        init_sql = f.read()
+        with con:
+            cur = con.cursor()
+            cur.executescript(init_sql)
+            # con.commit() # Not needed
+    # except:
+    #     print('ERROR')
+    con.close()
+
+
+
+
+# def add_test_kwargs(**kwargs):
+
+
+def update_db(pops, fits, generation, **kwargs):
+
+    print(f'Updating Database {kwargs['path']+db_name}')
+
+    con = sqlite3.connect(kwargs['path'] + db_name)
+
+    with con:
+
+        start_gen = generation - len(pops) + 1
+
+        for i in range(len(pops)):
+
+            gen = start_gen + i
+
+            data = [
+                [
+                    kwargs['test_name'],
+                    kwargs['seed'],
+                    gen,
+                    ind,
+                    fits[i][ind],
+                    str(pops[i][ind]),
+                ]
+                for ind in range(len(pops))
+            ]
+
+            print(data)
+
+            cur = con.cursor()
+            cur.executemany("INSERT INTO data VALUES(?, ?, ?, ?, ?, ?)", data)
+            con.commit()
+
+
+
+
 if __name__ == '__main__':
     # name = 'unstable_self_rep_0'
-    name = 'mult_1'
-    kwargs = load_kwargs(name, '../../saves/')
-    fits = load_fits(**kwargs)
+    # fits = load_fits(**kwargs)
+    #
+    # pop = load_pop(0, 0, **kwargs)
 
-    pop = load_pop(0, 0, **kwargs)
+    name = 'test'
+    kwargs = load_kwargs(name, '../../saves/smlgp/')
 
+    kwargs['path'] = '../../saves/smlgp/' + name + '/'
 
+    con = sqlite3.connect(kwargs['path'] + db_name)
+    cur = con.cursor()
+    try:
+        while True:
+            i = input()
+            if i == '':
+                break
+            res = cur.execute(i)
+            for i in res:
+                print(i)
+            # print(res.fetchall())
+    finally:
+        con.close()
+        print('EXITING')
 
-    pass
 

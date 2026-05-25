@@ -7,7 +7,8 @@ from multiprocessing import Pool, cpu_count
 
 import numpy as np
 
-from src.utils.save import save_kwargs, save_run
+from src.utils.save import save_kwargs, save_run, create_db, update_db
+
 
 #
 # Initialization
@@ -42,7 +43,7 @@ def tournament_selection(pop, fits, k, **kwargs):
 # Simulation and Iteration
 #
 
-def next_pop(pop, gen, **kwargs):
+def next_pop(pop, fits, gen, **kwargs):
     """Returns the fitness values for the given population and the next population"""
 
     # Truncate Selection
@@ -71,13 +72,13 @@ def next_pop(pop, gen, **kwargs):
 
     # Crossover
     else:
-        kwargs['pop'] = pop
+        # kwargs['pop'] = pop
 
         # Evaluation
-        kwargs['fits'] = kwargs['fitness_func'](gen=gen, **kwargs)
+        # kwargs['fits'] = kwargs['fitness_func'](gen=gen, **kwargs)
 
         # Elitism
-        pool = [(kwargs['fits'][i], i) for i in range(kwargs['pop_size'])]
+        pool = [(fits[i], i) for i in range(kwargs['pop_size'])]
         pool = sorted(pool)
         pool = pool if kwargs['minimize_fitness'] else pool[::-1]
         new_pop = [pop[pool[i][1]] for i in range(kwargs['keep_parents'])]
@@ -86,125 +87,170 @@ def next_pop(pop, gen, **kwargs):
         while len(new_pop) < len(pop):
 
             # Selection
-            org_0, fit_0 = tournament_selection(**kwargs)
-            org_1, fit_1 = tournament_selection(**kwargs)
+            org_0, fit_0 = tournament_selection(pop=pop, fits=fits, **kwargs)
+            org_1, fit_1 = tournament_selection(pop=pop, fits=fits, **kwargs)
             org_0 = copy.deepcopy(org_0)
             org_1 = copy.deepcopy(org_1)
 
             # Crossover
-            a, p = zip(*kwargs['crossover_funcs'])
-            crossover_func = kwargs['rng'].choice(a=a, p=p)
-            if crossover_func is not None:
-                org_0, org_1 = crossover_func(org_0, org_1, gen=gen, **kwargs)
+            recombination_func = kwargs['rng'].choice(a=kwargs['recombination_funcs'], p=kwargs['recombination_probs'])
+            if recombination_func is not None:
+                org_0, org_1 = recombination_func(org_0, org_1, gen=gen, **kwargs)
 
             # Mutation
-            a, p = zip(*kwargs['mutate_funcs'])
-            mutate_func = kwargs['rng'].choice(a=a, p=p)
-            if mutate_func is not None:
-                org_0 = mutate_func(org_0, gen=gen, **kwargs)
-                org_1 = mutate_func(org_1, gen=gen, **kwargs)
+            mutation_func = kwargs['rng'].choice(a=kwargs['mutation_funcs'], p=kwargs['mutation_probs'])
+            if mutation_func is not None:
+                org_0 = mutation_func(org_0, gen=gen, **kwargs)
+            mutation_func = kwargs['rng'].choice(a=kwargs['mutation_funcs'], p=kwargs['mutation_probs'])
+            if mutation_func is not None:
+                org_1 = mutation_func(org_1, gen=gen, **kwargs)
 
             new_pop.append(org_0)
             new_pop.append(org_1)
 
-        return kwargs['fits'], new_pop
+        return new_pop
 
 
-def simulate_run(**kwargs):
+
+
+
+def run_replicate(**kwargs):
     """Run a single simulation of a full set of generations"""
 
     # Initialization
-    shape = (kwargs['num_gens'] + 1, kwargs['pop_size'])
-    run_pops = np.empty(shape, dtype=object)
-    run_fits = np.empty(shape)
+    # shape = (kwargs['num_gens'] + 1, kwargs['pop_size'])
+    # rep_pops = np.empty(shape, dtype=object)
+    # rep_fits = np.empty(shape)
+    # rep_pops[0] = init_pop(**kwargs)
 
     pop = init_pop(**kwargs)
-    run_pops[0] = pop
+    fits = kwargs['fitness_func'](pop=pop, gen=0, **kwargs)
+
+    # Buffer holds values that have not been saved yet
+    pop_buffer = [pop]
+    fit_buffer = [fits]
 
     # Repeat for each generation
-    for generation in range(kwargs['num_gens']):
+    for generation in range(1, kwargs['num_gens']):
 
-        if kwargs['verbose'] > 0 and generation % 1 == 0:
+        if kwargs['verbose'] and generation % 1 == 0:
             print(f'Simulating Test {kwargs["test_name"]}, Run {kwargs["seed"]}, Generation {generation} of {kwargs["num_gens"]}')
 
-        # Remove node
-        # if generation == kwargs.get('nodes_removed_gen'):
-        #     for node_index in kwargs['nodes_removed']:
-        #         print(f'Removing node {node_index}')
-        #         kwargs['interf_mask'] = remove_node(node_index, **kwargs)
-
-        # Next generation and previous fitness
-        fit, pop = next_pop(pop=pop, gen=generation, **kwargs)
+        # Next generation and fitness
+        pop = next_pop(pop=pop, fits=fits, gen=generation, **kwargs)
+        fits = kwargs['fitness_func'](pop=pop, gen=generation, **kwargs)
 
         # Save results
-        # all_pops[generation + 1] = [n.to_lists() for n in pop]
-        run_pops[generation + 1] = pop
-        run_fits[generation] = fit
+        pop_buffer.append(pop)
+        fit_buffer.append(fits)
+
+        if generation % kwargs['checkpoint_interval'] == 0 or generation == kwargs['num_gens']-1:
+
+            update_db(pop_buffer, fit_buffer, generation, **kwargs)
+
+            # Clear buffer
+            pop_buffer = []
+            fit_buffer = []
 
     # Final fitness values
-    run_fits[-1] = kwargs['fitness_func'](pop, gen=generation, is_final=True, **kwargs)
+    # rep_fits[-1] = kwargs['fitness_func'](pop, gen=generation, is_final=True, **kwargs)
 
-    return run_pops, run_fits
-
-
-def _simulate_and_save_test_run(test_num, run_num, test_kwargs, base_kwargs):
-    """Parallel worker for (test_num, run_num)."""
-
-    # Extract test-specific kwargs
-    test_keys = test_kwargs[0]
-    test_values = test_kwargs[test_num + 1]
-    kwargs = base_kwargs.copy()
-
-    # Update with test-specific values
-    for key, value in zip(test_keys, test_values):
-        kwargs[key] = value
+    # pops, fits = run_replicate(**kwargs)
+    # save_run(kwargs['test_path'], rep_pops, rep_fits, **kwargs)
 
 
-    # Set path and create directory (thread-safe)
-    test_name = test_values[0]
-    test_path = f'{kwargs["saves_path"]}{kwargs["name"]}/data/{test_values[0]}'
 
-    # Assign seed and RNG
-    if kwargs['seed'] is None:
+
+def generate_reps(**kwargs):
+    """
+    Convert test kwargs
+    """
+
+    for _ in range(kwargs['num_reps']):
+
+        # Assign seed and RNG
+        # if kwargs['seed'] is None:
         kwargs['seed'] = np.random.randint(0, 2**64, dtype='uint64')
-    kwargs['rng'] = np.random.default_rng(kwargs['seed'])
+        kwargs['rng'] = np.random.default_rng(kwargs['seed'])
 
-    if 'setup_func' in kwargs:
-        kwargs = kwargs['setup_func'](**kwargs)
+        # kwargs['rep_path'] = f'{kwargs['test_path']}{kwargs['seed']}'
 
-    # Add no-operation as a possible crossover
-    prob_noop = 1 - sum(list(zip(*kwargs['crossover_funcs']))[1])
-    if prob_noop > 0:
-        kwargs['crossover_funcs'].append([None, prob_noop])
+        if 'setup_func' in kwargs:
+            kwargs = kwargs['setup_func'](**kwargs)
 
-    # Add no-operation as a possible mutation
-    prob_noop = 1 - sum(list(zip(*kwargs['mutate_funcs']))[1])
-    if prob_noop > 0:
-        kwargs['mutate_funcs'].append([None, prob_noop])
-
-    # Run simulation and save
-    pops, fits = simulate_run(test_name=test_name, **kwargs)
-    save_run(test_path, pops, fits, **kwargs)
+        yield kwargs.copy()
 
 
-def simulate_tests(num_runs, test_kwargs, **kwargs):
+
+
+def generate_tests(test_keys, test_values, **kwargs):
+    """
+    Convert simulation kwargs containing test_kwargs into a list of all the kwargs
+    """
+
+    kwargs['num_tests'] = len(test_keys)
+
+    for test_num in range(kwargs['num_tests']):
+
+        # Extract test-specific kwargs
+        rep_kwargs = copy.deepcopy(kwargs)
+
+        # Update with test-specific values
+        for key, value in zip(test_keys, test_values[test_num]):
+            rep_kwargs[key] = value
+
+        # Set path
+        # rep_kwargs['test_path'] = f'{kwargs['saves_path']}{kwargs['name']}/{rep_kwargs['test_name']}/'
+
+        # print(kwargs[recombination_probs])
+
+        # Add no-operation as a possible recombination
+        prob_noop = 1 - sum(kwargs['recombination_probs'])
+        if prob_noop > 0:
+            rep_kwargs['recombination_funcs'].append(None)
+            rep_kwargs['recombination_probs'].append(prob_noop)
+
+        # Add no-operation as a possible mutation
+        prob_noop = 1 - sum(kwargs['mutation_probs'])
+        if prob_noop > 0:
+            rep_kwargs['mutation_funcs'].append(None)
+            rep_kwargs['mutation_probs'].append(prob_noop)
+
+        yield rep_kwargs
+
+
+
+
+
+def run_tests(**kwargs):
     """
     Simulate all runs for all tests with different hyperparameters.
     There are four levels: [test] [run/replicant] [generation/population] [organism/individual]
     """
 
     # Save kwargs first in case of failure
-    save_kwargs(num_runs=num_runs, test_kwargs=test_kwargs, **kwargs)
+    save_kwargs(**kwargs)
+
+    # Set path
+    kwargs['path'] = f'{kwargs['saves_path']}{kwargs['name']}/'
+
+    create_db(**kwargs)
 
     # Number of tests must be inferred and is only used within this function
-    num_tests = len(test_kwargs) - 1
+    # num_tests = len(test_kwargs) - 1
 
     # Build the job list: one job per (test, run)
-    jobs_args = [
-        (test_num, run_num, test_kwargs, kwargs.copy())
-        for test_num in range(num_tests)
-        for run_num in range(num_runs)
-    ]
+    # jobs_args = [
+    #     (test_num, run_num, test_kwargs, kwargs.copy())
+    #     for test_num in range(num_tests)
+    #     for run_num in range(num_runs)
+    # ]
+
+    jobs_args = []
+
+    for i in generate_tests(**kwargs):
+        for j in generate_reps(**i):
+            jobs_args.append(j)
 
     # Parallelize processes
     if kwargs.get('parallelize', False):
@@ -212,11 +258,15 @@ def simulate_tests(num_runs, test_kwargs, **kwargs):
         if kwargs.get('verbose', 0) > 0:
             print(f'Dispatching {len(jobs_args)} parallel jobs')
 
-        #MODIFY cpu_count() to adjust max core count use
+        # Change cpu_count() to adjust max core count use
         with Pool(processes=min(cpu_count(), len(jobs_args))) as pool:
-            results = pool.starmap(_simulate_and_save_test_run, jobs_args)
+            results = pool.starmap(run_replicate, jobs_args)
 
     # Non parallelized
     else:
         for job_args in jobs_args:
-            _simulate_and_save_test_run(*job_args)
+            run_replicate(**job_args)
+
+
+
+# if __name__ == '__main__':

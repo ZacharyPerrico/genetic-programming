@@ -1,4 +1,4 @@
-from src.evolve import simulate_tests
+from src.old_evolve import simulate_tests
 from src.utils.plot import plot_results
 from src.utils.save import load_runs, save_kwargs, load_kwargs
 from src.models.tmgp import *
