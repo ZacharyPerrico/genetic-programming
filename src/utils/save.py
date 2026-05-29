@@ -150,32 +150,30 @@ def load_seeds(test, **kwargs):
 
 
 
-schema = """
-DROP TABLE IF EXISTS data;
-
-CREATE TABLE IF NOT EXISTS data (
-  test TEXT,
-  seed INT NOT NULL,
-  gen INT,
-  id INT,
-  fitness REAL,
-  data TEXT,
-  PRIMARY KEY (test, seed, gen, id)
-);
-
-CREATE TABLE IF NOT EXISTS kwargs (
-    test TEXT,
-    PRIMARY KEY (test)
-)
-"""
+# schema = """
+# DROP TABLE IF EXISTS data;
+#
+# CREATE TABLE IF NOT EXISTS data (
+#   test TEXT,
+#   seed INT NOT NULL,
+#   gen INT,
+#   id INT,
+#   fitness REAL,
+#   data TEXT,
+#   PRIMARY KEY (test, seed, gen, id)
+# );
+#
+# CREATE TABLE IF NOT EXISTS kwargs (
+#     test TEXT,
+#     PRIMARY KEY (test)
+# )
+# """
 
 sql_file = '../../utils/data.sql'
 db_name = 'data.db'
 
 def create_db(**kwargs):
     # Each test is saved in its own directory which is passed through the path
-    # path = f'{kwargs['saves_path']}{kwargs['name']}/'
-
     os.makedirs(kwargs['path'], exist_ok=True)
     print(f'Creating database at {kwargs['path']}')
     con = sqlite3.connect(kwargs['path']+db_name)
@@ -190,44 +188,34 @@ def create_db(**kwargs):
     #     print('ERROR')
     con.close()
 
-
-
-
 # def add_test_kwargs(**kwargs):
 
 
 def update_db(pops, fits, generation, **kwargs):
-
+    """Insert values from the pop and fits to the database"""
     print(f'Updating Database {kwargs['path']+db_name}')
 
-    con = sqlite3.connect(kwargs['path'] + db_name)
+    # Format data into a single list
+    gen_start = generation - len(pops) + 1
+    data = [
+        [
+            kwargs['test_name'],
+            kwargs['seed'],
+            gen_start + gen_offset,
+            ind,
+            fits[gen_offset][ind],
+            str(pops[gen_offset][ind]),
+        ]
+        for gen_offset in range(len(pops))
+        for ind in range(len(pops[gen_offset]))
+    ]
 
+    con = sqlite3.connect(kwargs['path'] + db_name, timeout=kwargs['update_timeout'])
     with con:
-
-        start_gen = generation - len(pops) + 1
-
-        for i in range(len(pops)):
-
-            gen = start_gen + i
-
-            data = [
-                [
-                    kwargs['test_name'],
-                    kwargs['seed'],
-                    gen,
-                    ind,
-                    fits[i][ind],
-                    str(pops[i][ind]),
-                ]
-                for ind in range(len(pops))
-            ]
-
-            print(data)
-
-            cur = con.cursor()
-            cur.executemany("INSERT INTO data VALUES(?, ?, ?, ?, ?, ?)", data)
-            con.commit()
-
+        cur = con.cursor()
+        cur.executemany("INSERT INTO data VALUES(?, ?, ?, ?, ?, ?)", data)
+        # con.commit()
+    con.close()
 
 
 
@@ -242,19 +230,29 @@ if __name__ == '__main__':
 
     kwargs['path'] = '../../saves/smlgp/' + name + '/'
 
+
+
     con = sqlite3.connect(kwargs['path'] + db_name)
     cur = con.cursor()
-    try:
-        while True:
-            i = input()
-            if i == '':
-                break
-            res = cur.execute(i)
-            for i in res:
-                print(i)
-            # print(res.fetchall())
-    finally:
-        con.close()
-        print('EXITING')
+    res = cur.execute('select gen, count(gen) from data group by gen')
+    for i in res:
+        print(i)
+    con.close()
+
+
+    # con = sqlite3.connect(kwargs['path'] + db_name)
+    # cur = con.cursor()
+    # try:
+    #     while True:
+    #         i = input()
+    #         if i == '':
+    #             break
+    #         res = cur.execute(i)
+    #         for i in res:
+    #             print(i)
+    #         # print(res.fetchall())
+    # finally:
+    #     con.close()
+    #     print('EXITING')
 
 

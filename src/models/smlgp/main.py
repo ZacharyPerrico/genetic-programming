@@ -1,4 +1,5 @@
-from src.old_evolve import simulate_tests
+import time
+
 from src.evolve import generate_tests, generate_reps, run_tests
 from src.models.smlgp import *
 from src.models.smlgp.plot import plot_results
@@ -596,14 +597,14 @@ from src.models.smlgp.plot import plot_results
 
 kwargs = {
     'name': 'test',  # Name of folder to contain all results
-    'seed': None,
     'verbose': True,
-    'parallelize': not True,
+    'parallelize': True,
     'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
-    'checkpoint_interval': 2,
+    'checkpoint_interval': 1,
+    'update_timeout': 60,
     ## Size ##
-    'num_reps': 1,
-    'num_gens': 10,
+    'num_reps': 16,
+    'num_gens': 100,
     'pop_size': 100,
     'min_lens': [16],  # Length of each memory bank excluding regs
     'max_lens': [64],  # Length of each memory bank excluding regs
@@ -622,7 +623,7 @@ kwargs = {
     ## Selection ##
     'minimize_fitness': True,
     'keep_parents': 2,  # Elitism, must be even
-    'k': 2,  # Number of randomly chosen parents for each tournament
+    'tournament_size': 2,  # Number of randomly chosen parents for each tournament
     ## Repopulation ##
     'recombination_funcs': [two_point_block_crossover_2d],
     'recombination_probs': [0.9],
@@ -650,7 +651,10 @@ if __name__ == '__main__':
 
     # print(list(i))
 
+    t0 = time.time()
     run_tests(**kwargs)
+    print(f'\nTotal Time Elapsed {t0 - time.time()}')
+
     # fits = load_fits(**kwargs)
     # plot_results(fits, **kwargs)
 

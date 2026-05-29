@@ -3,11 +3,12 @@ Core functions used in controlling evolution
 All functions are independent of the subject of evolution
 """
 import copy
+import threading
 from multiprocessing import Pool, cpu_count
 
 import numpy as np
 
-from src.utils.save import save_kwargs, save_run, create_db, update_db
+from src.utils.save import save_kwargs, create_db, update_db
 
 
 #
@@ -23,13 +24,13 @@ def init_pop(pop_size, init_individual_func, **kwargs):
 # Selection
 #
 
-def tournament_selection(pop, fits, k, **kwargs):
+def tournament_selection(pop, fits, **kwargs):
     """Select a single parent from a tournament of k"""
     # Select the random tournament
-    tourn_indices = kwargs['rng'].choice(len(pop), size=k, replace=False)
+    tourn_indices = kwargs['rng'].choice(len(pop), size=kwargs['tournament_size'], replace=False)
     tourn = [pop[i] for i in tourn_indices]
     # Created a zipped list of fitness and chromosomes
-    parent = [(fits[i], i) for i in range(k)]
+    parent = [(fits[i], i) for i in range(kwargs['tournament_size'])]
     # Sort all parents by fitness
     parent = sorted(parent)
     if not kwargs['minimize_fitness']:
@@ -44,7 +45,7 @@ def tournament_selection(pop, fits, k, **kwargs):
 #
 
 def next_pop(pop, fits, gen, **kwargs):
-    """Returns the fitness values for the given population and the next population"""
+    """Returns the next population from the given population and fitness values"""
 
     # Truncate Selection
     # This is not used
@@ -72,10 +73,6 @@ def next_pop(pop, fits, gen, **kwargs):
 
     # Crossover
     else:
-        # kwargs['pop'] = pop
-
-        # Evaluation
-        # kwargs['fits'] = kwargs['fitness_func'](gen=gen, **kwargs)
 
         # Elitism
         pool = [(fits[i], i) for i in range(kwargs['pop_size'])]
@@ -111,72 +108,59 @@ def next_pop(pop, fits, gen, **kwargs):
         return new_pop
 
 
+def run_replicate(arg=None, **kwargs):
+    """Run a single replicate with a full set of generations"""
 
-
-
-def run_replicate(**kwargs):
-    """Run a single simulation of a full set of generations"""
+    # A single arg may instead be passed if unpacking the dict is not possible
+    if arg is not None:
+        kwargs = arg
 
     # Initialization
-    # shape = (kwargs['num_gens'] + 1, kwargs['pop_size'])
-    # rep_pops = np.empty(shape, dtype=object)
-    # rep_fits = np.empty(shape)
-    # rep_pops[0] = init_pop(**kwargs)
-
     pop = init_pop(**kwargs)
     fits = kwargs['fitness_func'](pop=pop, gen=0, **kwargs)
 
-    # Buffer holds values that have not been saved yet
+    # Buffer holds values that have not yet been saved
     pop_buffer = [pop]
     fit_buffer = [fits]
 
     # Repeat for each generation
     for generation in range(1, kwargs['num_gens']):
 
-        if kwargs['verbose'] and generation % 1 == 0:
+        if kwargs['verbose']:
             print(f'Simulating Test {kwargs["test_name"]}, Run {kwargs["seed"]}, Generation {generation} of {kwargs["num_gens"]}')
 
         # Next generation and fitness
         pop = next_pop(pop=pop, fits=fits, gen=generation, **kwargs)
         fits = kwargs['fitness_func'](pop=pop, gen=generation, **kwargs)
 
-        # Save results
+        # Save results to buffer
         pop_buffer.append(pop)
         fit_buffer.append(fits)
 
+        # Save to database and clear buffers when a checkpoint generation or the final generation is reached
         if generation % kwargs['checkpoint_interval'] == 0 or generation == kwargs['num_gens']-1:
-
             update_db(pop_buffer, fit_buffer, generation, **kwargs)
-
-            # Clear buffer
             pop_buffer = []
             fit_buffer = []
 
-    # Final fitness values
-    # rep_fits[-1] = kwargs['fitness_func'](pop, gen=generation, is_final=True, **kwargs)
 
-    # pops, fits = run_replicate(**kwargs)
-    # save_run(kwargs['test_path'], rep_pops, rep_fits, **kwargs)
-
-
-
+#
+# Hyper-Parameter Generation and Control
+#
 
 def generate_reps(**kwargs):
     """
-    Convert test kwargs
+    Yields kwargs with unique seeds and rngs for each replicate
     """
 
     for _ in range(kwargs['num_reps']):
 
         # Assign seed and RNG
-        # if kwargs['seed'] is None:
         kwargs['seed'] = np.random.randint(0, 2**64, dtype='uint64')
         kwargs['rng'] = np.random.default_rng(kwargs['seed'])
 
-        # kwargs['rep_path'] = f'{kwargs['test_path']}{kwargs['seed']}'
-
-        if 'setup_func' in kwargs:
-            kwargs = kwargs['setup_func'](**kwargs)
+        # if 'setup_func' in kwargs:
+        #     kwargs = kwargs['setup_func'](**kwargs)
 
         yield kwargs.copy()
 
@@ -192,17 +176,10 @@ def generate_tests(test_keys, test_values, **kwargs):
 
     for test_num in range(kwargs['num_tests']):
 
-        # Extract test-specific kwargs
-        rep_kwargs = copy.deepcopy(kwargs)
-
         # Update with test-specific values
+        rep_kwargs = copy.deepcopy(kwargs)
         for key, value in zip(test_keys, test_values[test_num]):
             rep_kwargs[key] = value
-
-        # Set path
-        # rep_kwargs['test_path'] = f'{kwargs['saves_path']}{kwargs['name']}/{rep_kwargs['test_name']}/'
-
-        # print(kwargs[recombination_probs])
 
         # Add no-operation as a possible recombination
         prob_noop = 1 - sum(kwargs['recombination_probs'])
@@ -220,52 +197,48 @@ def generate_tests(test_keys, test_values, **kwargs):
 
 
 
-
-
 def run_tests(**kwargs):
     """
     Simulate all runs for all tests with different hyperparameters.
-    There are four levels: [test] [run/replicant] [generation/population] [organism/individual]
+    There are four levels: [test] [replicant] [generation/population] [organism/individual]
     """
 
     # Save kwargs first in case of failure
     save_kwargs(**kwargs)
 
-    # Set path
+    # Set path and create the database used by all reps
     kwargs['path'] = f'{kwargs['saves_path']}{kwargs['name']}/'
-
     create_db(**kwargs)
 
-    # Number of tests must be inferred and is only used within this function
-    # num_tests = len(test_kwargs) - 1
-
-    # Build the job list: one job per (test, run)
-    # jobs_args = [
-    #     (test_num, run_num, test_kwargs, kwargs.copy())
-    #     for test_num in range(num_tests)
-    #     for run_num in range(num_runs)
-    # ]
-
-    jobs_args = []
-
+    # Kwargs corresponding to each replicate
+    jobs_kwargs = []
     for i in generate_tests(**kwargs):
         for j in generate_reps(**i):
-            jobs_args.append(j)
+            jobs_kwargs.append([j])
 
     # Parallelize processes
-    if kwargs.get('parallelize', False):
+    if kwargs['parallelize']:
 
-        if kwargs.get('verbose', 0) > 0:
-            print(f'Dispatching {len(jobs_args)} parallel jobs')
+        if kwargs['verbose']:
+            print(f'Dispatching {len(jobs_kwargs)} parallel jobs')
 
-        # Change cpu_count() to adjust max core count use
-        with Pool(processes=min(cpu_count(), len(jobs_args))) as pool:
-            results = pool.starmap(run_replicate, jobs_args)
+        # Submit jobs using multiprocessing
+        with Pool(processes=min(cpu_count(), len(jobs_kwargs))) as pool:
+            results = pool.starmap(run_replicate, jobs_kwargs)
+
+        # threads = []
+        # for j in jobs_args:
+        #     t = threading.Thread(target=run_replicate, kwargs=j)
+        #     threads.append(t)
+        # for t in threads:
+        #     t.start()
+        # for t in threads:
+        #     t.join()
 
     # Non parallelized
     else:
-        for job_args in jobs_args:
-            run_replicate(**job_args)
+        for job_kwargs in jobs_kwargs:
+            run_replicate(*job_kwargs)
 
 
 
