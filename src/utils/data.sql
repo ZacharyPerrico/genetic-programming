@@ -2,10 +2,10 @@
 
 CREATE TABLE IF NOT EXISTS data (
   test TEXT,
-  seed INT NOT NULL,
+  seed INT,
   gen INT,
   id INT,
-  fitness REAL,
+  fit REAL,
   data TEXT,
   PRIMARY KEY (test, seed, gen, id)
 );

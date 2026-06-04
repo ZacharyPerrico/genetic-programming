@@ -4,6 +4,7 @@ All functions are independent of the subject of evolution
 """
 import copy
 import threading
+import time
 from multiprocessing import Pool, cpu_count
 
 import numpy as np
@@ -203,11 +204,12 @@ def run_tests(**kwargs):
     There are four levels: [test] [replicant] [generation/population] [organism/individual]
     """
 
+    start_time = time.time()
+
     # Save kwargs first in case of failure
     save_kwargs(**kwargs)
 
-    # Set path and create the database used by all reps
-    kwargs['path'] = f'{kwargs['saves_path']}{kwargs['name']}/'
+    # Create the database used by all reps
     create_db(**kwargs)
 
     # Kwargs corresponding to each replicate
@@ -240,6 +242,7 @@ def run_tests(**kwargs):
         for job_kwargs in jobs_kwargs:
             run_replicate(*job_kwargs)
 
-
+    if kwargs['verbose']:
+        print(f'\nTotal time elapsed {time.time() - start_time}')
 
 # if __name__ == '__main__':

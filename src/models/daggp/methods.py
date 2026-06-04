@@ -2,7 +2,7 @@
 Genetic programming functions specifically for the evolution of Directed Acyclic Graphs.
 DAGs are represented using the Node class.
 """
-
+import numpy as np
 from scipy.optimize import minimize
 
 from src.models.daggp.model import Node
@@ -46,7 +46,8 @@ def fitness_helper(id, node, xs, y_target):
 
 def mse(pop, target_func, domains, **kwargs):
     """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
-    xs = [np.linspace(*domain) for domain in domains]
+    # xs = [np.linspace(*domain) for domain in domains]
+    xs = domains
     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1))
     y_target = np.array([target_func(*list(x)) for x in xs.T])
     # xs = xs.swapaxes(0, 1)
@@ -139,7 +140,7 @@ def point_mutation(root, **kwargs):
 def subgraph_mutation(root, **kwargs):
     """Swap a random node with a random new subtree"""
     new_root = root.copy()
-    new_branch = kwargs['new_individual_func'](**kwargs)
+    new_branch = kwargs['init_individual_func'](**kwargs)
     new_branch_height = new_branch.height()
     # List of all nodes that are not the root
     root_nodes = [

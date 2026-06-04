@@ -596,10 +596,10 @@ from src.models.smlgp.plot import plot_results
 
 
 kwargs = {
-    'name': 'test',  # Name of folder to contain all results
+    'name': 'test/test',  # Name of folder to contain all results
     'verbose': True,
     'parallelize': True,
-    'saves_path': '../../../saves/smlgp/',  # Save path relative to this file
+    'saves_path': '../../../saves/',  # Save path relative to this file
     'checkpoint_interval': 1,
     'update_timeout': 60,
     ## Size ##
@@ -651,9 +651,7 @@ if __name__ == '__main__':
 
     # print(list(i))
 
-    t0 = time.time()
     run_tests(**kwargs)
-    print(f'\nTotal Time Elapsed {t0 - time.time()}')
 
     # fits = load_fits(**kwargs)
     # plot_results(fits, **kwargs)

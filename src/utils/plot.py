@@ -1,73 +1,101 @@
-"""All functions relevant to plotting."""
-
-import os
-
-import networkx as nx
-import numpy as np
-from matplotlib import pyplot as plt
+"""General functions for plotting results."""
 
 from src.models import *
-from src.utils.save import load_kwargs, load_runs, load_pop, load_fits
+from src.utils.save import sql_query
 from src.utils.utils import cartesian_prod
 
 #
 # Data Based Plotting
 #
 
-def plot_fitness(all_fits, ax=None, save=True, show=True, **kwargs):
+def plot_fitness(ax=None, save=True, show=True, **kwargs):
     """Plot the average of the runs' minimum fitness for each test"""
+
     if ax is None:
         fig, ax = plt.subplots()
-    x = np.array(range(all_fits.shape[2]))
-    for test in range(all_fits.shape[0]):
+
+    # Iterate over all tests for each line in the plot
+    for test_num, test_values in enumerate(kwargs['test_values']):
+
+        test_name = test_values[0]
+
         if kwargs['minimize_fitness']:
-            y = np.mean(np.min(all_fits[test], axis=2), axis=0)
+            ordering_func = 'MIN'
             ax.set_ylabel('Average Min Fitness Value')
         else:
-            y = np.mean(np.max(all_fits[test], axis=2), axis=0)
+            ordering_func = 'MAX'
             ax.set_ylabel('Average Max Fitness Value')
-        plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0])
-        y_std = np.std(np.min(all_fits[test], axis=2), axis=0)
+
+        # Plot the avg of the min/max for each rep
+        # query = f"""
+        # SELECT gen, AVG(fit)
+        # FROM (
+        #     SELECT seed, gen, {ordering_func}(fit) AS fit
+        #     FROM data
+        #     WHERE test = '{test_name}'
+        #     GROUP BY seed, gen
+        #     )
+        # GROUP BY gen
+        # """
+        # x, y = zip(*sql_query(query, **kwargs))
+        # ax.plot(x, y, label=test_name)
+
+        # Plot the error bands
+        query = f"""
+        WITH mfits AS (
+            SELECT seed, gen, {ordering_func}(fit) AS mfit
+            FROM data
+            WHERE test = '{test_name}'
+            GROUP BY seed, gen
+        )
+        SELECT mfits.gen, AVG(mfit), SQRT(AVG(POWER(mfit - mean, 2))) AS stdev
+        FROM
+            mfits
+            INNER JOIN (
+                SELECT gen, AVG(mfit) AS mean
+                FROM mfits
+                GROUP BY gen
+            ) AS mmean ON mmean.gen = mfits.gen
+        GROUP BY mfits.gen
+        """
+        x, y, y_std = zip(*sql_query(query, **kwargs))
+        y = np.array(y)
+        ax.plot(x, y, label=test_name)
         ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
-        # Scatter plot all points
-        # xx = x.reshape((1,len(x),1)).repeat(all_fits.shape[1], axis=0).repeat(all_fits.shape[3], axis=2).ravel()
-        # yy = all_fits[test].ravel()
-        # plt.scatter(xx, yy, 0.1)
-    # ax.set_yscale('log')
-    ax.set_xlabel('Generation')
-    plt.legend(title=kwargs['test_kwargs'][0][0])
-    if save:
-        plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/Fitness.png')
-    if show:
-        plt.show()
-    plt.close()
 
-
-
-def plot_mean_fitness(all_fits, ax=None, save=True, show=True, **kwargs):
-    """Plot the average of the runs' minimum fitness for each test"""
-    if ax is None:
-        fig, ax = plt.subplots()
-    x = np.array(range(all_fits.shape[2]))
-    for test in range(all_fits.shape[0]):
-        if kwargs['minimize_fitness']:
-            y = np.mean(np.mean(all_fits[test], axis=2), axis=0)
-            ax.set_ylabel('Average Min Fitness Value')
-        else:
-            y = np.mean(np.mean(all_fits[test], axis=2), axis=0)
-            ax.set_ylabel('Average Max Fitness Value')
-        plt.plot(x, y, label=kwargs['test_kwargs'][test + 1][0])
+        # query = f"""
+        # SELECT seed, gen, {ordering_func}(fit) AS fit
+        # FROM data
+        # WHERE test = '{test_name}'
+        # GROUP BY seed, gen
+        # ORDER BY gen
+        # """
+        # yy = sql_query(query, **kwargs)
+        # v = {}
+        # for seed, gen, fit in yy:
+        #     if seed not in v:
+        #         v[seed] = []
+        #     v[seed].append(fit)
+        # v = list(v.values())
+        # v = np.array(v, float)
+        # # print(v)
+        # s = np.std(v, axis=0)
+        # m = np.mean(v, axis=0)
+        # # print(s)
+        # for i in range(len(s)):
+        #     print(f'{i} {y[i]} {y_std[i]} {s[i]} {m[i]}')
+        # print(s.shape)
         # y_std = np.std(np.min(all_fits[test], axis=2), axis=0)
-        # ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
-        # Scatter plot all points
-        # xx = x.reshape((1,len(x),1)).repeat(all_fits.shape[1], axis=0).repeat(all_fits.shape[3], axis=2).ravel()
-        # yy = all_fits[test].ravel()
-        # plt.scatter(xx, yy, 0.1)
-    # ax.set_yscale('log')
+
+    # Scatter plot all points
+    # xx = x.reshape((1,len(x),1)).repeat(all_fits.shape[1], axis=0).repeat(all_fits.shape[3], axis=2).ravel()
+    # yy = all_fits[test].ravel()
+    # plt.scatter(xx, yy, 0.1)
+
     ax.set_xlabel('Generation')
-    plt.legend(title=kwargs['test_kwargs'][0][0])
+    plt.legend(title=kwargs['test_label'])
     if save:
-        plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/Fitness.png')
+        plt.savefig(f'{kwargs['plot_path']}Fitness.png')
     if show:
         plt.show()
     plt.close()
@@ -219,22 +247,25 @@ def table_best(obj, **kwargs):
     print(row)
 
 
+
 #
 # Control
 #
 
-def get_best(all_fits, gen=-1, **kwargs):
+def get_best(**kwargs):
     """Get the best result of the given run and gen"""
-    best_objs = []
-    best_fits = []
-    for test in range(all_fits.shape[0]):
-        if kwargs['minimize_fitness']:
-            run, org = np.unravel_index(all_fits[test,:,gen,:].argmin(), all_fits[test,:,gen,:].shape)
-        else:
-            run, org = np.unravel_index(all_fits[test,:,gen,:].argmax(), all_fits[test,:,gen,:].shape)
-        best_objs.append(load_pop(test,run,**kwargs)[gen,org])
-        best_fits.append(all_fits[test,run,gen,org])
-    return best_objs, best_fits
+    # https://www.sqlite.org/lang_select.html#bareagg
+    if kwargs['minimize_fitness']:
+        ordering_func = 'MIN'
+    else:
+        ordering_func = 'MAX'
+    query = f"""
+        SELECT test, seed, gen, id, {ordering_func}(fit), data
+        FROM data
+        GROUP BY test
+    """
+    bests = sql_query(query, **kwargs)
+    return bests
 
 
 def plot_grid(all_pops, all_fits, plot_func, title=None, save=True, show=True, **kwargs):
@@ -279,67 +310,3 @@ def plot_grid(all_pops, all_fits, plot_func, title=None, save=True, show=True, *
         if show:
             plt.show()
         plt.close()
-
-
-def plot_results(all_fits, **kwargs):
-    """Plot all standard plots"""
-    path = f'{kwargs["saves_path"]}{kwargs["name"]}/plots/'
-    os.makedirs(path, exist_ok=True)
-    print('Plotting results')
-
-    plot_fitness(all_fits, show=False, **kwargs)
-
-    # plot_mean_fitness(all_fits, show=False, **kwargs)
-
-    # plot_means(np.vectorize(lambda x: len(x))(all_pops), 'Average Length', show=False, **kwargs)
-    # plot_medians(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
-    # plot_hist(np.vectorize(lambda x: len(x[0]))(all_pops), 'Average Number of Nodes')
-
-    # plot_box(all_fits[:,:,-1], 'Final Fitness', show=False, **kwargs)
-
-    # plot_grid(all_pops, all_fits, plot_func=plot_tm_maze, title='Best Solutions', show=False, **kwargs)
-    # plot_grid(all_pops, all_fits, plot_func=plot_tm_graph, title='Best Graphs', show=False, **kwargs)
-    # plot_grid(all_pops, all_fits, plot_func=plot_trans_array, title='Best Transition Arrays', show=False, **kwargs)
-    # plot_grid(all_pops, all_fits, plot_func=plot_fitness, title='Best Solutions', show=False, **kwargs)
-
-    # plot_network(**kwargs)
-
-    # Plot best results of each test
-    bests = zip(*get_best(all_fits, **kwargs))
-    for i, best in enumerate(bests):
-        best_obj, best_fit = best
-        test_name = kwargs['test_kwargs'][i+1][0]
-
-        # plot_network(org=best_obj, title=test_name, **kwargs)
-
-        # contour(best_obj, title=test_name, show=True, **kwargs)
-        #
-        # org = load_pop(i, 0, **kwargs)[0, 0]
-        #
-        # contour(org, title=test_name, show=True, **kwargs)
-
-        # print(best_obj.simplify())
-        # print(best_obj.latex())
-        # plot_nodes([best_obj], **kwargs)
-
-        # plot
-
-        # print(f'Test: {test_name}, Fitness: {best_fit}')
-        # table_best(best_obj, **kwargs)
-
-        # l = Linear([[0,0,0,0], *best_obj])
-        # l = run_self_rep(code_1d, **kwargs)
-        # print(l)
-        # l = run_self_rep(l.mem[2], **kwargs)
-        # print(l)
-
-
-
-
-if __name__ == '__main__':
-    name = '5x5_mini'
-    name = 'zero_sum'
-    # kwargs = load_kwargs(name, '../../saves/network/')
-    kwargs = load_kwargs(name, '../../saves/smlgp/')
-    fits = load_fits(**kwargs)
-    plot_results(fits, **kwargs)

@@ -1,3 +1,12 @@
+import os
+
+import numpy as np
+from matplotlib import pyplot as plt
+
+from src.utils.plot import get_best
+from src.utils.save import load_kwargs
+
+
 def plot_nodes(nodes, result_fitness_func=None, labels=None, title=None, legend_title=None, **kwargs):
     """Plot all given nodes and the fitness function"""
 
@@ -36,3 +45,25 @@ def plot_nodes(nodes, result_fitness_func=None, labels=None, title=None, legend_
     plt.legend(title=kwargs['test_kwargs'][0][0])
     plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{title}.png')
     plt.show()
+
+
+def plot_results(**kwargs):
+    """Function to plot results called by this module or through the main module"""
+    kwargs['plot_path'] = f'{kwargs["saves_path"]}{kwargs["name"]}/plots/'
+    os.makedirs(kwargs['plot_path'], exist_ok=True)
+    print('Plotting results')
+
+    # plot_fitness(**kwargs)
+
+    # Plot best results of each test
+    bests = get_best(**kwargs)
+    for test, seed, gen, id, fit, data in bests:
+        print(test, seed, gen, id, fit, data)
+
+        # plot_nodes
+
+
+if __name__ == '__main__':
+    name = 'test/node'
+    kwargs = load_kwargs('../../../saves/'+name)
+    plot_results(**kwargs)
