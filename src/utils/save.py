@@ -38,8 +38,9 @@ def save_kwargs(**kwargs):
             return obj
     print(f'Saving kwargs to {kwargs['saves_path']}/kwargs.json')
     os.makedirs(kwargs['saves_path'], exist_ok=True)
+    json_data = func_to_string(kwargs.copy())
     with open(kwargs['saves_path'] + '/kwargs.json', 'w') as f:
-        json.dump(func_to_string(kwargs.copy()), f, indent=4)
+        json.dump(json_data, f, indent=4)
 
 
 def load_kwargs(saves_path):
@@ -97,13 +98,13 @@ def update_db(pops, fits, generation, **kwargs):
             gen_start + gen_offset,
             ind,
             fits[gen_offset][ind],
-            str(pops[gen_offset][ind]),
+            kwargs['save_formater_func']((pops[gen_offset][ind])),
         ]
         for gen_offset in range(len(pops))
         for ind in range(len(pops[gen_offset]))
     ]
 
-    con = sqlite3.connect(kwargs['saves_path'] + db_name, timeout=kwargs['update_timeout'])
+    con = sqlite3.connect(kwargs['saves_path']+db_name, timeout=kwargs['update_timeout'])
     with con:
         cur = con.cursor()
         cur.executemany("INSERT INTO data VALUES(?, ?, ?, ?, ?, ?)", data)
@@ -112,7 +113,7 @@ def update_db(pops, fits, generation, **kwargs):
 
 
 def sql_query(query, **kwargs):
-    con = sqlite3.connect(kwargs['path'] + db_name)
+    con = sqlite3.connect(kwargs['saves_path']+db_name)
     cur = con.cursor()
     res = list(cur.execute(query))
     # for i in res:
@@ -123,14 +124,9 @@ def sql_query(query, **kwargs):
 
 
 if __name__ == '__main__':
-    # name = 'unstable_self_rep_0'
-    # fits = load_fits(**kwargs)
-    #
-    # pop = load_pop(0, 0, **kwargs)
-
 
     # Run query
-    # q = 'select gen, count(gen) from data group by gen'
+    q = 'SELECT gen, count(gen) FROM data GROUP BY gen'
     # q = 'SELECT test, seed, AVG(fit) FROM data GROUP BY test, seed'
     # q = """
     # SELECT test, MIN(fit)
@@ -150,15 +146,14 @@ if __name__ == '__main__':
     #     )
     # GROUP BY test, gen
     # """
-    q = """
-    SELECT *
-    FROM data
-    WHERE fit = 0
-    GROUP BY data
-    """
+    # q = """
+    # SELECT *
+    # FROM data
+    # WHERE fit = 0
+    # GROUP BY data
+    # """
     name = 'test/node'
-    kwargs = load_kwargs(name, '../../saves/')
-    kwargs['path'] = '../../saves/' + name + '/'
+    kwargs = load_kwargs('../../saves/'+name)
 
     for i in sql_query(q, **kwargs):
         print(i)

@@ -55,7 +55,6 @@ class Node:
         self.returned_value = -1
         # If all descendants are in the simplest form
         self.is_limited = False
-        # self.prev_fit = None
 
     #
     # Children and Parents
@@ -256,7 +255,7 @@ class Node:
         return Node(self.value, [child.to_tree() for child in self])
 
     def to_lists(self, verts=None, edges=None):
-        """Returns lists representing the vertices and edges"""
+        """Returns lists representing the vertices and edges. Used for saving and advanced plotting"""
         if verts is None:
             self.reset_index()
             verts, edges = [], []
@@ -406,6 +405,8 @@ class Node:
                         case 'pi': return_value = kwargs['pi'] if 'pi' in kwargs else np.pi * np.ones_like(x[0])
 
                         # Arbitrary Variable
+                        # Convert string to int then use as an index
+                        # This is how 'x1', 'x2', ... are supported
                         case _: return_value = np.float64(x[int(''.join([s for s in self.value if s.isdigit()]))])
 
                 # Store the last returned value for analysis if needed
@@ -583,11 +584,18 @@ if __name__ == '__main__':
 
     g = 2 * f + f
 
-    print(g.simplify())
+    # print(g)
 
-    xs = np.array([1, 2])
+    print(g.to_lists())
 
-    print(f(xs))
+
+
+
+    # print(g.simplify())
+
+    # xs = np.array([1, 2])
+
+    # print(f(xs))
 
     # print(f(xs, eval_method='zero'))
 

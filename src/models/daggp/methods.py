@@ -192,7 +192,7 @@ def pointer_mutation(root, **kwargs):
 
 
 def split_mutation(root, **kwargs):
-    """Only the direct parent may """
+    """Neutral mutation that takes a node with multiple parents and makes a new shallow copy for each."""
     new_root = root.copy()
     # List of all nodes with multiple parents
     valid_child_nodes = [n for n in new_root.nodes() if len(n.parents) > 1]
@@ -213,7 +213,7 @@ def split_mutation(root, **kwargs):
 
 
 def deep_split_mutation(root, **kwargs):
-    """Only the direct parent may """
+    """Neutral mutation that takes a node with multiple parents and makes a new deep copy for each."""
     new_root = root.copy()
     # List of all nodes with multiple parents
     valid_child_nodes = [n for n in new_root.nodes() if len(n.parents) > 1]
@@ -238,6 +238,7 @@ def deep_split_mutation(root, **kwargs):
 #
 
 def subgraph_crossover(a, b, **kwargs):
+    """Swap two random subgraphs between the parents"""
     # Copy original trees
     new_a = a.copy()
     new_b = b.copy()
@@ -283,11 +284,14 @@ def subgraph_crossover(a, b, **kwargs):
 # Target Functions
 #
 
+def trig_sin(x): return np.sin(x)
 def logical_or(*x): return bool(x[0]) or bool(x[1])
 def mod2k(*x): return x[0] % (2 ** x[1])
 def xor_and_xor(*x): return (int(x[0]) ^ int(x[1])) & (int(x[2]) ^ int(x[3]))
 def const_32(x): return 32*x**2 + x
-def koza_3(x): return x**5 - 2*x**3 + x
+def koza_1(x): return x**4 + x**3 + x**2 + x
+def koza_2(x): return x**5 - 2*x**3 + x
+def koza_3(x): return x**6 - 2*x**4 + x**2
 def bit_sum(x): return sum(int(i) for i in f'{int(x):04b}')
 def nate(x): return np.exp(-x*x/2) / np.sqrt(2 * np.pi)
 
@@ -302,10 +306,67 @@ def init_cos_limited(**kwargs): return Node.cos(Node('x')).limited().to_tree()
 def init_get_bit(**kwargs): return Node.get_bits(x,0,1) + Node.get_bits(x,1,1) + Node.get_bits(x,2,1)
 def init_get_bit_limited(**kwargs): return init_get_bit(**kwargs).limited()
 
+#
+# Saving and Loading Individuals
+#
+
+def dag_to_save_str(dag):
+    """Convert a DAG into a list of vertices and edges then format into a single string to save in a SQL database."""
+    DELIM = ','
+    verts, edges = dag.to_lists()
+    verts_str = DELIM.join(map(str,verts))
+    edges_str = DELIM.join(f'{u}{DELIM}{v}' for u,v in edges)
+    dag_str = verts_str + '\n' + edges_str
+
+    return dag_str
+
+
+def dag_from_save_str(dag_str):
+    """Load a DAG from list of vertices and edges formated into a single string."""
+    DELIM = ','
+    verts_str, edges_str = dag_str.split('\n')
+    verts = verts_str.split(DELIM)
+    for i, vert in enumerate(verts):
+        # if 'x' in vert:
+        #     continue
+        if vert.isdigit() or (vert.startswith('-') and vert[1:].isdigit()):
+            verts[i] = int(vert)
+        elif 'j' in vert:
+            verts[i] = complex(vert)
+        elif '.' in vert:
+            verts[i] = float(vert)
+
+    if len(edges_str) == 0:
+        edges = []
+    else:
+        split_edges = list(map(int,edges_str.split(DELIM)))
+        edges = [split_edges[i:i+2] for i in range(0,len(split_edges),2)]
+    return Node.from_lists(verts, edges)
+
 
 #
 # Debug
 #
 
 if __name__ == '__main__':
-    pass
+    # pass
+
+    y = koza_3(-0.5)
+
+    print(y)
+
+    # x = Node('x')
+    # f = x + x
+    # g = 2 * f + f
+    #
+    # s = g.to_lists()
+    #
+    # print(s)
+    #
+    # d = dag_to_save_str(g)
+    #
+    # print(d)
+    #
+    # v = dag_from_save_str(d)
+    #
+    # print(v)

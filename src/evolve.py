@@ -157,7 +157,7 @@ def generate_reps(**kwargs):
     for _ in range(kwargs['num_reps']):
 
         # Assign seed and RNG
-        kwargs['seed'] = np.random.randint(0, 2**64, dtype='uint64')
+        kwargs['seed'] = (np.random.randint(0, 2**64, dtype='uint64'))
         kwargs['rng'] = np.random.default_rng(kwargs['seed'])
 
         # if 'setup_func' in kwargs:

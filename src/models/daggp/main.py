@@ -1,74 +1,35 @@
+import numpy as np
+
+from models.daggp.plot import plot_results
 from src.evolve import run_tests
 from src.models.daggp import *
 
-# kwargs = {
-#     'name': 'node_demo',  # Name of folder to contain all results
-#     'seed': None,
-#     'verbose': True,
-#     'parallelize': True,
-#     'saves_path': '../../../saves/dag/',  # Save path relative to this file
-#     ## Size ##
-#     'num_runs': 24,
-#     'num_gens': 300,
-#     'pop_size': 100,
-#     'max_height': 10,  # The maximum height
-#     ## Initialization ##
-#     'init_individual_func': random_tree,  # Function used to generate the initial population
-#     'ops': ['+', '-', '*', '/', '**'],
-#     'terminals': ['x'],
-#     'init_max_height': 4,
-#     'p_branch': 0.5,  # Probability of a node branching
-#     ## Evaluation ##
-#     'eval_method': None,
-#     'target_func': nate,
-#     'fitness_func': mse,
-#     'result_fitness_func': mse,  # Fitness to compare results
-#     'domains': [[-4, 4, 50]],  # The domain of each variable expressed using np.linspace
-#     ## Selection ##
-#     'minimize_fitness': True,
-#     'keep_parents': 2,  # Elitism, must be even
-#     'k': 2,  # Number of randomly chosen parents for each tournament
-#     ## Repopulation ##
-#     'crossover_funcs': [
-#         [subgraph_crossover, 0.2],
-#     ],
-#     'mutate_funcs': [
-#         [subgraph_mutation, 0.3],
-#         [pointer_mutation, 0.3],
-#     ],
-#     ## Tests ##
-#     'test_kwargs': [
-#         ['Initial Population', 'terminals', ],
-#         ['Variable Only', ['x'], ],
-#         # ['With Constants', ['x'] + list(range(-5, 6)), ],
-#     ],
-# }
-
 
 kwargs = {
-    # 'name': 'test/node',  # Name of folder to contain all results
     'saves_path': '../../../saves/test/node',  # Save path relative to this file
     'verbose': True,
     'parallelize': True,
-    'checkpoint_interval': 10,
+    'checkpoint_interval': 100,
     'update_timeout': 60,
+    'save_formater_func': dag_to_save_str,  # Function to convert an individual into a savable string
+    'load_formater_func': dag_from_save_str,  # Function to load an individual from a saved string
     ## Size ##
     'num_reps': 16,
     'num_gens': 100,
     'pop_size': 100,
-    'max_height': 10,  # The maximum height
+    'max_height': 5,
     ## Initialization ##
     'init_individual_func': random_tree,  # Function used to generate a new organism
-    'ops': ['+', '-', '*', '/'],
-    'terminals': ['x'],
     'init_max_height': 4,
-    'p_branch': 0.5,  # Probability of a node branching
+    'p_branch': 0.5,  # Probability of a node not being a terminal
+    'ops': ['+', '-', '*', '/', '**'],
+    'terminals': ['x'],
     ## Evaluation ##
     'eval_method': None,
     'fitness_func': mse,
     'timeout': 16,  # Number of evaluation iterations before forced termination
-    'target_func': koza_3,
-    'domains': [list(range(1,6))],
+    'target_func': trig_sin,
+    'domains': [list(np.linspace(-np.pi/2,np.pi/2,15))],
     ## Selection ##
     'minimize_fitness': True,
     'keep_parents': 2,  # Elitism, must be even
@@ -77,18 +38,19 @@ kwargs = {
     'subgraph_max_height': 2,
     'recombination_funcs': [subgraph_crossover],
     'recombination_probs': [0.2],
-    'mutation_funcs': [subgraph_mutation],
-    'mutation_probs': [0.7],
+    'mutation_funcs': [subgraph_mutation, pointer_mutation],
+    'mutation_probs': [0.4, 0.3],
     ## Tests ##
-    'test_label': 'Number Registers',  # Label to use when comparing all tests
+    'test_label': 'Field',  # Label to use when comparing all tests
     'test_keys': ['test_name', 'terminals'],  # Keys of each parameter to be changed for each test
     'test_values': [  # Tuple of tuples representing all values to change for each test
-        ['Variable Only', ['x']],
-        ['With Constants', ['x'] + list(range(-5, 6))],
+        ['Real', ['x']],
+        ['Complex', ['x','i']],
+        ['Irrational Complex', ['x','i','e']],
     ],
 }
 
 
 if __name__ == '__main__':
     run_tests(**kwargs)
-    # plot_results(fits, **kwargs)
+    plot_results(**kwargs)

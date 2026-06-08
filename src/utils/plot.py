@@ -58,7 +58,8 @@ def plot_fitness(ax=None, save=True, show=True, **kwargs):
             ) AS mmean ON mmean.gen = mfits.gen
         GROUP BY mfits.gen
         """
-        x, y, y_std = zip(*sql_query(query, **kwargs))
+        r = sql_query(query, **kwargs)
+        x, y, y_std = zip(*r)
         y = np.array(y)
         ax.plot(x, y, label=test_name)
         ax.fill_between(x, y - y_std, y + y_std, alpha=0.2)
@@ -264,7 +265,10 @@ def get_best(**kwargs):
         FROM data
         GROUP BY test
     """
-    bests = sql_query(query, **kwargs)
+    bests = list(sql_query(query, **kwargs))
+    for i in range(len(bests)):
+        bests[i] = list(bests[i])
+        bests[i][5] = kwargs['load_formater_func'](bests[i][5])
     return bests
 
 
