@@ -112,21 +112,35 @@ def update_db(pops, fits, generation, **kwargs):
     con.close()
 
 
-def sql_query(query, **kwargs):
+def sql_query(query, return_col_names=False, **kwargs):
     con = sqlite3.connect(kwargs['saves_path']+db_name)
     cur = con.cursor()
-    res = list(cur.execute(query))
-    # for i in res:
-    #     print(i)
+    res = cur.execute(query)
+    col_names = [desc[0] for desc in res.description]
+    res = list(res)
     con.close()
+    if return_col_names:
+        res = res, col_names
     return res
-
 
 
 if __name__ == '__main__':
 
     # Run query
-    q = 'SELECT gen, count(gen) FROM data GROUP BY gen'
+    name = 'daggp/tuning'
+    kwargs = load_kwargs('../../saves/'+name)
+
+    q = """
+        WITH sub AS (
+            SELECT test, COUNT() AS c 
+            FROM data
+            WHERE fit = 0 AND gen = 299
+            GROUP BY test
+        )
+        SELECT *
+        FROM sub
+    """
+    # q = 'SELECT gen, count(gen) FROM data GROUP BY gen'
     # q = 'SELECT test, seed, AVG(fit) FROM data GROUP BY test, seed'
     # q = """
     # SELECT test, MIN(fit)
@@ -152,8 +166,8 @@ if __name__ == '__main__':
     # WHERE fit = 0
     # GROUP BY data
     # """
-    name = 'test/node'
-    kwargs = load_kwargs('../../saves/'+name)
+
+
 
     for i in sql_query(q, **kwargs):
         print(i)

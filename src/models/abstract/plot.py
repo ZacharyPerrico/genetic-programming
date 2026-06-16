@@ -8,11 +8,10 @@ from src.utils.utils import cartesian_prod
 # Data Based Plotting
 #
 
-def plot_fitness(ax=None, save=True, show=True, **kwargs):
+def plot_fitness(figsize=None, dpi=None, save=True, show=True, **kwargs):
     """Plot the average of the runs' minimum fitness for each test"""
 
-    if ax is None:
-        fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
     # Iterate over all tests for each line in the plot
     for test_num, test_values in enumerate(kwargs['test_values']):
@@ -96,7 +95,7 @@ def plot_fitness(ax=None, save=True, show=True, **kwargs):
     ax.set_xlabel('Generation')
     plt.legend(title=kwargs['test_label'])
     if save:
-        plt.savefig(f'{kwargs['plot_path']}Fitness.png')
+        plt.savefig(f'{kwargs['plot_path']}Fitness.svg')
     if show:
         plt.show()
     plt.close()

@@ -1,6 +1,6 @@
 from src.old_evolve import simulate_tests
-from src.utils.plot import plot_results
-from src.utils.save import load_runs, save_kwargs, load_kwargs
+from models.abstract.plot import plot_results
+from src.utils.save import load_runs
 from src.models.tmgp import *
 
 # kwargs = {

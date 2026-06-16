@@ -9,7 +9,47 @@ from src.models.daggp.model import Node
 from src.utils.utils import choice
 
 #
-# Initialization Functions
+# Saving Functions (save_formater_func)
+#
+
+def dag_to_save_str(dag):
+    """Convert a DAG into a list of vertices and edges then format into a single string to save in a SQL database."""
+    DELIM = ','
+    verts, edges = dag.to_lists()
+    verts_str = DELIM.join(map(str,verts))
+    edges_str = DELIM.join(f'{u}{DELIM}{v}' for u,v in edges)
+    dag_str = verts_str + '\n' + edges_str
+    return dag_str
+
+
+#
+# Loading Functions (load_formater_func)
+#
+
+def dag_from_save_str(dag_str):
+    """Load a DAG from list of vertices and edges formated into a single string."""
+    DELIM = ','
+    verts_str, edges_str = dag_str.split('\n')
+    verts = verts_str.split(DELIM)
+    for i, vert in enumerate(verts):
+        # if 'x' in vert:
+        #     continue
+        if vert.isdigit() or (vert.startswith('-') and vert[1:].isdigit()):
+            verts[i] = int(vert)
+        elif 'j' in vert:
+            verts[i] = complex(vert)
+        elif '.' in vert:
+            verts[i] = float(vert)
+    if len(edges_str) == 0:
+        edges = []
+    else:
+        split_edges = list(map(int,edges_str.split(DELIM)))
+        edges = [split_edges[i:i+2] for i in range(0,len(split_edges),2)]
+    return Node.from_lists(verts, edges)
+
+
+#
+# Initialization Functions (init_individual_func)
 #
 
 def random_tree(init_max_height, ops=Node.valid_ops, terminals=('x',), p_branch=0.5, init_call=True, **kwargs):
@@ -32,19 +72,24 @@ def random_noop_tree(init_max_height, num_registers, ops=Node.valid_ops, termina
     ]
     return Node('noop', c)
 
+def init_sin(**kwargs): return Node.sin(Node('x'))
+def init_sin_limited(**kwargs): return Node.sin(Node('x')).limited().to_tree()
+def init_cos(**kwargs): return Node.cos(Node('x'))
+def init_cos_limited(**kwargs): return Node.cos(Node('x')).limited().to_tree()
+def init_get_bit(**kwargs): return Node.get_bits(x,0,1) + Node.get_bits(x,1,1) + Node.get_bits(x,2,1)
+def init_get_bit_limited(**kwargs): return init_get_bit(**kwargs).limited()
+
 
 #
-# Fitness Functions
+# Target Functions (target_func)
 #
 
-def fitness_helper(id, node, xs, y_target):
-    """Used for parallel computing"""
-    y_actual = [node(*x) for x in xs]
-    fit = (sum((abs(y_target - y_actual)) ** 2) / len(xs)) ** (1 / 2)
-    return fit
 
+#
+# Fitness Functions (fitness_func)
+#
 
-def mse(pop, target_func, domains, **kwargs):
+def dag_mse(pop, target_func, domains, **kwargs):
     """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
     # xs = [np.linspace(*domain) for domain in domains]
     xs = domains
@@ -97,8 +142,56 @@ def correlation(pop, target_func, domains, is_final=False, **kwargs):
     return fits
 
 
+
 #
-# Mutation Functions
+# Recombination Functions (recombination_funcs)
+#
+
+def subgraph_crossover(a, b, **kwargs):
+    """Swap two random subgraphs between the parents"""
+    # Copy original trees
+    new_a = a.copy()
+    new_b = b.copy()
+    # List of all nodes
+    valid_a_subgraphs = [
+        an for an in new_a.nodes()
+            if an.value != 'noop'
+            and an.height() <= kwargs['subgraph_max_height']
+    ]
+    # Select the first random node (branch)
+    a_subgraph = choice(valid_a_subgraphs, kwargs['rng'])
+    a_subgraph_depth = a_subgraph.depth()
+    a_subgraph_height = a_subgraph.height()
+    # List of all nodes that could swap with a without being too long
+    valid_b_subgraphs = [
+        bn for bn in new_b.nodes()
+            if bn.value != 'noop'
+            and bn.height() <= kwargs['subgraph_max_height']
+            and bn.height() + a_subgraph_depth <= kwargs['max_height']
+            and bn.depth() + a_subgraph_height <= kwargs['max_height']
+    ]
+
+    if len(valid_b_subgraphs) == 0:
+        if kwargs['verbose'] >= 3:
+            print(f'\tsubgraph_crossover: failed between {a} and {b}')
+        elif kwargs['verbose'] >= 2:
+            print(f'\tsubgraph_crossover: failed')
+        return a, b
+
+    # Select a random node with children
+    b_subgraph = choice(valid_b_subgraphs, kwargs['rng'])
+
+    # Swap the two nodes
+    a_subgraph.replace(b_subgraph.copy())
+    b_subgraph.replace(a_subgraph.copy())
+
+    if kwargs['verbose'] > 1:
+        print(f'\tsubgraph_crossover: {a} and {b} produce {new_a} and {new_b}')
+    return new_a, new_b
+
+
+#
+# Mutation Functions (mutation_funcs)
 #
 
 def randomize_mutation(root, **kwargs):
@@ -161,7 +254,7 @@ def subgraph_mutation(root, **kwargs):
     return new_root
 
 
-def pointer_mutation(root, **kwargs):
+def pointer_mutation(root:Node, **kwargs):
     """Randomly change an op node to point to a random node that is not an ancestor"""
     new_root = root.copy()
     # List of all nodes with parents and children
@@ -231,117 +324,6 @@ def deep_split_mutation(root, **kwargs):
     if kwargs['verbose'] > 1:
         print(f'\tsplit_mutation: {root} splits {child_node} returns {new_root}')
     return new_root
-
-
-#
-# Crossover Functions
-#
-
-def subgraph_crossover(a, b, **kwargs):
-    """Swap two random subgraphs between the parents"""
-    # Copy original trees
-    new_a = a.copy()
-    new_b = b.copy()
-    # List of all nodes
-    valid_a_subgraphs = [
-        an for an in new_a.nodes()
-            if an.value != 'noop'
-            and an.height() <= kwargs['subgraph_max_height']
-    ]
-    # Select the first random node (branch)
-    a_subgraph = choice(valid_a_subgraphs, kwargs['rng'])
-    a_subgraph_depth = a_subgraph.depth()
-    a_subgraph_height = a_subgraph.height()
-    # List of all nodes that could swap with a without being too long
-    valid_b_subgraphs = [
-        bn for bn in new_b.nodes()
-            if bn.value != 'noop'
-            and bn.height() <= kwargs['subgraph_max_height']
-            and bn.height() + a_subgraph_depth <= kwargs['max_height']
-            and bn.depth() + a_subgraph_height <= kwargs['max_height']
-    ]
-
-    if len(valid_b_subgraphs) == 0:
-        if kwargs['verbose'] >= 3:
-            print(f'\tsubgraph_crossover: failed between {a} and {b}')
-        elif kwargs['verbose'] >= 2:
-            print(f'\tsubgraph_crossover: failed')
-        return a, b
-
-    # Select a random node with children
-    b_subgraph = choice(valid_b_subgraphs, kwargs['rng'])
-
-    # Swap the two nodes
-    a_subgraph.replace(b_subgraph.copy())
-    b_subgraph.replace(a_subgraph.copy())
-
-    if kwargs['verbose'] > 1:
-        print(f'\tsubgraph_crossover: {a} and {b} produce {new_a} and {new_b}')
-    return new_a, new_b
-
-
-#
-# Target Functions
-#
-
-def trig_sin(x): return np.sin(x)
-def logical_or(*x): return bool(x[0]) or bool(x[1])
-def mod2k(*x): return x[0] % (2 ** x[1])
-def xor_and_xor(*x): return (int(x[0]) ^ int(x[1])) & (int(x[2]) ^ int(x[3]))
-def const_32(x): return 32*x**2 + x
-def koza_1(x): return x**4 + x**3 + x**2 + x
-def koza_2(x): return x**5 - 2*x**3 + x
-def koza_3(x): return x**6 - 2*x**4 + x**2
-def bit_sum(x): return sum(int(i) for i in f'{int(x):04b}')
-def nate(x): return np.exp(-x*x/2) / np.sqrt(2 * np.pi)
-
-#
-# Initial pops
-#
-
-def init_sin(**kwargs): return Node.sin(Node('x'))
-def init_sin_limited(**kwargs): return Node.sin(Node('x')).limited().to_tree()
-def init_cos(**kwargs): return Node.cos(Node('x'))
-def init_cos_limited(**kwargs): return Node.cos(Node('x')).limited().to_tree()
-def init_get_bit(**kwargs): return Node.get_bits(x,0,1) + Node.get_bits(x,1,1) + Node.get_bits(x,2,1)
-def init_get_bit_limited(**kwargs): return init_get_bit(**kwargs).limited()
-
-#
-# Saving and Loading Individuals
-#
-
-def dag_to_save_str(dag):
-    """Convert a DAG into a list of vertices and edges then format into a single string to save in a SQL database."""
-    DELIM = ','
-    verts, edges = dag.to_lists()
-    verts_str = DELIM.join(map(str,verts))
-    edges_str = DELIM.join(f'{u}{DELIM}{v}' for u,v in edges)
-    dag_str = verts_str + '\n' + edges_str
-
-    return dag_str
-
-
-def dag_from_save_str(dag_str):
-    """Load a DAG from list of vertices and edges formated into a single string."""
-    DELIM = ','
-    verts_str, edges_str = dag_str.split('\n')
-    verts = verts_str.split(DELIM)
-    for i, vert in enumerate(verts):
-        # if 'x' in vert:
-        #     continue
-        if vert.isdigit() or (vert.startswith('-') and vert[1:].isdigit()):
-            verts[i] = int(vert)
-        elif 'j' in vert:
-            verts[i] = complex(vert)
-        elif '.' in vert:
-            verts[i] = float(vert)
-
-    if len(edges_str) == 0:
-        edges = []
-    else:
-        split_edges = list(map(int,edges_str.split(DELIM)))
-        edges = [split_edges[i:i+2] for i in range(0,len(split_edges),2)]
-    return Node.from_lists(verts, edges)
 
 
 #

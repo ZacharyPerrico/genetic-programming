@@ -6,6 +6,7 @@ import math
 
 import numpy as np
 
+from models.abstract.methods import two_point_crossover
 from src.models.smlgp.model import Linear
 from src.utils.utils import cartesian_prod
 
@@ -412,12 +413,12 @@ def smlgp_compete(pop, **kwargs):
 # Target Functions
 #
 
-def x2(x): return 2 * x
-def multiply(x0,x1): return x0 * x1
-def power(x0,x1): return x0 ** x1
-def factorial(x): return math.factorial(x)
-def triangular(x): return x*(x + 1)//2
-def sum_squares(x): return x*(x+1)*(2*x+1)/6
+# def x2(x): return 2 * x
+# def multiply(x0,x1): return x0 * x1
+# def power(x0,x1): return x0 ** x1
+# def factorial(x): return math.factorial(x)
+# def triangular(x): return x*(x + 1)//2
+# def sum_squares(x): return x*(x+1)*(2*x+1)/6
 # def koza_1(x): return x**4 + x**3 + x**2 + x
 # def koza_2(x): return x**5 - 2*x**3 + x
 # def koza_3(x): return x**6 - 2*x**4 + x**2
@@ -426,40 +427,6 @@ def sum_squares(x): return x*(x+1)*(2*x+1)/6
 #
 # Crossover Functions
 #
-
-def one_point_crossover(a, b, **kwargs):
-    cut_a = kwargs['rng'].integers(0, len(a) + 1)
-    cut_b_min = max(cut_a + len(b) - kwargs['max_len'], cut_a - len(a) + kwargs['min_len'])
-    cut_b_max = min(cut_a + len(b) - kwargs['min_len'], cut_a - len(a) + kwargs['max_len'])
-    cut_b = kwargs['rng'].integers(cut_b_min, cut_b_max + 1)
-    new_a = a[:cut_a] + b[cut_b:]
-    new_b = b[:cut_b] + a[cut_a:]
-    return new_a, new_b
-
-
-def two_point_crossover(a, b, **kwargs):
-    # Difference in lengths of the sections to be swapped
-    # diff_diff_cuts = len(a) - len(b)
-    # kwargs['min_len'] <= len(a) + diff_diff_cuts <= kwargs['max_len']
-    # kwargs['min_len'] <= len(b) - diff_diff_cuts <= kwargs['max_len']
-    diff_diff_cuts_min = max(kwargs['min_len'] - len(a), len(b) - kwargs['max_len'])
-    diff_diff_cuts_max = min(kwargs['max_len'] - len(a), len(b) - kwargs['min_len'])
-    diff_diff_cuts = kwargs['rng'].integers(diff_diff_cuts_min, diff_diff_cuts_max + 1)
-    # The length of a cut cannot be negative
-    # 0 <= diff_cuts_a <= len(a)
-    # 0 <= diff_cuts_a + diff_diff_cuts <= len(b)
-    diff_cuts_a = kwargs['rng'].integers(max(0, -diff_diff_cuts), min(len(a), len(b) - diff_diff_cuts) + 1)
-    diff_cuts_b = diff_cuts_a + diff_diff_cuts
-    cut_a_0 = kwargs['rng'].integers(0, len(a) - diff_cuts_a + 1)
-    cut_b_0 = kwargs['rng'].integers(0, len(b) - diff_cuts_b + 1)
-    cut_a_1 = cut_a_0 + diff_cuts_a
-    cut_b_1 = cut_b_0 + diff_cuts_b
-    # Swap the two sections
-    new_a = a[:cut_a_0] + b[cut_b_0:cut_b_1] + a[cut_a_1:]
-    new_b = b[:cut_b_0] + a[cut_a_0:cut_a_1] + b[cut_b_1:]
-    assert kwargs['min_len'] <= len(new_a) <= kwargs['max_len']
-    assert kwargs['min_len'] <= len(new_b) <= kwargs['max_len']
-    return new_a, new_b
 
 def two_point_crossover_2d(a, b, **kwargs):
     new_a = [None] * len(a)

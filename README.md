@@ -19,6 +19,9 @@ Individual modules used to implement new forms of evolution. Broken into several
 
 Models can be added and removed without impacting any other part of the FAE.
 
+### Abstract (abstract)
+Not a model but contains methods used by multiple different models. 
+
 ### Self-Modifying Linear Genetic Programming (smlgp)
 Advanced model using memory banks and a more structured assembly like language to evolve systems capable of self modification.
 

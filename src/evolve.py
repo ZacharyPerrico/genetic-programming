@@ -3,7 +3,6 @@ Core functions used in controlling evolution
 All functions are independent of the subject of evolution
 """
 import copy
-import threading
 import time
 from multiprocessing import Pool, cpu_count
 
@@ -150,31 +149,17 @@ def run_replicate(arg=None, **kwargs):
 #
 
 def generate_reps(**kwargs):
-    """
-    Yields kwargs with unique seeds and rngs for each replicate
-    """
-
+    """Yields kwargs with unique seeds and rngs for each replicate"""
     for _ in range(kwargs['num_reps']):
-
         # Assign seed and RNG
         kwargs['seed'] = (np.random.randint(0, 2**64, dtype='uint64'))
         kwargs['rng'] = np.random.default_rng(kwargs['seed'])
-
-        # if 'setup_func' in kwargs:
-        #     kwargs = kwargs['setup_func'](**kwargs)
-
         yield kwargs.copy()
 
 
-
-
 def generate_tests(test_keys, test_values, **kwargs):
-    """
-    Convert simulation kwargs containing test_kwargs into a list of all the kwargs
-    """
-
-    kwargs['num_tests'] = len(test_keys)
-
+    """Convert simulation kwargs containing test_kwargs into a list of all the kwargs"""
+    kwargs['num_tests'] = len(test_values)
     for test_num in range(kwargs['num_tests']):
 
         # Update with test-specific values
@@ -183,19 +168,18 @@ def generate_tests(test_keys, test_values, **kwargs):
             rep_kwargs[key] = value
 
         # Add no-operation as a possible recombination
-        prob_noop = 1 - sum(kwargs['recombination_probs'])
+        prob_noop = 1 - sum(rep_kwargs['recombination_probs'])
         if prob_noop > 0:
             rep_kwargs['recombination_funcs'].append(None)
             rep_kwargs['recombination_probs'].append(prob_noop)
 
         # Add no-operation as a possible mutation
-        prob_noop = 1 - sum(kwargs['mutation_probs'])
+        prob_noop = 1 - sum(rep_kwargs['mutation_probs'])
         if prob_noop > 0:
             rep_kwargs['mutation_funcs'].append(None)
             rep_kwargs['mutation_probs'].append(prob_noop)
 
         yield rep_kwargs
-
 
 
 def run_tests(**kwargs):
@@ -244,5 +228,3 @@ def run_tests(**kwargs):
 
     if kwargs['verbose']:
         print(f'\nTotal time elapsed {time.time() - start_time}')
-
-# if __name__ == '__main__':

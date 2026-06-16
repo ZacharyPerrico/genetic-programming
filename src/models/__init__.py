@@ -1,3 +1,4 @@
+from src.models.abstract import *
 from src.models.tmgp import *
 from src.models.daggp import *
 from src.models.smlgp import *

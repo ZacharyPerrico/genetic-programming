@@ -34,6 +34,9 @@ class Node:
         'sin': 1,
         'cos': 1,
         'get_bits': 3,
+        'real': 1,
+        'imag': 1,
+        'exp': 1,
     }
 
     def __init__(self, value, children=None):
@@ -149,38 +152,6 @@ class Node:
     def size(self):
         """Returns the number of nodes"""
         return len(self.nodes())
-
-    # def num_neutral(self):
-    #     """Count the operations that always return the same operand (identity or absorbing)"""
-    #     if type(self.value) is str:
-    #         match self.value:
-    #             case 'noop':
-    #                 return 1 + sum([c.num_neutral() for c in self])
-    #             case '+':
-    #                 s0 = self[1].simplify()
-    #                 s1 = self[0].simplify()
-    #                 if s0 == 0 or s1 == 0:
-    #                     return 1 + self[0].num_neutral() + self[1].num_neutral()
-    #             case '-':
-    #                 s1 = self[0].simplify()
-    #                 if s1 == 0:
-    #                     return 1 + self[0].num_neutral() + self[1].num_neutral()
-    #             case '*':
-    #                 s0 = self[1].simplify()
-    #                 s1 = self[0].simplify()
-    #                 if s0 == 0 or s1 == 0 or s0 == 1 or s1 == 1:
-    #                     return 1 + self[0].num_neutral() + self[1].num_neutral()
-    #             case '/':
-    #                 s0 = self[1].simplify()
-    #                 s1 = self[0].simplify()
-    #                 if s0 == 0 or s1 == 1 or (s0 == 1 and s1 == 0):
-    #                     return 1 + self[0].num_neutral() + self[1].num_neutral()
-    #             case '**':
-    #                 s0 = self[1].simplify()
-    #                 s1 = self[0].simplify()
-    #                 if (s1 == 1) or (s0 == 0 and s1 != 0) or (s0 == 1 and s1 == 0):
-    #                     return 1 + self[0].num_neutral() + self[1].num_neutral()
-    #     return sum([c.num_neutral() for c in self])
 
     def effective_code(self, a=None):
         """The effective code of the last evaluation"""
@@ -330,14 +301,19 @@ class Node:
 
             # Default evaluation
             case _:
+
+                # Non strings can have values extracted
                 if type(self.value) is not str:
-                    # A node with a number value should return in the shape of the
                     if isinstance(x[0], sp.Expr):
                         return_value = sp.Number(self.value)
                     else:
+                        # A node with a number value should return in the shape of the inputs
                         return_value = self.value * np.ones_like(x[0])
+
+                # Strings are matched to the operation they represent
                 else:
                     match self.value:
+
                         # Operations
                         case '+': return_value = self[0](*x, **kwargs) + self[1](*x, **kwargs)
                         case '-': return_value = self[0](*x, **kwargs) - self[1](*x, **kwargs)
@@ -365,8 +341,16 @@ class Node:
                                 np.power(s0, s1, out=return_value, where=ind, dtype='complex')
                         case 'noop': return_value = self[0](*x, **kwargs)
                         case 'neg': return_value = -self[0](*x, **kwargs)
-                        case '|': return_value = self[0](*x, **kwargs) | self[1](*x, **kwargs)
-                        case '&': return_value = self[0](*x, **kwargs) & self[1](*x, **kwargs)
+                        case '%':  return_value = self[0](*x, **kwargs) % self[1](*x, **kwargs)
+                        case 'abs': return_value = abs(self[0](*x, **kwargs))
+                        case 'exp':
+                            s0 = self[0](*x, **kwargs)
+                            if isinstance(x[0], sp.Expr):
+                                return_value = sp.exp(s0)
+                            else:
+                                return_value = np.exp(s0)
+
+                        # Comparisons
                         case '<': return_value = self[0](*x, **kwargs) < self[1](*x, **kwargs)
                         case '>': return_value = self[0](*x, **kwargs) > self[1](*x, **kwargs)
                         case '<=': return_value = self[0](*x, **kwargs) <= self[1](*x, **kwargs)
@@ -374,11 +358,9 @@ class Node:
                         case '==': return_value = self[0](*x, **kwargs) == self[1](*x, **kwargs)
                         case 'min': return_value = min(self[0](*x, **kwargs), self[1](*x, **kwargs))
                         case 'max': return_value = max(self[0](*x, **kwargs), self[1](*x, **kwargs))
-                        case 'abs': return_value = abs(self[0](*x, **kwargs))
                         case 'if_then_else': return_value = self[1](*x, **kwargs) if self[0](*x, **kwargs) else self[2](*x, **kwargs)
-                        case '%':  return_value = self[0](*x, **kwargs) % self[1](*x, **kwargs)
-                        case '>>': return_value = self[0](*x, **kwargs) >> self[1](*x, **kwargs)
-                        case '<<': return_value = self[0](*x, **kwargs) << self[1](*x, **kwargs)
+
+                        # Trigonometry
                         case 'sin':
                             s0 = self[0](*x, **kwargs)
                             if isinstance(x[0], sp.Expr):
@@ -391,6 +373,26 @@ class Node:
                                 return_value = sp.cos(s0)
                             else:
                                 return_value = np.cos(s0)
+
+                        # Complex
+                        case 'real':
+                            s0 = self[0](*x, **kwargs)
+                            if isinstance(x[0], sp.Expr):
+                                return_value = sp.re(s0)
+                            else:
+                                return_value = np.real(s0)
+                        case 'imag':
+                            s0 = self[0](*x, **kwargs)
+                            if isinstance(x[0], sp.Expr):
+                                return_value = sp.im(s0)
+                            else:
+                                return_value = np.imag(s0)
+
+                        # Bit
+                        case '|': return_value = self[0](*x, **kwargs) | self[1](*x, **kwargs)
+                        case '&': return_value = self[0](*x, **kwargs) & self[1](*x, **kwargs)
+                        case '>>': return_value = self[0](*x, **kwargs) >> self[1](*x, **kwargs)
+                        case '<<': return_value = self[0](*x, **kwargs) << self[1](*x, **kwargs)
                         case 'get_bit': return_value = (int(self[0](*x, **kwargs)) >> self[1](*x, **kwargs)) & 1
                         case 'get_bits':
                             s0, s1, s2 = self[0](*x, **kwargs), self[1](*x, **kwargs), self[2](*x, **kwargs)
@@ -478,6 +480,11 @@ class Node:
     def if_then_else(cond, if_true, if_false): return Node.op('if_then_else', cond, if_true, if_false)
     @staticmethod
     def noop(*operands): return Node.op('noop', *operands)
+    @staticmethod
+    def real(arg): return Node.op('real', arg)
+    @staticmethod
+    def imag(arg): return Node.op('imag', arg)
+
 
     #
     # Limited Equivalence
@@ -571,140 +578,11 @@ z = Node('z')
 
 if __name__ == '__main__':
 
-    # a = 20
-    # # b = 0.2
-    # b = Node(2)/10
-    # # c = 2*np.pi
-    # c = 6
-    # xs = [x]
-    # d = Node(len(xs))
-    # f = -a * e**(-b*(1/d * sum(x**2 for x in xs))**(Node(1)/2)) - e**(1/d * sum(Node.cos(c*x) for x in xs)) + a + e
-
-    f = x ** 2 + 1
+    f = x ** 2 + 1j
 
     g = 2 * f + f
 
-    # print(g)
+    h = Node.real(g)
 
-    print(g.to_lists())
-
-
-
-
-    # print(g.simplify())
-
-    # xs = np.array([1, 2])
-
-    # print(f(xs))
-
-    # print(f(xs, eval_method='zero'))
-
-    # print(f(np.array([1,2]), eval_method='zero'))
-
-    # f = Node.cos(x).to_tree()
-    # f = Node(-1) ** (Node(1) / Node(2))
-
-    # f = Node(-1) ** Node(1)
-
-    # f = Node.cos(x) / Node.sin(x)
-    # f = (e ** (i * x) + e**(-i*x))/2
-
-    # print(f.height())
-    # print(f.simplify())
-    # l = f.limited(not False)
-
-    # print(l)
-
-    # plot_graph(l)
-
-    # print(l.height())
-    # print(l.simplify())
-
-    # f = (x-y)/x
-
-    # f = x ** x
-
-    # print(f)
-    # print(f(0,1))
-
-
-    # j = -y
-
-    # f = j
-    # f = j * j * j
-    # f = f < 3
-    # j.replace(z)
-    # f = f.limited()
-
-    # f0 = x + 1
-    # f1 = x - f0
-    # f2 = f0 * f1
-    #
-    # f = f2
-
-
-
-    # f1.replace(z)
-    # f = Node.sin(x).limited()
-
-    # plot_graph(f)
-
-    # print(f(0, 0))
-    # print(f(0., 0j))
-    # # print(f(1, 0))
-    # print(f(np.array([0,0,1,1]), np.array([0,1,0,1])))
-
-
-    # f = Node.if_then_else(
-    #     x == 1,
-    #     0,
-    #     Node.if_then_else(
-    #         x % 2,
-    #         3 * x + 1,
-    #         x / 2,
-    #     )
-    # )
-
-    # l = f.limited()
-
-    # f1 = x + 1
-    # g = f1.copy()
-    # f2 = f1 - f1
-    # # f = g
-    # f = f2
-
-    # f = 0 * x * x * x * x
-    # f = x * x * x * x * 0
-
-    # print(f.num_neutral())
-
-    # f = (x + 1) + 2
-    # f = (x + 1)
-    # xs = np.array([2,3])
-    # # xs = 1
-    # print(f(xs))
-    # ec = f.effective_code()
-    # print(ec)
-    # print(np.sum(ec, axis=0))
-
-    # all_pops = np.empty((1,1,1,1))
-    # all_pops[:] = f
-
-    # plot_effective(all_pops)
-
-    # f = (x % 4).limited()
-
-    # print(f.to_lists())
-    # plot_graph(f)
-
-    # print(f(4, eval_method='zero'))
-    #
-    # plot_nodes(
-    #     [f],
-    #     domains=((0,15,16),),
-    #     eval_method='zero'
-    # )
-    # plot_graph(f.limited(), 1)
-
-    # print(l)
+    print(h.latex())
 
