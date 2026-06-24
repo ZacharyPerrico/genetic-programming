@@ -5,7 +5,7 @@ import math
 
 import numpy as np
 
-from utils.utils import cartesian_prod
+from src.utils.utils import cartesian_prod
 
 
 # from utils.utils import cartesian_prod

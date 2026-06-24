@@ -2,7 +2,6 @@
 
 import os
 
-from src.models import *
 from src.utils.save import load_kwargs, load_pop, load_fits, load_seed, load_pops
 from src.utils.utils import cartesian_prod
 

@@ -5,7 +5,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from models.abstract.plot import get_best, plot_fitness
-from src.models import Node
+from models.daggp.methods import simulate_cart_pole
+from models.daggp.model import Node
 from src.utils.save import load_kwargs
 from utils.save import sql_query
 
@@ -164,6 +165,41 @@ def plot_graph(node:Node, title=None, fit=None, layout='topo', scale=1, figsize=
 
 
 
+def plot_pole(node, **kwargs):
+
+    x_history, dx_history, theta_history, dtheta_history = simulate_cart_pole(node)
+
+    t = list(range(len(x_history)))
+    fig, axs = plt.subplots(4, 1, sharex=True)
+
+    axs[0].plot(t, x_history)
+    axs[0].axhline(-2.4, color='red')
+    axs[0].axhline(2.4, color='red')
+    axs[0].set_ylabel('Cart Position (m)')
+    axs[0].grid(True)
+
+    axs[1].plot(t, dx_history)
+    axs[1].axhline(-1, color='red')
+    axs[1].axhline(1, color='red')
+    axs[1].set_ylabel('Cart Velocity (m/s)')
+    axs[1].grid(True)
+
+    axs[2].plot(t, theta_history * 180 / np.pi)
+    axs[2].axhline(-12, color='red')
+    axs[2].axhline(12, color='red')
+    axs[2].set_ylabel('Pole Angle (deg)')
+    axs[2].grid(True)
+
+    axs[3].plot(t, dtheta_history * 180 / np.pi)
+    axs[3].axhline(-1.5, color='red')
+    axs[3].axhline(1.5, color='red')
+    axs[3].set_ylabel('Pole Angular Velocity (deg/s)')
+    axs[3].grid(True)
+
+    plt.xlabel('Time (s)')
+    plt.tight_layout()
+    plt.show()
+
 
 # def plot_dist(**kwargs):
 #
@@ -295,7 +331,7 @@ def plot_lens(**kwargs):
         """
         SELECT 
             gen AS 'Generation', 
-            AVG(LENGTH(data)) AS 'Average Length', 
+            AVG(LENGTH(genotype)) AS 'Average Length', 
             test AS 'Field', 
             seed
         FROM data
@@ -353,17 +389,17 @@ def plot_results(**kwargs):
         'figsize': (6.4, 4.8),
         'dpi': 100,
         'save': True,
-        'show': not True,
+        'show': True,
         'scale': .35,
     }
 
     kwargs['domains'] = [list(np.linspace(-3,3,100))]
 
     # plot_dist(**kwargs)
-    plot_conv(**kwargs)
+    # plot_conv(**kwargs)
     plot_lens(**kwargs)
 
-    quit()
+    # quit()
 
     plot_fitness(**kwargs)
 
@@ -372,23 +408,22 @@ def plot_results(**kwargs):
 
     # Plot all the best results together
     tests, seeds, gens, ids, fits, datas = zip(*bests)
-    plot_nodes(datas, fits=fits, labels=tests, **kwargs)
+    # plot_nodes(datas, fits=fits, labels=tests, **kwargs)
 
     # Plot each best result individually
     for test, seed, gen, id, fit, data in bests:
-        print(test, seed, gen, id, fit, data)
-        plot_nodes([data], fits=[fit], labels=[test], **kwargs)
+        print(f'Best of {test}, (Fit = {fit}) at ({seed}, {gen}, {id}, {data})')
+        # plot_nodes([data], fits=[fit], labels=[test], **kwargs)
         plot_graph(data, fit=fit, title=test, **kwargs)
 
+        plot_pole(data)
 
+
+
+# Manually load and plot saved results
 if __name__ == '__main__':
     # name = 'tuning'
     # name = 'real_dist'
-    name = 'koza_3_large'
+    name = 'pole_test'
     kwargs = load_kwargs('../../../saves/daggp/'+name)
     plot_results(**kwargs)
-
-    # x = Node('x')
-    # f = x + x
-    # g = 2 * f + f
-    # plot_graph(g)

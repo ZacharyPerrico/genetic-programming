@@ -1,6 +1,8 @@
 """General functions for plotting results."""
+import numpy as np
+from matplotlib import pyplot as plt
 
-from src.models import *
+from models.smlgp.model import Linear
 from src.utils.save import sql_query
 from src.utils.utils import cartesian_prod
 
@@ -122,7 +124,7 @@ def plot_means(values, ylabel, ax=None, save=True, show=True, **kwargs):
     plt.close()
 
 
-def plot_medians(values, ylabel):
+def plot_medians(values, ylabel, **kwargs):
     fig, ax = plt.subplots()
     for test in range(values.shape[0]):
         label = kwargs['test_kwargs'][test + 1][0]
@@ -260,7 +262,7 @@ def get_best(**kwargs):
     else:
         ordering_func = 'MAX'
     query = f"""
-        SELECT test, seed, gen, id, {ordering_func}(fit), data
+        SELECT test, seed, gen, id, {ordering_func}(fit), genotype
         FROM data
         GROUP BY test
     """

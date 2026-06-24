@@ -6,9 +6,8 @@ import copy
 import time
 from multiprocessing import Pool, cpu_count
 
-import numpy as np
-
-from src.utils.save import save_kwargs, create_db, update_db
+from src.utils.save import save_kwargs, create_db, update_db, generate_tests, generate_reps
+from utils.save import create_kwarg_table, update_kwarg_table
 
 
 #
@@ -115,6 +114,9 @@ def run_replicate(arg=None, **kwargs):
     if arg is not None:
         kwargs = arg
 
+    if kwargs['verbose']:
+        print(f'Simulating Test {kwargs["test"]}, Run {kwargs["seed"]}, Generation 0 of {kwargs["num_gens"]}')
+
     # Initialization
     pop = init_pop(**kwargs)
     fits = kwargs['fitness_func'](pop=pop, gen=0, **kwargs)
@@ -127,7 +129,7 @@ def run_replicate(arg=None, **kwargs):
     for generation in range(1, kwargs['num_gens']):
 
         if kwargs['verbose']:
-            print(f'Simulating Test {kwargs["test_name"]}, Run {kwargs["seed"]}, Generation {generation} of {kwargs["num_gens"]}')
+            print(f'Simulating Test {kwargs["test"]}, Run {kwargs["seed"]}, Generation {generation} of {kwargs["num_gens"]}')
 
         # Next generation and fitness
         pop = next_pop(pop=pop, fits=fits, gen=generation, **kwargs)
@@ -148,40 +150,6 @@ def run_replicate(arg=None, **kwargs):
 # Hyper-Parameter Generation and Control
 #
 
-def generate_reps(**kwargs):
-    """Yields kwargs with unique seeds and rngs for each replicate"""
-    for _ in range(kwargs['num_reps']):
-        # Assign seed and RNG
-        kwargs['seed'] = (np.random.randint(0, 2**64, dtype='uint64'))
-        kwargs['rng'] = np.random.default_rng(kwargs['seed'])
-        yield kwargs.copy()
-
-
-def generate_tests(test_keys, test_values, **kwargs):
-    """Convert simulation kwargs containing test_kwargs into a list of all the kwargs"""
-    kwargs['num_tests'] = len(test_values)
-    for test_num in range(kwargs['num_tests']):
-
-        # Update with test-specific values
-        rep_kwargs = copy.deepcopy(kwargs)
-        for key, value in zip(test_keys, test_values[test_num]):
-            rep_kwargs[key] = value
-
-        # Add no-operation as a possible recombination
-        prob_noop = 1 - sum(rep_kwargs['recombination_probs'])
-        if prob_noop > 0:
-            rep_kwargs['recombination_funcs'].append(None)
-            rep_kwargs['recombination_probs'].append(prob_noop)
-
-        # Add no-operation as a possible mutation
-        prob_noop = 1 - sum(rep_kwargs['mutation_probs'])
-        if prob_noop > 0:
-            rep_kwargs['mutation_funcs'].append(None)
-            rep_kwargs['mutation_probs'].append(prob_noop)
-
-        yield rep_kwargs
-
-
 def run_tests(**kwargs):
     """
     Simulate all runs for all tests with different hyperparameters.
@@ -190,17 +158,23 @@ def run_tests(**kwargs):
 
     start_time = time.time()
 
-    # Save kwargs first in case of failure
+    # Save the raw kwargs describing all tests and replicates
     save_kwargs(**kwargs)
 
     # Create the database used by all reps
     create_db(**kwargs)
 
-    # Kwargs corresponding to each replicate
+    # Generate the kwargs describing each test and use the first to generate the SQL table
+    tests_kwargs = list(generate_tests(**kwargs))
+    create_kwarg_table(**tests_kwargs[0])
+
+    # Generate kwargs unique to each replicate across all tests
     jobs_kwargs = []
-    for i in generate_tests(**kwargs):
-        for j in generate_reps(**i):
-            jobs_kwargs.append([j])
+    for test_kwargs in tests_kwargs:
+        # Add a row for the test's kwargs
+        update_kwarg_table(**test_kwargs)
+        for rep_kwargs in generate_reps(**test_kwargs):
+            jobs_kwargs.append([rep_kwargs])
 
     # Parallelize processes
     if kwargs['parallelize']:

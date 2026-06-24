@@ -1,8 +1,4 @@
-import time
-
-from src.evolve import generate_tests, generate_reps, run_tests
-from src.models.smlgp import *
-from src.models.smlgp.plot import plot_results
+from src.evolve import run_tests
 
 # kwargs = {
 #     'name': 'symb_reg_0',  # Name of folder to contain all results

@@ -1,112 +1,121 @@
 """File for testing ideas"""
-import sqlite3
 
-# import tkinter as tk
-# root = tk.Tk()
-# # Widgets are added here
-# root.mainloop()
+import numpy as np
+from matplotlib import animation
+from scipy.integrate import solve_ivp
+import matplotlib.pyplot as plt
 
-# from sympy import *
-# import sympy
+from models import Node, simulate_cart_pole, dag_pole_fitness
 
-# a = sympy.Symbol('a')
-# b = sympy.Symbol('b')
-# c = sympy.Symbol('c')
 #
-# REGS = [0, a, 0, 0]
+# # List for each value
+# x_history = [0]
+# dx_history = [0]
+# theta_history = [np.pi*0]
+# dtheta_history = [0]
 #
-# REGS[2] += REGS[1]
-# REGS[3] += REGS[2]
-# REGS[3] //= 3
-# REGS[2] *= REGS[1]
 #
-# REGS[2] += REGS[1]
-# REGS[3] += REGS[2]
-# REGS[3] //= 3
-# REGS[2] *= REGS[1]
+# result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], 1)
+# x_history += list(result[0])
+# dx_history += list(result[1])
+# theta_history += list(result[2])
+# dtheta_history += list(result[3])
 #
-# REGS[2] += REGS[1]
-# REGS[3] += REGS[2]
-# REGS[3] //= 3
+# result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], -2)
+# x_history += list(result[0])
+# dx_history += list(result[1])
+# theta_history += list(result[2])
+# dtheta_history += list(result[3])
 #
-# print(REGS[3].simplify())
+# for i in range(10):
+#     print(i)
+#
+#     result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], 0)
+#     x_history += list(result[0])
+#     dx_history += list(result[1])
+#     theta_history += list(result[2])
+#     dtheta_history += list(result[3])
 
 
-# REGS[1] *= REGS[1]
-# REGS[3] += REGS[1]
-# STOP
-# REGS[3] += REGS[REGS[3]]
+x0 = Node('x0')
+x1 = Node('x1')
+x2 = Node('x2')
+x3 = Node('x3')
+node = Node(0)
 
-# REGS = [0, 0]
-# CODE = [0] *
-# # REGS[0] += REGS[REGS[0]]
-# REGS[1] *= REGS[1]
-# # if REGS[0] == REGS[REGS[1]]:
-# #    REGS[1] -= 205
-# # REGS[0] = CODE[10]
-# REGS[1] += CODE[1]
-# CODE[1] = REGS[1]
-# # CODE[29] = REGS[1]
-
-db_name = 'data.db'
-sql_file = 'data.sql'
-
-# con = sqlite3.connect(db_name)
-# cur = con.cursor()
-# cur.execute("CREATE TABLE movie(name, year, score)")
-# data = [
-#     ("Monty Python Live at the Hollywood Bowl", 1982, 7.9),
-#     ("Monty Python's The Meaning of Life", 1983, 7.5),
-#     ("Monty Python's Life of Brian", 1979, 8.0),
-# ]
+x_history, dx_history, theta_history, dtheta_history = simulate_cart_pole(node)
 
 
-con = sqlite3.connect(db_name)
-with open(sql_file, 'r') as f:
-    init_sql = f.read()
-cur = con.cursor()
-cur.executescript(init_sql)
-con.commit()
-con.close()
+f = dag_pole_fitness([node])
 
-data = [
-    ['test 0', 1, 0, 1, 'fhweo'],
-    ['test 1', 1, 0, 4, 'fheqweqwo'],
-]
-
-
-con = sqlite3.connect(db_name)
-try:
-    cur = con.cursor()
-    cur.executemany("INSERT INTO data VALUES(?, ?, ?, ?, ?)", data)
-    con.commit()
-except:
-    con.rollback()
-finally:
-    con.close()
-
-
-with sqlite3.connect("example.db") as conn:
+print(f)
 
 
 
-con = sqlite3.connect(db_name)
-try:
-    while True:
-        i = input()
-        if i == '':
-            break
-        res = cur.execute(i)
-        print(res.fetchall())
-finally:
-    con.close()
-    print('EXITING')
 
+# --- Plotting Results ---
+t = list(range(len(x_history)))
+fig, axs = plt.subplots(4, 1, sharex=True)
 
+axs[0].plot(t, x_history)
+axs[0].axhline(-2.4, color='red')
+axs[0].axhline( 2.4, color='red')
+axs[0].set_ylabel('Cart Position (m)')
+axs[0].grid(True)
 
-# cur.execute("CREATE TABLE data(test, seed, gen, ind, )")
-# con.commit()
+axs[1].plot(t, dx_history)
+axs[1].axhline(-1, color='red')
+axs[1].axhline( 1, color='red')
+axs[1].set_ylabel('Cart Velocity (m/s)')
+axs[1].grid(True)
 
-# res = cur.execute('PRAGMA table_info("data");')
-# res = cur.execute('.schema')
-# print(res.fetchall())
+axs[2].plot(t, theta_history * 180/np.pi)
+axs[2].axhline(-12, color='red')
+axs[2].axhline( 12, color='red')
+axs[2].set_ylabel('Pole Angle (deg)')
+axs[2].grid(True)
+
+axs[3].plot(t, dtheta_history * 180/np.pi)
+axs[3].axhline(-1.5, color='red')
+axs[3].axhline( 1.5, color='red')
+axs[3].set_ylabel('Pole Angular Velocity (deg/s)')
+axs[3].grid(True)
+
+plt.xlabel('Time (s)')
+plt.tight_layout()
+plt.show()
+
+quit()
+
+time_step = 0.02
+time_space = 1000
+
+fig = plt.figure(figsize=(5, 4))
+ax = fig.add_subplot(autoscale_on=False, xlim=(-2, 2), ylim=(-2, 2))
+ax.set_aspect('equal')
+ax.grid()
+
+print(len(x_history))
+
+line, = ax.plot([], [], 'o-', lw=2)
+trace, = ax.plot([], [], '.-', lw=1, ms=2)
+time_template = 'time = %.3fs'
+time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
+
+def animate(i):
+
+    pos_0 = [x_history[i], 0]
+    pos_1 = [np.sin(theta_history[i])+x_history[i], np.cos(theta_history[i])]
+
+    # history_x = y[:i]
+    # history_y = 0[:i]
+
+    line.set_data([pos_0[0], pos_1[0]], [pos_0[1], pos_1[1]])
+    # trace.set_data(history_x, history_y)
+    time_text.set_text(time_template % (i*time_step/time_space))
+    # time_text.set_text(str(x_history[i]))
+    return line, trace, time_text
+
+ani = animation.FuncAnimation(fig, animate, len(x_history), interval=1000*time_step/time_space, blit=True)
+plt.show()
+

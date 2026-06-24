@@ -3,6 +3,7 @@ Genetic programming functions specifically for the evolution of Directed Acyclic
 DAGs are represented using the Node class.
 """
 import numpy as np
+from scipy.integrate import solve_ivp
 from scipy.optimize import minimize
 
 from src.models.daggp.model import Node
@@ -140,6 +141,174 @@ def correlation(pop, target_func, domains, is_final=False, **kwargs):
     # Replace inf and nan to arbitrary large values
     fits = np.nan_to_num(fits, nan=np.inf, posinf=np.inf)
     return fits
+
+
+
+
+
+
+
+
+
+
+
+
+def cart_pole(t, state, F, m_c, m_p, l, g):
+    """
+    State vector: [x, dx, theta, dtheta]
+    x: Cart position
+    dx: Cart velocity
+    theta: Pole angle from vertical (rad)
+    dtheta: Pole angular velocity
+    """
+    x, dx, theta, dtheta = state
+    sin_t = np.sin(theta)
+    cos_t = np.cos(theta)
+    # Angular acceleration
+    denom = 4/3 - (m_p * cos_t ** 2) / (m_c + m_p)
+    d2theta = (g * sin_t - cos_t * ((F + m_p * l * dtheta ** 2 * sin_t) / (m_c + m_p))) / (l * denom)
+    # Cart acceleration
+    d2x = ((F + m_p * l * dtheta ** 2 * sin_t) / (m_c + m_p) - (m_p * l * d2theta * cos_t)) / (m_c + m_p)
+    return [dx, d2x, dtheta, d2theta]
+
+
+def step_cart_pole(x, dx, theta, dtheta, F):
+    """Returns values after applying force for the timestep"""
+    m_c = 1.0  # Mass of the cart (kg)
+    m_p = 0.1  # Mass of the pole (kg)
+    l = 0.5  # Half the length of the pole (m)
+    g = 9.8  # Gravity (m/s^2)
+    time_step = 0.02
+    time_space = 2
+    # Function wrapper used by the solver
+    fun = lambda t, y: cart_pole(t, y, F, m_c=m_c, m_p=m_p, l=l, g=g)
+    # Solve the differential equation
+    solution = solve_ivp(
+        fun=fun,
+        t_span=(0.0, time_step),
+        y0=[x, dx, theta, dtheta],
+        # t_eval=np.linspace(0.0, time_step, time_space)[1:],
+        t_eval=[time_step],
+        rtol=1e-6,
+        atol=1e-6
+    )
+    x_values = solution.y[0]
+    dx_values = solution.y[1]
+    theta_values = solution.y[2]
+    dtheta_values = solution.y[3]
+    return x_values, dx_values, theta_values, dtheta_values
+
+
+def simulate_cart_pole(node, **kwargs):
+
+    # List for each value
+    x_history = [0]
+    dx_history = [0]
+    theta_history = [np.pi * 1/32]
+    dtheta_history = [0]
+
+    for j in range(100):
+
+        input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
+
+        F = node(*input_values)
+        F = np.real(F)
+
+        # Step the simulation forward and append results
+        result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], F)
+
+        x_history += list(result[0])
+        dx_history += list(result[1])
+        theta_history += list(((np.array(result[2]) + np.pi) % (2 * np.pi)) - np.pi)
+        # theta_history += list(np.array(result[2]) % (2 * np.pi))
+        # theta_history += list(result[2])
+        dtheta_history += list(result[3])
+
+    x_history = np.array(x_history)
+    dx_history = np.array(dx_history)
+    theta_history = np.array(theta_history)
+    dtheta_history = np.array(dtheta_history)
+    return x_history, dx_history, theta_history, dtheta_history
+
+
+
+
+
+def fit_simulate_cart_pole(node, **kwargs):
+
+    # List for each value
+    x_history = [0]
+    dx_history = [0]
+    theta_history = [np.pi * 1/32]
+    dtheta_history = [0]
+
+    for j in range(200):
+
+        input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
+
+        F = node(*input_values)
+        F = np.real(F)
+
+        # Step the simulation forward and append results
+        result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], F)
+
+        x_history += list(result[0])
+        dx_history += list(result[1])
+        theta_history += list(((np.array(result[2]) + np.pi) % (2 * np.pi)) - np.pi)
+        # theta_history += list(np.array(result[2]) % (2 * np.pi))
+        # theta_history += list(result[2])
+        dtheta_history += list(result[3])
+
+    x_history = np.array(x_history)
+    dx_history = np.array(dx_history)
+    theta_history = np.array(theta_history)
+    dtheta_history = np.array(dtheta_history)
+    return x_history, dx_history, theta_history, dtheta_history
+
+
+
+
+def dag_pole_fitness(pop, **kwargs):
+    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
+    fits = np.empty(len(pop))
+    for i, node in enumerate(pop):
+
+        # List for each value
+        x_history = [0]
+        dx_history = [0]
+        theta_history = [np.pi * 1 / 32]
+        dtheta_history = [0]
+
+        fit = -1
+
+        for fit in range(1000):
+
+            input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
+
+            F = node(*input_values)
+            F = np.real(F)
+
+            # Step the simulation forward and append results
+            result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], F)
+
+            x_history += list(result[0])
+            dx_history += list(result[1])
+            theta_history += list(((np.array(result[2]) + np.pi) % (2 * np.pi)) - np.pi)
+            dtheta_history += list(result[3])
+
+            if not (-2.4 <= x_history[-1] <= 2.4):
+                break
+            elif not (-12 / 180 * np.pi <= theta_history[-1] <= 12 / 180 * np.pi):
+                break
+
+        fit = np.sum(fit)
+
+        fits[i] = fit
+
+    # fits = np.nan_to_num(fits, nan=0, posinf=0, neginf=0)
+    return fits
+
+
 
 
 
