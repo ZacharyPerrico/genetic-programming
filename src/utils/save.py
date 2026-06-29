@@ -151,7 +151,6 @@ def update_db(pops, fits, generation, **kwargs):
         for gen_offset in range(len(pops))
         for ind in range(len(pops[gen_offset]))
     ]
-
     con = sqlite3.connect(kwargs['saves_path']+db_name, timeout=kwargs['update_timeout'])
     with con:
         cur = con.cursor()
@@ -171,7 +170,6 @@ def sql_query(query, return_col_names=False, **kwargs):
     if return_col_names:
         res = res, col_names
     return res
-
 
 
 def create_kwarg_table(**test_kwargs):
@@ -210,68 +208,15 @@ def update_kwarg_table(**test_kwargs):
 
 
 
-# if __name__ == '__main__':
-    #
-    # # Run query
-    # name = 'daggp/test'
-    # kwargs = load_kwargs('../../saves/'+name)
-    #
-    # test_kwargs = generate_tests(**kwargs)
-    #
-    #
-    #
-    # for test_kwarg in test_kwargs:
-    #     update_kwarg_table(**test_kwarg)
-    #
-    # update_kwarg_table(**kwargs)
-    #
-    #
-    #
-    #
-    # quit()
-
-    # q = """
-    #     WITH sub AS (
-    #         SELECT test, COUNT() AS c
-    #         FROM data
-    #         WHERE fit = 0 AND gen = 299
-    #         GROUP BY test
-    #     )
-    #     SELECT *
-    #     FROM sub
-    # """
-    # q = 'SELECT gen, count(gen) FROM data GROUP BY gen'
-    # q = 'SELECT test, seed, AVG(fit) FROM data GROUP BY test, seed'
-    # q = """
-    # SELECT test, MIN(fit)
-    # FROM (
-    #     SELECT test, seed, AVG(fit) AS fit
-    #     FROM data
-    #     GROUP BY test, seed
-    #     )
-    # GROUP BY test
-    # """
-    # q = """
-    # SELECT test, gen, MIN(fit)
-    # FROM (
-    #     SELECT test, seed, gen, AVG(fit) AS fit
-    #     FROM data
-    #     GROUP BY test, seed, gen
-    #     )
-    # GROUP BY test, gen
-    # """
-    # q = """
-    # SELECT *
-    # FROM data
-    # WHERE fit = 0
-    # GROUP BY data
-    # """
+if __name__ == '__main__':
+    kwargs = load_kwargs('../../saves/daggp/pole')
 
 
-    #
-    # for i in sql_query(q, **kwargs):
-    #     print(i)
-    #
+
+    for i in sql_query("""
+        SELECT seed, COUNT(seed) FROM data GROUP BY seed
+    """, **kwargs): print(i)
+
 
 
     # Interactive SQL terminal

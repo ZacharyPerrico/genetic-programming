@@ -2,9 +2,9 @@ import os
 
 import networkx as nx
 import numpy as np
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, animation
 
-from models.abstract.plot import get_best, plot_fitness
+from models.abstract.plot import get_best, plot_fitness, plot_sql_query
 from models.daggp.methods import simulate_cart_pole
 from models.daggp.model import Node
 from src.utils.save import load_kwargs
@@ -165,170 +165,104 @@ def plot_graph(node:Node, title=None, fit=None, layout='topo', scale=1, figsize=
 
 
 
-def plot_pole(node, **kwargs):
 
-    x_history, dx_history, theta_history, dtheta_history = simulate_cart_pole(node)
 
+
+
+
+
+
+def plot_pole(node, title=None, fit=None, figsize=None, dpi=None, save=True, show=True, **kwargs):
+
+    x_history, dx_history, theta_history, dtheta_history, force_history = simulate_cart_pole(node, **kwargs)
     t = list(range(len(x_history)))
-    fig, axs = plt.subplots(4, 1, sharex=True)
+    fig, axs = plt.subplots(5, 1, sharex=True, figsize=figsize, dpi=dpi)
 
+    plt.suptitle(f'${node.latex()}$')
+    axs[0].set_title(title)
     axs[0].plot(t, x_history)
     axs[0].axhline(-2.4, color='red')
     axs[0].axhline(2.4, color='red')
+    axs[0].axvline(fit, color='blue')
     axs[0].set_ylabel('Cart Position (m)')
-    axs[0].grid(True)
 
     axs[1].plot(t, dx_history)
     axs[1].axhline(-1, color='red')
     axs[1].axhline(1, color='red')
+    axs[1].axvline(fit, color='blue')
     axs[1].set_ylabel('Cart Velocity (m/s)')
-    axs[1].grid(True)
 
     axs[2].plot(t, theta_history * 180 / np.pi)
     axs[2].axhline(-12, color='red')
     axs[2].axhline(12, color='red')
+    axs[2].axvline(fit, color='blue')
     axs[2].set_ylabel('Pole Angle (deg)')
-    axs[2].grid(True)
 
     axs[3].plot(t, dtheta_history * 180 / np.pi)
     axs[3].axhline(-1.5, color='red')
     axs[3].axhline(1.5, color='red')
+    axs[3].axvline(fit, color='blue')
     axs[3].set_ylabel('Pole Angular Velocity (deg/s)')
-    axs[3].grid(True)
+
+    axs[4].plot(t, force_history)
+    axs[4].axhline(-10, color='red')
+    axs[4].axhline(10, color='red')
+    axs[4].axvline(fit, color='blue')
+    axs[4].set_ylabel('Force (N)')
 
     plt.xlabel('Time (s)')
     plt.tight_layout()
-    plt.show()
 
-
-# def plot_dist(**kwargs):
-#
-#     r = sql_query("""
-#         WITH sub AS (
-#             SELECT gen, COUNT() AS c, fit, data
-#             FROM data
-#             GROUP BY gen, fit, data
-#         )
-#         SELECT *
-#         FROM sub
-#         WHERE data IN (
-#             SELECT data
-#             FROM sub
-#             GROUP BY data
-#             HAVING fit = 0
-#         )
-#     """, **kwargs)
-#     for i in r: print(i)
-#
-#     xy = {}
-#     for x,y,fit,label in r:
-#         if label not in xy:
-#             xy[label] = [0] * kwargs['num_gens']
-#         xy[label][x] = y
-#
-#     fig, ax = plt.subplots()
-#
-#     for label in xy:
-#         plot_label = str(kwargs['load_formater_func'](label))
-#         plt.plot(xy[label], label=plot_label)
-#
-#     # labels = [str(kwargs['load_formater_func'](label)) for label in xy.keys()]
-#     # ax.stackplot(list(range(kwargs['num_gens'])), xy.values(), labels=labels, alpha=0.8)
-#
-#     title = 'dist'
-#     ax.legend(title='Equations')
-#     plt.savefig(f'{kwargs["plot_path"]}/{title}.png')
-#     plt.show()
-
-
-
-
-# def plot_dist(**kwargs):
-#
-#     r = sql_query("""
-#         WITH sub AS (
-#             SELECT gen, COUNT() AS c, fit, data, test
-#             FROM data
-#             GROUP BY gen, fit, data, test
-#         )
-#         SELECT *
-#         FROM sub
-#         WHERE data, test IN (
-#             SELECT data, test
-#             FROM sub
-#             GROUP BY data, test
-#             HAVING fit = 0
-#         )
-#     """, **kwargs)
-#     for i in r: print(i)
-#
-#     xy = {}
-#     for x,y,fit,label in r:
-#         if label not in xy:
-#             xy[label] = [0] * kwargs['num_gens']
-#         xy[label][x] = y
-#
-#     fig, ax = plt.subplots()
-#
-#     for label in xy:
-#         plot_label = str(kwargs['load_formater_func'](label))
-#         plt.plot(xy[label], label=plot_label)
-#
-#     # labels = [str(kwargs['load_formater_func'](label)) for label in xy.keys()]
-#     # ax.stackplot(list(range(kwargs['num_gens'])), xy.values(), labels=labels, alpha=0.8)
-#
-#     title = 'dist'
-#     ax.legend(title='Equations')
-#     plt.savefig(f'{kwargs["plot_path"]}/{title}.png')
-#     plt.show()
-
-
-
-
-
-
-def plot_sql_query(query, save=True, show=True, **kwargs):
-    """
-    Plots a query result as (x, y, *label) with the label containing one or more columns.
-    A plot is made for each label column but only colored in respect to the first
-    """
-    print('Running query')
-    result, col_names = sql_query(query, True, **kwargs)
-    print('Formating query results')
-    # Format result into a dict with each entry being a list of y values with the key as the label
-    plot_dict = {}
-    for x, y, *key in result:
-        key = tuple(key)
-        if key not in plot_dict:
-            plot_dict[key] = [0] * kwargs['num_gens']
-        plot_dict[key][x] = y
-    print('Plotting query results')
-    # Plot each entry in the dict of plots
-    # Plots with the same first key value will share plot colors and labels
-    plot_colors = {}
-    for key in plot_dict:
-        y_values = plot_dict[key]
-        label = key[0] if type(key) == tuple else key
-        if label not in plot_colors:
-            p = plt.plot(y_values, label=label)
-            plot_colors[label] = p[0].get_color()
-        else:
-            plt.plot(y_values, color=plot_colors[label])
-    plt.xlabel(col_names[0])
-    plt.ylabel(col_names[1])
-    legend_title = col_names[2] if len(col_names) > 1 else None
-    plt.legend(title=legend_title)
     if save:
-        plt.savefig(f'{kwargs['plot_path']}{col_names[1]}.svg')
+        plt.savefig(f'{kwargs["plot_path"]}/{title} Pole Plot.svg')
     if show:
         plt.show()
     plt.close()
 
 
+def animate_cart_pole(node, title=None, fit=None, figsize=None, dpi=None, save=True, show=True, **kwargs):
+    time_scale = 2
+    frame_skip = 1
+    x_history, dx_history, theta_history, dtheta_history, force_history = simulate_cart_pole(node, **kwargs)
+    t = list(range(len(x_history)))
+    # Generic plot components
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    ax = fig.add_subplot(autoscale_on=False, xlim=(-2, 2), ylim=(-0.5, 1.5))
+    ax.set_aspect('equal')
+    ax.grid()
+    # Animation artists
+    cart = ax.scatter([], [], marker='s', s=100, c='white', edgecolors='black')
+    pole, = ax.plot([], [], lw=2, c='orange')
+    # trace, = ax.plot([], [], '.-', lw=1, ms=2)
+    time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
+    # Animation function
+    def animate(i):
+        print(i)
+        pos_0 = [x_history[i], 0]
+        pos_1 = [np.sin(theta_history[i]) + x_history[i], np.cos(theta_history[i])]
+        cart.set_offsets(pos_0)
+        pole.set_data([pos_0[0], pos_1[0]], [pos_0[1], pos_1[1]])
+        time_text.set_text(f'Time = {(i*0.02*time_scale):.3f} sec')
+        return pole, cart, time_text
+    ani = animation.FuncAnimation(
+        fig=fig,
+        func=animate,
+        frames=range(0, len(x_history), frame_skip),
+        interval=0.02 * 1000 * time_scale * frame_skip,
+        blit=True,
+    )
+    # if save:
+        # ani.save(filename=f'{kwargs["plot_path"]}/{title} Pole Animation.mp4')
+        # writer = animation.FFMpegWriter(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+        # ani.save(filename=f'{kwargs["plot_path"]}/{title} Pole Animation.mp4', writer=writer)
+        # print('saved')
+    if show:
+        plt.show()
+    plt.close()
+
 
 def plot_lens(**kwargs):
-    plot_sql_query(
-        """
+    plot_sql_query("""
         SELECT 
             gen AS 'Generation', 
             AVG(LENGTH(genotype)) AS 'Average Length', 
@@ -336,10 +270,7 @@ def plot_lens(**kwargs):
             seed
         FROM data
         GROUP BY gen, test, seed
-        """,
-        ylabel='Length',
-        **kwargs
-    )
+    """, **kwargs)
 
 
 def plot_conv(**kwargs):
@@ -393,37 +324,39 @@ def plot_results(**kwargs):
         'scale': .35,
     }
 
-    kwargs['domains'] = [list(np.linspace(-3,3,100))]
+    # kwargs['domains'] = [list(np.linspace(-3,3,100))]
 
     # plot_dist(**kwargs)
     # plot_conv(**kwargs)
-    plot_lens(**kwargs)
+    # plot_lens(**kwargs)
 
     # quit()
 
-    plot_fitness(**kwargs)
+    # plot_fitness(**kwargs)
 
     # Plot best results of each test
     bests = get_best(**kwargs)
 
     # Plot all the best results together
-    tests, seeds, gens, ids, fits, datas = zip(*bests)
+    # tests, seeds, gens, ids, fits, genotypes, tests_kwargs = zip(*bests)
     # plot_nodes(datas, fits=fits, labels=tests, **kwargs)
 
     # Plot each best result individually
-    for test, seed, gen, id, fit, data in bests:
-        print(f'Best of {test}, (Fit = {fit}) at ({seed}, {gen}, {id}, {data})')
+    for test, seed, gen, index, fit, genotype, test_kwargs in bests:
+        print(f'Best of {test}, (Fit = {fit}) at ({seed}, {gen}, {index}, {genotype})')
+
         # plot_nodes([data], fits=[fit], labels=[test], **kwargs)
-        plot_graph(data, fit=fit, title=test, **kwargs)
+        # plot_graph(genotype, fit=fit, title=test, **test_kwargs)
 
-        plot_pole(data)
+        # plot_pole(genotype, fit=fit, title=test, **test_kwargs)
 
+        animate_cart_pole(genotype, fit=fit, title=test, **test_kwargs)
 
 
 # Manually load and plot saved results
 if __name__ == '__main__':
     # name = 'tuning'
     # name = 'real_dist'
-    name = 'pole_test'
+    name = 'pole_long'
     kwargs = load_kwargs('../../../saves/daggp/'+name)
     plot_results(**kwargs)

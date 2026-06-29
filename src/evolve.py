@@ -6,8 +6,7 @@ import copy
 import time
 from multiprocessing import Pool, cpu_count
 
-from src.utils.save import save_kwargs, create_db, update_db, generate_tests, generate_reps
-from utils.save import create_kwarg_table, update_kwarg_table
+from utils.save import create_kwarg_table, update_kwarg_table, save_kwargs, create_db, update_db, generate_tests, generate_reps
 
 
 #
@@ -115,7 +114,7 @@ def run_replicate(arg=None, **kwargs):
         kwargs = arg
 
     if kwargs['verbose']:
-        print(f'Simulating Test {kwargs["test"]}, Run {kwargs["seed"]}, Generation 0 of {kwargs["num_gens"]}')
+        print(f'Simulating Test "{kwargs["test"]}", Run {kwargs["seed"]}, Generation 0 of {kwargs["num_gens"]}')
 
     # Initialization
     pop = init_pop(**kwargs)
@@ -129,7 +128,7 @@ def run_replicate(arg=None, **kwargs):
     for generation in range(1, kwargs['num_gens']):
 
         if kwargs['verbose']:
-            print(f'Simulating Test {kwargs["test"]}, Run {kwargs["seed"]}, Generation {generation} of {kwargs["num_gens"]}')
+            print(f'Simulating Test "{kwargs["test"]}", Run {kwargs["seed"]}, Generation {generation} of {kwargs["num_gens"]}')
 
         # Next generation and fitness
         pop = next_pop(pop=pop, fits=fits, gen=generation, **kwargs)

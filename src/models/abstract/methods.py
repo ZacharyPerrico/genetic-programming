@@ -1,15 +1,10 @@
 """
 Genetic programming functions usable by most models.
 """
+
 import math
-
 import numpy as np
-
 from src.utils.utils import cartesian_prod
-
-
-# from utils.utils import cartesian_prod
-
 
 #
 # Saving Functions (save_formater_func)
@@ -63,28 +58,28 @@ def nguyen_12(x,y): return x**4 - x**3 + y**2/2 - y
 # Fitness Functions (fitness_func)
 #
 
-def mse(pop, rmse=False, **kwargs):
-    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
-    # 2D array of input variables for each test case
-    cases = cartesian_prod(*kwargs['domains'])
-    y_target = np.array([kwargs['target_func'](*list(case)) for case in cases])
-    fits = np.empty(len(pop))
-    for i, org in enumerate(pop):
-        y_actual = org(*cases, eval_method=kwargs['eval_method'])
-        # y_actual = []
-        # for case in cases:
-        #     # l = Linear([[0]*kwargs['num_regs'], org[0].copy()], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
-        #     for j,x in enumerate(case):
-        #         l.mem[0][1+j] = x
-        #     # Evaluate the organism
-        #     l.run(kwargs['timeout'])
-        #     y_actual.append(l.mem[0][-1])
-        # Calculate MSE
-        fits[i] = sum((abs(y_target - y_actual)) ** 2) / len(cases)
-        # Calculate RMSE
-        if rmse:
-            fits[i] **= 0.5
-    return fits
+# def mse(pop, rmse=False, **kwargs):
+#     """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
+#     # 2D array of input variables for each test case
+#     cases = cartesian_prod(*kwargs['domains'])
+#     y_target = np.array([kwargs['target_func'](*list(case)) for case in cases])
+#     fits = np.empty(len(pop))
+#     for i, org in enumerate(pop):
+#         y_actual = org(*cases, eval_method=kwargs['eval_method'])
+#         # y_actual = []
+#         # for case in cases:
+#         #     # l = Linear([[0]*kwargs['num_regs'], org[0].copy()], ops=kwargs['ops'], value_lim=kwargs['value_lim'])
+#         #     for j,x in enumerate(case):
+#         #         l.mem[0][1+j] = x
+#         #     # Evaluate the organism
+#         #     l.run(kwargs['timeout'])
+#         #     y_actual.append(l.mem[0][-1])
+#         # Calculate MSE
+#         fits[i] = sum((abs(y_target - y_actual)) ** 2) / len(cases)
+#         # Calculate RMSE
+#         if rmse:
+#             fits[i] **= 0.5
+#     return fits
 
 #
 # Recombination Functions (recombination_funcs)

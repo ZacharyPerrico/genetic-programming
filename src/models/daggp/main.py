@@ -191,7 +191,7 @@ from src.evolve import run_tests
 
 
 kwargs = {
-    'saves_path': '../../../saves/daggp/pole_test',  # Save path relative to this file
+    'saves_path': '../../../saves/daggp/pole',  # Save path relative to this file
     'verbose': True,
     'parallelize': True,
     'checkpoint_interval': 500,
@@ -211,7 +211,8 @@ kwargs = {
     'terminals': ['x0','x1','x2','x3','i'],
     ## Evaluation ##
     'eval_method': None,
-    'fitness_func': dag_pole_fitness,
+    'fitness_func': cart_pole_fitness,
+    'timeout': 12000,
     ## Selection ##
     'minimize_fitness': False,
     'keep_parents': 2,  # Elitism, must be even
@@ -234,6 +235,5 @@ kwargs = {
 
 
 if __name__ == '__main__':
-    print('Starting...')
     run_tests(**kwargs)
     plot_results(**kwargs)

@@ -1,14 +1,152 @@
-"""General functions for plotting results."""
+"""
+General functions for plotting results usable by most models.
+"""
 import numpy as np
 from matplotlib import pyplot as plt
 
 from models.smlgp.model import Linear
 from src.utils.save import sql_query
 from src.utils.utils import cartesian_prod
+from utils.save import generate_tests
+
+
+#
+# Control
+#
+
+# def get_best(**kwargs):
+#     """Get the best result of the given run and gen"""
+#     # https://www.sqlite.org/lang_select.html#bareagg
+#     if kwargs['minimize_fitness']:
+#         ordering_func = 'MIN'
+#     else:
+#         ordering_func = 'MAX'
+#     query = f"""
+#         SELECT test, seed, gen, id, {ordering_func}(fit), genotype
+#         FROM data
+#         GROUP BY test
+#     """
+#     bests = list(sql_query(query, **kwargs))
+#     for i in range(len(bests)):
+#         bests[i] = list(bests[i])
+#         bests[i][5] = kwargs['load_formater_func'](bests[i][5])
+#     return bests
+
+
+
+def get_best(**kwargs):
+    """Get the best result of the given run and gen"""
+    # https://www.sqlite.org/lang_select.html#bareagg
+
+    tests_kwargs = generate_tests(**kwargs)
+
+    bests = []
+
+    for test_kwargs in tests_kwargs:
+
+        if kwargs['minimize_fitness']:
+            ordering_func = 'MIN'
+        else:
+            ordering_func = 'MAX'
+
+        result = sql_query(f"""
+            SELECT test, seed, gen, ind, {ordering_func}(fit), genotype
+            FROM data
+            WHERE test = '{test_kwargs['test']}'
+        """, **kwargs)
+        result = list(result[0])
+        result[5] = kwargs['load_formater_func'](result[5])
+        result.append(test_kwargs)
+        bests.append(result)
+
+    return bests
+
+
+def plot_grid(all_pops, all_fits, plot_func, title=None, save=True, show=True, **kwargs):
+    """Plots a grid of plots over the test kwargs"""
+    best = get_best(all_pops, all_fits, **kwargs)
+    if len(kwargs['test_kwargs'][0]) < 2:
+        print(f'Plotting failed for {plot_func.__name__}')
+    else:
+        # Values of first test_kwargs
+        zipped0 = list(zip(*kwargs['test_kwargs'][1:]))[1]
+        array0 = np.empty((len(zipped0),), 'object')
+        array0[:] = zipped0
+        values0, counts0 = np.unique(array0, return_counts=True)
+        # Values of second test_kwargs
+        zipped1 = list(zip(*kwargs['test_kwargs'][1:]))[2]
+        array1 = np.empty((len(zipped1),), 'object')
+        array1[:] = zipped1
+        values1, counts1 = np.unique(array1, return_counts=True)
+        # Setup grid
+        nrows = len(counts0)
+        ncols = len(counts1)
+        if not ((counts0 == counts0[0]).all() and (counts1 == counts1[0]).all() and nrows * ncols == len(
+                kwargs['test_kwargs'][1:])):
+            print(f'Plotting failed for {plot_func.__name__}')
+        else:
+            scale, dpi = 4, 400 # Save resolution
+            # scale, dpi = 2, 200
+            fig, axs = plt.subplots(nrows, ncols, figsize=(nrows * scale, ncols * scale), dpi=dpi)
+
+        # Plot best results of each test
+        for i, tm in enumerate(best):
+            print(f'Plotting grid {i+1} of {len(best)} for {plot_func.__name__}')
+            plot_func(tm, ax=axs.ravel()[i], title=kwargs['test_kwargs'][i+1][0], show=False, save=False, **kwargs)
+        fig.supxlabel(kwargs['test_kwargs'][0][2])
+        for col in range(ncols):
+            axs[-1, col].set_xlabel(values1[col])
+        fig.supylabel(kwargs['test_kwargs'][0][1])
+        for row in range(nrows):
+            axs[row, 0].set_ylabel(values0[row])
+        if save:
+            plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{title}.png')
+        if show:
+            plt.show()
+        plt.close()
+
 
 #
 # Data Based Plotting
 #
+
+def plot_sql_query(query, save=True, show=True, **kwargs):
+    """
+    Plots a query result as (x, y, *label) with the label containing one or more columns.
+    A plot is made for each label column but only colored in respect to the first
+    """
+    print('Running query')
+    result, col_names = sql_query(query, True, **kwargs)
+    print('Formating query results')
+    # Format result into a dict with each entry being a list of y values with the key as the label
+    plot_dict = {}
+    for x, y, *key in result:
+        key = tuple(key)
+        if key not in plot_dict:
+            plot_dict[key] = [0] * kwargs['num_gens']
+        plot_dict[key][x] = y
+    print('Plotting query results')
+    # Plot each entry in the dict of plots
+    # Plots with the same first key value will share plot colors and labels
+    plot_colors = {}
+    for key in plot_dict:
+        y_values = plot_dict[key]
+        label = key[0] if type(key) == tuple else key
+        if label not in plot_colors:
+            p = plt.plot(y_values, label=label)
+            plot_colors[label] = p[0].get_color()
+        else:
+            plt.plot(y_values, color=plot_colors[label])
+    plt.xlabel(col_names[0])
+    plt.ylabel(col_names[1])
+    legend_title = col_names[2] if len(col_names) > 1 else None
+    plt.legend(title=legend_title)
+    if save:
+        plt.savefig(f'{kwargs['plot_path']}{col_names[1]}.svg')
+    if show:
+        plt.show()
+    plt.close()
+
 
 def plot_fitness(figsize=None, dpi=None, save=True, show=True, **kwargs):
     """Plot the average of the runs' minimum fitness for each test"""
@@ -103,70 +241,70 @@ def plot_fitness(figsize=None, dpi=None, save=True, show=True, **kwargs):
     plt.close()
 
 
-def plot_means(values, ylabel, ax=None, save=True, show=True, **kwargs):
-    """Plot the means of some values"""
-    if ax is None:
-        fig, ax = plt.subplots()
-    for test in range(values.shape[0]):
-        label = kwargs['test_kwargs'][test + 1][0]
-        ys = np.mean(values[test], axis=(0,2))
-        xs = np.array(range(values.shape[2]))
-        plt.plot(xs, ys, label=label)
-        # ys_std = ys.std()
-        # ax.fill_between(xs, ys-ys_std, ys+ys_std, alpha=0.2)
-    plt.xlabel('Generation')
-    plt.ylabel(ylabel)
-    plt.legend(title=kwargs['test_kwargs'][0][0])
-    if save:
-        plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{ylabel}.png')
-    if show:
-        plt.show()
-    plt.close()
+# def plot_means(values, ylabel, ax=None, save=True, show=True, **kwargs):
+#     """Plot the means of some values"""
+#     if ax is None:
+#         fig, ax = plt.subplots()
+#     for test in range(values.shape[0]):
+#         label = kwargs['test_kwargs'][test + 1][0]
+#         ys = np.mean(values[test], axis=(0,2))
+#         xs = np.array(range(values.shape[2]))
+#         plt.plot(xs, ys, label=label)
+#         # ys_std = ys.std()
+#         # ax.fill_between(xs, ys-ys_std, ys+ys_std, alpha=0.2)
+#     plt.xlabel('Generation')
+#     plt.ylabel(ylabel)
+#     plt.legend(title=kwargs['test_kwargs'][0][0])
+#     if save:
+#         plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{ylabel}.png')
+#     if show:
+#         plt.show()
+#     plt.close()
 
 
-def plot_medians(values, ylabel, **kwargs):
-    fig, ax = plt.subplots()
-    for test in range(values.shape[0]):
-        label = kwargs['test_kwargs'][test + 1][0]
-        xs = np.array(range(values.shape[2]))
-        ys = np.median(values[test], axis=(0,2))
-        plt.plot(xs, ys, label=label)
+# def plot_medians(values, ylabel, **kwargs):
+#     fig, ax = plt.subplots()
+#     for test in range(values.shape[0]):
+#         label = kwargs['test_kwargs'][test + 1][0]
+#         xs = np.array(range(values.shape[2]))
+#         ys = np.median(values[test], axis=(0,2))
+#         plt.plot(xs, ys, label=label)
+#
+#         ys = np.mean(values[test], axis=(0,2))
+#         plt.plot(xs, ys, label=label)
+#
+#         q1 = np.quantile(values[test], 0.25, axis=(0,2))
+#         q3 = np.quantile(values[test], 0.75, axis=(0,2))
+#         ax.fill_between(xs, q1, q3, alpha=0.2)
+#     plt.xlabel('Generation')
+#     plt.ylabel(ylabel)
+#     plt.legend(title=kwargs['test_kwargs'][0][0])
+#     plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{ylabel}.png')
+#     plt.show()
 
-        ys = np.mean(values[test], axis=(0,2))
-        plt.plot(xs, ys, label=label)
 
-        q1 = np.quantile(values[test], 0.25, axis=(0,2))
-        q3 = np.quantile(values[test], 0.75, axis=(0,2))
-        ax.fill_between(xs, q1, q3, alpha=0.2)
-    plt.xlabel('Generation')
-    plt.ylabel(ylabel)
-    plt.legend(title=kwargs['test_kwargs'][0][0])
-    plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{ylabel}.png')
-    plt.show()
-
-
-def plot_box(values, ylabel, ax=None, save=True, show=True, **kwargs):
-    if ax is None:
-        fig, ax = plt.subplots()
-    positions = range(len(kwargs['test_kwargs']) - 1)
-    ys = [values[test].ravel() for test in range(len(kwargs['test_kwargs']) - 1)]
-    # ax.boxplot(
-    ax.violinplot(
-        ys,
-        positions=positions,
-        # patch_artist=True,
-        showmeans=False,
-        showmedians=True,
-    )
-    ax.yaxis.grid(True)
-    ax.set_xticks(ticks=positions, labels=[test[0] for test in kwargs['test_kwargs'][1:]])
-    ax.set_xlabel(kwargs['test_kwargs'][0][0])
-    ax.set_ylabel(ylabel)
-    if save:
-        plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{ylabel}.png')
-    if show:
-        plt.show()
-    plt.close()
+# def plot_box(values, ylabel, ax=None, save=True, show=True, **kwargs):
+#     if ax is None:
+#         fig, ax = plt.subplots()
+#     positions = range(len(kwargs['test_kwargs']) - 1)
+#     ys = [values[test].ravel() for test in range(len(kwargs['test_kwargs']) - 1)]
+#     # ax.boxplot(
+#     ax.violinplot(
+#         ys,
+#         positions=positions,
+#         # patch_artist=True,
+#         showmeans=False,
+#         showmedians=True,
+#     )
+#     ax.yaxis.grid(True)
+#     ax.set_xticks(ticks=positions, labels=[test[0] for test in kwargs['test_kwargs'][1:]])
+#     ax.set_xlabel(kwargs['test_kwargs'][0][0])
+#     ax.set_ylabel(ylabel)
+#     if save:
+#         plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{ylabel}.png')
+#     if show:
+#         plt.show()
+#     plt.close()
 
 
 # def plot_hist(values, ylabel):
@@ -250,68 +388,3 @@ def table_best(obj, **kwargs):
 
 
 
-#
-# Control
-#
-
-def get_best(**kwargs):
-    """Get the best result of the given run and gen"""
-    # https://www.sqlite.org/lang_select.html#bareagg
-    if kwargs['minimize_fitness']:
-        ordering_func = 'MIN'
-    else:
-        ordering_func = 'MAX'
-    query = f"""
-        SELECT test, seed, gen, id, {ordering_func}(fit), genotype
-        FROM data
-        GROUP BY test
-    """
-    bests = list(sql_query(query, **kwargs))
-    for i in range(len(bests)):
-        bests[i] = list(bests[i])
-        bests[i][5] = kwargs['load_formater_func'](bests[i][5])
-    return bests
-
-
-def plot_grid(all_pops, all_fits, plot_func, title=None, save=True, show=True, **kwargs):
-    """Plots a grid of plots over the test kwargs"""
-    best = get_best(all_pops, all_fits, **kwargs)
-    if len(kwargs['test_kwargs'][0]) < 2:
-        print(f'Plotting failed for {plot_func.__name__}')
-    else:
-        # Values of first test_kwargs
-        zipped0 = list(zip(*kwargs['test_kwargs'][1:]))[1]
-        array0 = np.empty((len(zipped0),), 'object')
-        array0[:] = zipped0
-        values0, counts0 = np.unique(array0, return_counts=True)
-        # Values of second test_kwargs
-        zipped1 = list(zip(*kwargs['test_kwargs'][1:]))[2]
-        array1 = np.empty((len(zipped1),), 'object')
-        array1[:] = zipped1
-        values1, counts1 = np.unique(array1, return_counts=True)
-        # Setup grid
-        nrows = len(counts0)
-        ncols = len(counts1)
-        if not ((counts0 == counts0[0]).all() and (counts1 == counts1[0]).all() and nrows * ncols == len(
-                kwargs['test_kwargs'][1:])):
-            print(f'Plotting failed for {plot_func.__name__}')
-        else:
-            scale, dpi = 4, 400 # Save resolution
-            # scale, dpi = 2, 200
-            fig, axs = plt.subplots(nrows, ncols, figsize=(nrows * scale, ncols * scale), dpi=dpi)
-
-        # Plot best results of each test
-        for i, tm in enumerate(best):
-            print(f'Plotting grid {i+1} of {len(best)} for {plot_func.__name__}')
-            plot_func(tm, ax=axs.ravel()[i], title=kwargs['test_kwargs'][i+1][0], show=False, save=False, **kwargs)
-        fig.supxlabel(kwargs['test_kwargs'][0][2])
-        for col in range(ncols):
-            axs[-1, col].set_xlabel(values1[col])
-        fig.supylabel(kwargs['test_kwargs'][0][1])
-        for row in range(nrows):
-            axs[row, 0].set_ylabel(values0[row])
-        if save:
-            plt.savefig(f'{kwargs["saves_path"]}{kwargs["name"]}/plots/{title}.png')
-        if show:
-            plt.show()
-        plt.close()

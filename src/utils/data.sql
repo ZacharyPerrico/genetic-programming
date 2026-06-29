@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS data (
   test TEXT,
   seed ANY,
   gen INT,
-  id INT,
+  ind INT,
   fit REAL,
   genotype TEXT,
-  PRIMARY KEY (test, seed, gen, id)
+  PRIMARY KEY (test, seed, gen, ind)
 ) STRICT;

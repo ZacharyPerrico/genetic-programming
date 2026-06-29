@@ -77,8 +77,8 @@ def init_sin(**kwargs): return Node.sin(Node('x'))
 def init_sin_limited(**kwargs): return Node.sin(Node('x')).limited().to_tree()
 def init_cos(**kwargs): return Node.cos(Node('x'))
 def init_cos_limited(**kwargs): return Node.cos(Node('x')).limited().to_tree()
-def init_get_bit(**kwargs): return Node.get_bits(x,0,1) + Node.get_bits(x,1,1) + Node.get_bits(x,2,1)
-def init_get_bit_limited(**kwargs): return init_get_bit(**kwargs).limited()
+# def init_get_bit(**kwargs): return Node.get_bits(x,0,1) + Node.get_bits(x,1,1) + Node.get_bits(x,2,1)
+# def init_get_bit_limited(**kwargs): return init_get_bit(**kwargs).limited()
 
 
 #
@@ -153,7 +153,7 @@ def correlation(pop, target_func, domains, is_final=False, **kwargs):
 
 
 
-def cart_pole(t, state, F, m_c, m_p, l, g):
+def cart_pole_equations(t, state, F, m_c, m_p, l, g):
     """
     State vector: [x, dx, theta, dtheta]
     x: Cart position
@@ -174,14 +174,14 @@ def cart_pole(t, state, F, m_c, m_p, l, g):
 
 def step_cart_pole(x, dx, theta, dtheta, F):
     """Returns values after applying force for the timestep"""
+    # Constants
     m_c = 1.0  # Mass of the cart (kg)
     m_p = 0.1  # Mass of the pole (kg)
     l = 0.5  # Half the length of the pole (m)
     g = 9.8  # Gravity (m/s^2)
     time_step = 0.02
-    time_space = 2
     # Function wrapper used by the solver
-    fun = lambda t, y: cart_pole(t, y, F, m_c=m_c, m_p=m_p, l=l, g=g)
+    fun = lambda t, y: cart_pole_equations(t, y, F, m_c=m_c, m_p=m_p, l=l, g=g)
     # Solve the differential equation
     solution = solve_ivp(
         fun=fun,
@@ -196,115 +196,72 @@ def step_cart_pole(x, dx, theta, dtheta, F):
     dx_values = solution.y[1]
     theta_values = solution.y[2]
     dtheta_values = solution.y[3]
+
+    # dx_values = dx_values.clip(min=-1, max=1)
+    theta_values = ((theta_values + np.pi) % (2 * np.pi)) - np.pi
+    # dtheta_values = dtheta_values.clip(min=-1.5/180*np.pi, max=1.5/180*np.pi)
+
     return x_values, dx_values, theta_values, dtheta_values
 
 
-def simulate_cart_pole(node, **kwargs):
+def simulate_cart_pole(node, fitness_only = False, **kwargs):
+    """Full cart-pole simulation using the node to apply force"""
 
     # List for each value
     x_history = [0]
     dx_history = [0]
     theta_history = [np.pi * 1/32]
     dtheta_history = [0]
+    force_history = []
+    # fit = 0
 
-    for j in range(100):
-
-        input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
-
-        F = node(*input_values)
-        F = np.real(F)
-
-        # Step the simulation forward and append results
-        result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], F)
-
-        x_history += list(result[0])
-        dx_history += list(result[1])
-        theta_history += list(((np.array(result[2]) + np.pi) % (2 * np.pi)) - np.pi)
-        # theta_history += list(np.array(result[2]) % (2 * np.pi))
-        # theta_history += list(result[2])
-        dtheta_history += list(result[3])
-
-    x_history = np.array(x_history)
-    dx_history = np.array(dx_history)
-    theta_history = np.array(theta_history)
-    dtheta_history = np.array(dtheta_history)
-    return x_history, dx_history, theta_history, dtheta_history
-
-
-
-
-
-def fit_simulate_cart_pole(node, **kwargs):
-
-    # List for each value
-    x_history = [0]
-    dx_history = [0]
-    theta_history = [np.pi * 1/32]
-    dtheta_history = [0]
-
-    for j in range(200):
+    for fit in range(1, kwargs['timeout'] + 1):
 
         input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
+        force = np.real(node(*input_values))
+        force = np.clip(force, min=-10, max=10)
+        force_history.append(force)
 
-        F = node(*input_values)
-        F = np.real(F)
+        if fitness_only:
+            if np.isnan(force):
+                break
 
         # Step the simulation forward and append results
-        result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], F)
+        result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], force_history[-1])
+        x_history = np.concat((x_history, result[0]))
+        dx_history = np.concat((dx_history, result[1]))
+        theta_history = np.concat((theta_history, result[2]))
+        dtheta_history = np.concat((dtheta_history, result[3]))
 
-        x_history += list(result[0])
-        dx_history += list(result[1])
-        theta_history += list(((np.array(result[2]) + np.pi) % (2 * np.pi)) - np.pi)
-        # theta_history += list(np.array(result[2]) % (2 * np.pi))
-        # theta_history += list(result[2])
-        dtheta_history += list(result[3])
-
-    x_history = np.array(x_history)
-    dx_history = np.array(dx_history)
-    theta_history = np.array(theta_history)
-    dtheta_history = np.array(dtheta_history)
-    return x_history, dx_history, theta_history, dtheta_history
-
-
-
-
-def dag_pole_fitness(pop, **kwargs):
-    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
-    fits = np.empty(len(pop))
-    for i, node in enumerate(pop):
-
-        # List for each value
-        x_history = [0]
-        dx_history = [0]
-        theta_history = [np.pi * 1 / 32]
-        dtheta_history = [0]
-
-        fit = -1
-
-        for fit in range(1000):
-
-            input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
-
-            F = node(*input_values)
-            F = np.real(F)
-
-            # Step the simulation forward and append results
-            result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], F)
-
-            x_history += list(result[0])
-            dx_history += list(result[1])
-            theta_history += list(((np.array(result[2]) + np.pi) % (2 * np.pi)) - np.pi)
-            dtheta_history += list(result[3])
-
+        if fitness_only:
             if not (-2.4 <= x_history[-1] <= 2.4):
                 break
             elif not (-12 / 180 * np.pi <= theta_history[-1] <= 12 / 180 * np.pi):
                 break
 
-        fit = np.sum(fit)
+    if fitness_only:
+        return fit
 
-        fits[i] = fit
+    # x_history = np.array(x_history)
+    # dx_history = np.array(dx_history)
+    # theta_history = np.array(theta_history)
+    # dtheta_history = np.array(dtheta_history)
 
+    # Final force value
+    input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
+    force = np.real(node(*input_values))
+    force = np.clip(force, min=-10, max=10)
+    force_history.append(force)
+
+    return x_history, dx_history, theta_history, dtheta_history, force_history
+
+
+
+def cart_pole_fitness(pop, **kwargs):
+    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
+    fits = np.empty(len(pop))
+    for i, node in enumerate(pop):
+        fits[i] = simulate_cart_pole(node, fitness_only=True, **kwargs)
     # fits = np.nan_to_num(fits, nan=0, posinf=0, neginf=0)
     return fits
 
