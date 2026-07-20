@@ -1,4 +1,5 @@
 """Functions used to save and load data."""
+
 import importlib
 import copy
 import json
@@ -7,6 +8,7 @@ import sqlite3
 
 import numpy as np
 
+from models.daggp.methods import dag_from_save_str
 from src.utils.utils import to_tuple
 
 FUNC_PREFIX = '$'
@@ -20,10 +22,13 @@ db_name = '/data.db'
 def generate_reps(**kwargs):
     """Yields kwargs with unique seeds and rngs for each replicate"""
     for _ in range(kwargs['num_reps']):
+        rep_kwargs = copy.deepcopy(kwargs)
         # Assign seed and RNG
-        kwargs['seed'] = (np.random.randint(0, 2**64, dtype='uint64'))
-        kwargs['rng'] = np.random.default_rng(kwargs['seed'])
-        yield kwargs.copy()
+        rep_kwargs['seed'] = (np.random.randint(0, 2**64, dtype='uint64'))
+        rep_kwargs['rng'] = np.random.default_rng(rep_kwargs['seed'])
+        if 'setup_func' in rep_kwargs:
+            rep_kwargs = rep_kwargs['setup_func'](rep_kwargs)
+        yield rep_kwargs
 
 
 def generate_tests(test_keys, test_values, **kwargs):
@@ -209,13 +214,79 @@ def update_kwarg_table(**test_kwargs):
 
 
 if __name__ == '__main__':
-    kwargs = load_kwargs('../../saves/daggp/pole')
+    kwargs = load_kwargs('../../saves/daggp/imag_roots')
 
 
+
+    # for i in sql_query("""
+    #     SELECT seed, COUNT(seed) FROM data GROUP BY seed
+    # """, **kwargs): print(i)
+
+    # for i in sql_query("""
+    #     SELECT
+    #         gen AS 'Generation',
+    #         COUNT() AS 'Number of Perfect Fits',
+    #         test AS 'Field'
+    #     FROM data
+    #     GROUP BY gen, test
+    # """, **kwargs): print(i)
+
+    # for i in sql_query("""
+    #     SELECT
+    #         A.gen AS 'Generation',
+    #         COUNT() AS 'Number of Perfect Fits',
+    #         A.test AS 'Field',
+    #         B.gen,
+    #         B.test
+    #     FROM data A, data B
+    #     WHERE A.gen = B.gen AND A.test = B.test
+    #     GROUP BY A.gen, A.test
+    # """, **kwargs): print(i)
+
+    # for i in sql_query("""
+    #     SELECT
+    #         A.gen AS 'Generation',
+    #         B.counts AS 'Number of Perfect Fits',
+    #         A.test AS 'Field'
+    #     FROM (
+    #         SELECT gen, test
+    #         FROM data
+    #         GROUP BY gen, test
+    #     ) AS A
+    #     LEFT JOIN (
+    #         SELECT gen, test, COUNT() as counts
+    #         FROM data
+    #         WHERE fit = 12000
+    #         GROUP BY gen, test
+    #     ) AS B
+    #     ON A.gen = B.gen AND A.test = B.test
+    # """, **kwargs): print(i)
+
+    # for i in sql_query("""
+    #     SELECT
+    #         data.gen AS 'Generation',
+    #         IFNULL(B.counts, 0) AS 'Number of Perfect Fits',
+    #         data.test AS 'Field'
+    #     FROM data
+    #     LEFT JOIN (
+    #         SELECT gen, test, COUNT() as counts
+    #         FROM data
+    #         WHERE fit = 12000
+    #         GROUP BY gen, test
+    #     ) AS B
+    #     ON data.gen = B.gen AND data.test = B.test
+    #     GROUP BY data.gen, data.test
+    # """, **kwargs): print(i)
 
     for i in sql_query("""
-        SELECT seed, COUNT(seed) FROM data GROUP BY seed
-    """, **kwargs): print(i)
+        SELECT test, genotype 
+        FROM data
+        WHERE fit = 0
+        GROUP BY test, genotype
+    """, **kwargs):
+        i = list(i)
+        i[1] = dag_from_save_str(i[1])
+        print(i)
 
 
 

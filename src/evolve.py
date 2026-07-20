@@ -1,7 +1,8 @@
 """
-Core functions used in controlling evolution
-All functions are independent of the subject of evolution
+Core functions used in controlling evolution.
+All functions are independent of the model being evolved.
 """
+
 import copy
 import time
 from multiprocessing import Pool, cpu_count
@@ -43,71 +44,47 @@ def tournament_selection(pop, fits, **kwargs):
 #
 
 def next_pop(pop, fits, gen, **kwargs):
-    """Returns the next population from the given population and fitness values"""
+    """
+    Returns the next population from the given population and fitness values.
+    This function controls the entire flow of evolution.
+    """
 
-    # Truncate Selection
-    # This is not used
-    if 'lambda' in kwargs:
-        pass
-        # Pool starts with all current parents
-        # pool = list(pop) if kwargs['keep_parents'] else []
-        # # Create children for all parents and add to the pool
-        # for parent in pop:
-        #     for i in range(kwargs['lambda']):
-        #         child = kwargs['mutate_func'](parent, **kwargs)
-        #         pool.append(child)
-        # # Evaluation
-        # pool_fits = kwargs['fitness_func'](pop=pool, **kwargs)
-        # # Sort and truncate the indices of the next generation
-        # pool_indices = [(pool_fits[i], i) for i in range(len(pool))]
-        # pool_indices = np.array(sorted(pool_indices))
-        # pool_indices = pool_indices[:kwargs['pop_size'], 1]
-        # pool_indices = list(pool_indices)
-        # # Reduce reps
-        # new_pop = np.array(pool)[pool_indices]
-        # kwargs['fits'] = np.array(pool_fits)[pool_indices]
-        # if kwargs['verbose'] > 1: print(pop)
-        # return new_pop, kwargs['fits']
+    # Elitism
+    pool = [(fits[i], i) for i in range(kwargs['pop_size'])]
+    pool = sorted(pool)
+    pool = pool if kwargs['minimize_fitness'] else pool[::-1]
+    new_pop = [pop[pool[i][1]] for i in range(kwargs['keep_parents'])]
 
-    # Crossover
-    else:
+    # Repeat until the new population is the same reps as the old
+    while len(new_pop) < len(pop):
 
-        # Elitism
-        pool = [(fits[i], i) for i in range(kwargs['pop_size'])]
-        pool = sorted(pool)
-        pool = pool if kwargs['minimize_fitness'] else pool[::-1]
-        new_pop = [pop[pool[i][1]] for i in range(kwargs['keep_parents'])]
+        # Selection
+        org_0, fit_0 = tournament_selection(pop=pop, fits=fits, **kwargs)
+        org_1, fit_1 = tournament_selection(pop=pop, fits=fits, **kwargs)
+        org_0 = copy.deepcopy(org_0)
+        org_1 = copy.deepcopy(org_1)
 
-        # Repeat until the new population is the same reps as the old
-        while len(new_pop) < len(pop):
+        # Crossover
+        recombination_func = kwargs['rng'].choice(a=kwargs['recombination_funcs'], p=kwargs['recombination_probs'])
+        if recombination_func is not None:
+            org_0, org_1 = recombination_func(org_0, org_1, gen=gen, **kwargs)
 
-            # Selection
-            org_0, fit_0 = tournament_selection(pop=pop, fits=fits, **kwargs)
-            org_1, fit_1 = tournament_selection(pop=pop, fits=fits, **kwargs)
-            org_0 = copy.deepcopy(org_0)
-            org_1 = copy.deepcopy(org_1)
+        # Mutation
+        mutation_func = kwargs['rng'].choice(a=kwargs['mutation_funcs'], p=kwargs['mutation_probs'])
+        if mutation_func is not None:
+            org_0 = mutation_func(org_0, gen=gen, **kwargs)
+        mutation_func = kwargs['rng'].choice(a=kwargs['mutation_funcs'], p=kwargs['mutation_probs'])
+        if mutation_func is not None:
+            org_1 = mutation_func(org_1, gen=gen, **kwargs)
 
-            # Crossover
-            recombination_func = kwargs['rng'].choice(a=kwargs['recombination_funcs'], p=kwargs['recombination_probs'])
-            if recombination_func is not None:
-                org_0, org_1 = recombination_func(org_0, org_1, gen=gen, **kwargs)
+        new_pop.append(org_0)
+        new_pop.append(org_1)
 
-            # Mutation
-            mutation_func = kwargs['rng'].choice(a=kwargs['mutation_funcs'], p=kwargs['mutation_probs'])
-            if mutation_func is not None:
-                org_0 = mutation_func(org_0, gen=gen, **kwargs)
-            mutation_func = kwargs['rng'].choice(a=kwargs['mutation_funcs'], p=kwargs['mutation_probs'])
-            if mutation_func is not None:
-                org_1 = mutation_func(org_1, gen=gen, **kwargs)
-
-            new_pop.append(org_0)
-            new_pop.append(org_1)
-
-        return new_pop
+    return new_pop
 
 
 def run_replicate(arg=None, **kwargs):
-    """Run a single replicate with a full set of generations"""
+    """Run a single replicate with a full set of generations."""
 
     # A single arg may instead be passed if unpacking the dict is not possible
     if arg is not None:
@@ -138,6 +115,15 @@ def run_replicate(arg=None, **kwargs):
         pop_buffer.append(pop)
         fit_buffer.append(fits)
 
+        # Force save and terminate if the fitness threshold is defined and reached
+        if 'fitness_threshold' in kwargs and kwargs['fitness_threshold'] is not None:
+            if kwargs['minimize_fitness'] and min(fits) <= kwargs['fitness_threshold']:
+                update_db(pop_buffer, fit_buffer, generation, **kwargs)
+                return
+            elif max(fits) >= kwargs['fitness_threshold']:
+                update_db(pop_buffer, fit_buffer, generation, **kwargs)
+                return
+
         # Save to database and clear buffers when a checkpoint generation or the final generation is reached
         if generation % kwargs['checkpoint_interval'] == 0 or generation == kwargs['num_gens']-1:
             update_db(pop_buffer, fit_buffer, generation, **kwargs)
@@ -151,7 +137,7 @@ def run_replicate(arg=None, **kwargs):
 
 def run_tests(**kwargs):
     """
-    Simulate all runs for all tests with different hyperparameters.
+    Break the kwargs into tests and then break each test into replicates. All replicates are then simulated and saved.
     There are four levels: [test] [replicant] [generation/population] [organism/individual]
     """
 

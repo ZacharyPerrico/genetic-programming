@@ -22,7 +22,7 @@ def plot_nodes(nodes, labels=None, title=None, fits=None, figsize=None, dpi=None
     # Plot target function if given
     if 'target_func' in kwargs:
         label = 'Target Function'
-        target_ys = [kwargs['target_func'](x) for x in xs]
+        target_ys = [kwargs['target_func'](x, **kwargs) for x in xs]
         plt.scatter(xs, target_ys, label=label)
         plt.plot(xs, target_ys, lw=5)
 
@@ -175,43 +175,43 @@ def plot_graph(node:Node, title=None, fit=None, layout='topo', scale=1, figsize=
 def plot_pole(node, title=None, fit=None, figsize=None, dpi=None, save=True, show=True, **kwargs):
 
     x_history, dx_history, theta_history, dtheta_history, force_history = simulate_cart_pole(node, **kwargs)
-    t = list(range(len(x_history)))
+    # t = list(range(int(fit)))
+    t = list(range(kwargs['timeout']))
     fig, axs = plt.subplots(5, 1, sharex=True, figsize=figsize, dpi=dpi)
-
     plt.suptitle(f'${node.latex()}$')
-    axs[0].set_title(title)
-    axs[0].plot(t, x_history)
-    axs[0].axhline(-2.4, color='red')
-    axs[0].axhline(2.4, color='red')
-    axs[0].axvline(fit, color='blue')
-    axs[0].set_ylabel('Cart Position (m)')
-
-    axs[1].plot(t, dx_history)
-    axs[1].axhline(-1, color='red')
-    axs[1].axhline(1, color='red')
-    axs[1].axvline(fit, color='blue')
-    axs[1].set_ylabel('Cart Velocity (m/s)')
-
-    axs[2].plot(t, theta_history * 180 / np.pi)
-    axs[2].axhline(-12, color='red')
-    axs[2].axhline(12, color='red')
-    axs[2].axvline(fit, color='blue')
-    axs[2].set_ylabel('Pole Angle (deg)')
-
-    axs[3].plot(t, dtheta_history * 180 / np.pi)
-    axs[3].axhline(-1.5, color='red')
-    axs[3].axhline(1.5, color='red')
-    axs[3].axvline(fit, color='blue')
-    axs[3].set_ylabel('Pole Angular Velocity (deg/s)')
-
-    axs[4].plot(t, force_history)
-    axs[4].axhline(-10, color='red')
-    axs[4].axhline(10, color='red')
-    axs[4].axvline(fit, color='blue')
-    axs[4].set_ylabel('Force (N)')
-
     plt.xlabel('Time (s)')
-    plt.tight_layout()
+    # plt.tight_layout()
+
+    axs[0].set_title(title)
+    axs[0].plot(t, x_history[:len(t)])
+    axs[0].axhline(-kwargs['position_boundary'], color='red')
+    axs[0].axhline(kwargs['position_boundary'], color='red')
+    # axs[0].set_ylabel('Cart Position (m)')
+    axs[0].set_ylabel('$x$ (m)')
+
+    axs[1].plot(t, dx_history[:len(t)])
+    # axs[1].axhline(-1, color='red')
+    # axs[1].axhline(1, color='red')
+    # axs[1].set_ylabel('Cart Velocity (m/s)')
+    axs[1].set_ylabel('$\\dot{x}$ (m)')
+
+    axs[2].plot(t, theta_history[:len(t)] * 180 / np.pi)
+    axs[2].axhline(-kwargs['angle_boundary'] * 180 / np.pi, color='red')
+    axs[2].axhline(kwargs['angle_boundary'] * 180 / np.pi, color='red')
+    # axs[2].set_ylabel('Pole Angle (deg)')
+    axs[2].set_ylabel('$\\theta$ (deg)')
+
+    axs[3].plot(t, dtheta_history[:len(t)] * 180 / np.pi)
+    # axs[3].axhline(-1.5, color='red')
+    # axs[3].axhline(1.5, color='red')
+    # axs[3].set_ylabel('Pole Angular Velocity (deg/s)')
+    axs[3].set_ylabel('$\\dot{\\theta}$ (deg/s)')
+
+    axs[4].plot(t, force_history[:len(t)])
+    # axs[4].axhline(-10, color='red')
+    # axs[4].axhline(10, color='red')
+    # axs[4].set_ylabel('Force (N)')
+    axs[4].set_ylabel('$F$ (N)')
 
     if save:
         plt.savefig(f'{kwargs["plot_path"]}/{title} Pole Plot.svg')
@@ -227,7 +227,8 @@ def animate_cart_pole(node, title=None, fit=None, figsize=None, dpi=None, save=T
     t = list(range(len(x_history)))
     # Generic plot components
     fig = plt.figure(figsize=figsize, dpi=dpi)
-    ax = fig.add_subplot(autoscale_on=False, xlim=(-2, 2), ylim=(-0.5, 1.5))
+    ax = fig.add_subplot(autoscale_on=False, xlim=(min(x_history)-1, max(x_history)+1), ylim=(-0.5, 1.5))
+    # ax = fig.add_subplot(autoscale_on=False, ylim=(-0.5, 1.5))
     ax.set_aspect('equal')
     ax.grid()
     # Animation artists
@@ -237,7 +238,6 @@ def animate_cart_pole(node, title=None, fit=None, figsize=None, dpi=None, save=T
     time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
     # Animation function
     def animate(i):
-        print(i)
         pos_0 = [x_history[i], 0]
         pos_1 = [np.sin(theta_history[i]) + x_history[i], np.cos(theta_history[i])]
         cart.set_offsets(pos_0)
@@ -265,7 +265,7 @@ def plot_lens(**kwargs):
     plot_sql_query("""
         SELECT 
             gen AS 'Generation', 
-            AVG(LENGTH(genotype)) AS 'Average Length', 
+            AVG(LENGTH(genotype)) AS 'Mean Save Length', 
             test AS 'Field', 
             seed
         FROM data
@@ -273,15 +273,33 @@ def plot_lens(**kwargs):
     """, **kwargs)
 
 
-def plot_conv(**kwargs):
-    plot_sql_query("""
-        SELECT 
-            gen AS 'Generation', 
-            COUNT() AS 'Count', 
-            test AS 'Field'
-        FROM data
-        WHERE fit = 0
-        GROUP BY gen, test
+def plot_perfect_fits(**kwargs):
+    if 'fitness_threshold' in kwargs:
+        target_fit = kwargs['fitness_threshold']
+    else:
+        target_fit = 0
+    if kwargs['minimize_fitness']:
+        inequal = '>='
+    else:
+        inequal = '<='
+    plot_sql_query(f"""
+        SELECT
+            A.gen AS 'Generation', 
+            SUM(IFNULL(B.counts, 0)) AS 'Number of Perfect Fits', 
+            A.test AS 'Field'
+        FROM (
+            SELECT gen, test
+            FROM data
+            GROUP BY gen, test
+        ) AS A
+        LEFT JOIN (
+            SELECT gen, test, COUNT() as counts
+            FROM data
+            WHERE fit = {target_fit}
+            GROUP BY gen, test
+        ) AS B
+        ON A.gen {inequal} B.gen AND A.test = B.test
+        GROUP BY A.gen, A.test
     """, **kwargs)
 
 
@@ -307,6 +325,18 @@ def plot_dist(**kwargs):
     """, **kwargs)
 
 
+def plot_all_reps(**kwargs):
+    plot_sql_query("""
+        SELECT 
+            gen AS 'Generation', 
+            MAX(fit) AS 'Fitness',
+            test AS 'Field',
+            seed
+        FROM data
+        GROUP BY gen, test, seed
+    """, **kwargs)
+
+
 
 
 def plot_results(**kwargs):
@@ -321,42 +351,60 @@ def plot_results(**kwargs):
         'dpi': 100,
         'save': True,
         'show': True,
-        'scale': .35,
+        'scale': 1,
     }
 
     # kwargs['domains'] = [list(np.linspace(-3,3,100))]
 
-    # plot_dist(**kwargs)
-    # plot_conv(**kwargs)
+    # plot_all_reps(**kwargs)
+    # plot_fitness(**kwargs)
     # plot_lens(**kwargs)
+    # plot_perfect_fits(**kwargs)
+    # plot_dist(**kwargs)
 
     # quit()
-
-    # plot_fitness(**kwargs)
 
     # Plot best results of each test
     bests = get_best(**kwargs)
 
     # Plot all the best results together
-    # tests, seeds, gens, ids, fits, genotypes, tests_kwargs = zip(*bests)
-    # plot_nodes(datas, fits=fits, labels=tests, **kwargs)
+    tests, seeds, gens, ids, fits, genotypes, tests_kwargs = zip(*bests)
+    if 'target_func' in kwargs:
+        plot_nodes(genotypes, fits=fits, labels=tests, **kwargs)
 
     # Plot each best result individually
     for test, seed, gen, index, fit, genotype, test_kwargs in bests:
-        print(f'Best of {test}, (Fit = {fit}) at ({seed}, {gen}, {index}, {genotype})')
-
-        # plot_nodes([data], fits=[fit], labels=[test], **kwargs)
-        # plot_graph(genotype, fit=fit, title=test, **test_kwargs)
-
-        # plot_pole(genotype, fit=fit, title=test, **test_kwargs)
-
-        animate_cart_pole(genotype, fit=fit, title=test, **test_kwargs)
+        print(f'Plotting best of "{test}" (Fit = {fit}) at ({seed}, {gen}, {index}, {genotype})')
+        plot_graph(genotype, fit=fit, title=test, **test_kwargs)
+        if 'target_func' in test_kwargs:
+            plot_nodes([genotype], fits=[fit], labels=[test], **kwargs)
+        else:
+            plot_pole(genotype, fit=fit, title=test, **test_kwargs)
+            # animate_cart_pole(genotype, fit=fit, title=test, **test_kwargs)
 
 
 # Manually load and plot saved results
 if __name__ == '__main__':
     # name = 'tuning'
     # name = 'real_dist'
-    name = 'pole_long'
-    kwargs = load_kwargs('../../../saves/daggp/'+name)
-    plot_results(**kwargs)
+    # name = 'pole_10_real_sign'
+    name = 'fix_pole'
+    kwargs = load_kwargs('../../../saves/daggp/' + name)
+    # plot_results(**kwargs)
+
+
+    # Append plot kwargs
+    kwargs |= {
+        'figsize': (6.4, 4.8),
+        'dpi': 100,
+        'save': False,
+        'show': True,
+        'scale': 1,
+    }
+
+    x0 = Node('x0')
+    x1 = Node('x1')
+    x2 = Node('x2')
+    x3 = Node('x3')
+    y = x1 + (x0 * x3)
+    plot_pole(y, title='test', **kwargs)

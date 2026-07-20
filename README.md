@@ -26,7 +26,7 @@ Not a model but contains methods used by multiple different models.
 Advanced model using memory banks and a more structured assembly like language to evolve systems capable of self modification.
 
 ### Directed Acyclic Graph Genetic Programming (daggp)
-A more classic methods of GP which is also used to evolve standard trees.
+A more classic methods of GP which can also be used to evolve trees.
 
 ### Turing Machine Genetic Programming (tmgp)
 A simple model used to evolve multi dimensional Turing Machines.
@@ -36,6 +36,5 @@ Basic methods used to find solutions to the channel assignment problem.
 
 ### Router Placement Problem (wmn)
 Basic methods used to find solutions to the placement of wireless mesh networks.
-
 
 [//]: # (## 💾 Saving)

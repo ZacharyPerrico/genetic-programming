@@ -15,6 +15,16 @@ from src.utils.utils import cartesian_prod
 #
 
 #
+# Setup Function (setup_func)
+#
+
+# def target_polynomial_coefs(**kwargs):
+#     def target_func():
+#
+#     kwargs['target_func'] =
+#
+
+#
 # Initialization Functions (init_individual_func)
 #
 
@@ -22,8 +32,16 @@ from src.utils.utils import cartesian_prod
 # Target Functions (target_func)
 #
 
+def polynomial(x, **kwargs):
+    result = 0
+    for degree, coefficient in enumerate(kwargs['coefficients']):
+        result += coefficient * x ** degree
+    return result
+
 def real_dist(x0,x1): return (x0**2 + x1**2)**.5
 def trig_sin(x): return np.sin(x)
+
+def x2_4(x): return x**2 + 4
 
 def multiply(x0,x1): return x0 * x1
 def power(x0,x1): return x0 ** x1
@@ -36,8 +54,8 @@ def mod2k(*x): return x[0] % (2 ** x[1])
 def xor_and_xor(*x): return (int(x[0]) ^ int(x[1])) & (int(x[2]) ^ int(x[3]))
 def bit_sum(x): return sum(int(i) for i in f'{int(x):04b}')
 
-def koza_1(x): return x**4 + x**3 + x**2 + x
-def koza_2(x): return x**5 - 2*x**3 + x
+def koza_1(x, **kwargs): return x**4 + x**3 + x**2 + x
+def koza_2(x, **kwargs): return x**5 - 2*x**3 + x
 def koza_3(x): return x**6 - 2*x**4 + x**2
 
 def nguyen_1(x): return                      x**3 + x**2 + x

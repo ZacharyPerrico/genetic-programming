@@ -14,41 +14,16 @@ from utils.save import generate_tests
 # Control
 #
 
-# def get_best(**kwargs):
-#     """Get the best result of the given run and gen"""
-#     # https://www.sqlite.org/lang_select.html#bareagg
-#     if kwargs['minimize_fitness']:
-#         ordering_func = 'MIN'
-#     else:
-#         ordering_func = 'MAX'
-#     query = f"""
-#         SELECT test, seed, gen, id, {ordering_func}(fit), genotype
-#         FROM data
-#         GROUP BY test
-#     """
-#     bests = list(sql_query(query, **kwargs))
-#     for i in range(len(bests)):
-#         bests[i] = list(bests[i])
-#         bests[i][5] = kwargs['load_formater_func'](bests[i][5])
-#     return bests
-
-
-
 def get_best(**kwargs):
     """Get the best result of the given run and gen"""
     # https://www.sqlite.org/lang_select.html#bareagg
-
     tests_kwargs = generate_tests(**kwargs)
-
     bests = []
-
     for test_kwargs in tests_kwargs:
-
         if kwargs['minimize_fitness']:
             ordering_func = 'MIN'
         else:
             ordering_func = 'MAX'
-
         result = sql_query(f"""
             SELECT test, seed, gen, ind, {ordering_func}(fit), genotype
             FROM data
@@ -58,7 +33,6 @@ def get_best(**kwargs):
         result[5] = kwargs['load_formater_func'](result[5])
         result.append(test_kwargs)
         bests.append(result)
-
     return bests
 
 
@@ -123,20 +97,24 @@ def plot_sql_query(query, save=True, show=True, **kwargs):
     for x, y, *key in result:
         key = tuple(key)
         if key not in plot_dict:
-            plot_dict[key] = [0] * kwargs['num_gens']
-        plot_dict[key][x] = y
+            plot_dict[key] = []
+        plot_dict[key].append((x,y))
     print('Plotting query results')
-    # Plot each entry in the dict of plots
     # Plots with the same first key value will share plot colors and labels
     plot_colors = {}
+    # Plot each entry in the dict of plots
     for key in plot_dict:
-        y_values = plot_dict[key]
+        xy_values = plot_dict[key]
+        xy_values = sorted(xy_values)
+        x_values, y_values = zip(*xy_values)
         label = key[0] if type(key) == tuple else key
         if label not in plot_colors:
-            p = plt.plot(y_values, label=label)
+            p = plt.plot(x_values, y_values, label=label)
             plot_colors[label] = p[0].get_color()
         else:
-            plt.plot(y_values, color=plot_colors[label])
+            plt.plot(x_values, y_values, color=plot_colors[label])
+        # plt.scatter(x_values, y_values, color=plot_colors[label])
+    # Use the returned column names to label axes and legend
     plt.xlabel(col_names[0])
     plt.ylabel(col_names[1])
     legend_title = col_names[2] if len(col_names) > 1 else None
@@ -160,10 +138,10 @@ def plot_fitness(figsize=None, dpi=None, save=True, show=True, **kwargs):
 
         if kwargs['minimize_fitness']:
             ordering_func = 'MIN'
-            ax.set_ylabel('Average Min Fitness Value')
+            ax.set_ylabel('Mean Min Fitness Value')
         else:
             ordering_func = 'MAX'
-            ax.set_ylabel('Average Max Fitness Value')
+            ax.set_ylabel('Mean Max Fitness Value')
 
         # Plot the avg of the min/max for each rep
         # query = f"""

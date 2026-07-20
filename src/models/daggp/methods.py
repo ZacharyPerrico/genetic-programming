@@ -95,7 +95,7 @@ def dag_mse(pop, target_func, domains, **kwargs):
     # xs = [np.linspace(*domain) for domain in domains]
     xs = domains
     xs = np.array(np.meshgrid(*xs)).reshape((len(xs), -1))
-    y_target = np.array([target_func(*list(x)) for x in xs.T])
+    y_target = np.array([target_func(*list(x), **kwargs) for x in xs.T])
     # xs = xs.swapaxes(0, 1)
     fits = np.empty(len(pop))
     for i,node in enumerate(pop):
@@ -204,22 +204,25 @@ def step_cart_pole(x, dx, theta, dtheta, F):
     return x_values, dx_values, theta_values, dtheta_values
 
 
-def simulate_cart_pole(node, fitness_only = False, **kwargs):
+def old_simulate_cart_pole(node, fitness_only = False, **kwargs):
     """Full cart-pole simulation using the node to apply force"""
 
     # List for each value
     x_history = [0]
     dx_history = [0]
-    theta_history = [np.pi * 1/32]
+    theta_history = [np.pi * 1/16]
     dtheta_history = [0]
     force_history = []
-    # fit = 0
 
     for fit in range(1, kwargs['timeout'] + 1):
 
         input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
-        force = np.real(node(*input_values))
-        force = np.clip(force, min=-10, max=10)
+        force = node(*input_values)
+        force = np.real(force)
+        force = np.sign(force) * 10
+        # force = np.clip(force, min=-10, max=10)
+
+
         force_history.append(force)
 
         if fitness_only:
@@ -242,10 +245,88 @@ def simulate_cart_pole(node, fitness_only = False, **kwargs):
     if fitness_only:
         return fit
 
-    # x_history = np.array(x_history)
-    # dx_history = np.array(dx_history)
-    # theta_history = np.array(theta_history)
-    # dtheta_history = np.array(dtheta_history)
+    # Final force value
+    input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
+    force = np.real(node(*input_values))
+    force = np.clip(force, min=-10, max=10)
+    force_history.append(force)
+
+    return x_history, dx_history, theta_history, dtheta_history, force_history
+
+
+
+def old_cart_pole_fitness(pop, **kwargs):
+    """Calculate the fitness value of all individuals in a population against the target function for the provided domain"""
+    fits = np.empty(len(pop))
+    for i, node in enumerate(pop):
+        fits[i] = simulate_cart_pole(node, fitness_only=True, **kwargs)
+    return fits
+
+
+
+
+
+
+
+
+
+
+def simulate_cart_pole(node, fitness_only = False, **kwargs):
+    """Full cart-pole simulation using the node to apply force"""
+
+    # List for each value
+    x_history = [0]
+    dx_history = [0]
+    theta_history = [kwargs['init_angle']]
+    dtheta_history = [0]
+    force_history = []
+
+    fit = 0
+
+    if -kwargs['angle_boundary'] <= theta_history[-1] <= kwargs['angle_boundary']:
+        balanced = True
+    else:
+        balanced = False
+
+    for step in range(0, kwargs['timeout']):
+
+        input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
+        force = node(*input_values)
+        force = np.real(force)
+        force = np.sign(force) * 10
+        # force = np.clip(force, min=-10, max=10)
+        force_history.append(force)
+
+        # Terminate early if only the fitness is needed and the force is invalid
+        if fitness_only:
+            if np.isnan(force):
+                break
+
+        # Step the simulation forward and append results
+        result = step_cart_pole(x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1], force_history[-1])
+        x_history = np.concat((x_history, result[0]))
+        dx_history = np.concat((dx_history, result[1]))
+        theta_history = np.concat((theta_history, result[2]))
+        dtheta_history = np.concat((dtheta_history, result[3]))
+
+        # Fitness is either the sum of angles or the number of completed steps
+        if kwargs['gradual_fitness']:
+            fit += (np.pi - abs(theta_history[-1])) / np.pi
+        else:
+            fit = step
+
+        # Terminate early if only the fitness is needed and a value is out of bounds
+        if fitness_only:
+            if balanced and not (-kwargs['position_boundary'] <= x_history[-1] <= kwargs['position_boundary']):
+                break
+            elif not (-kwargs['angle_boundary'] <= theta_history[-1] <= kwargs['angle_boundary']):
+                break
+
+        if (not balanced) and (kwargs['position_boundary'] <= x_history[-1] <= kwargs['position_boundary']):
+            balanced = True
+
+    if fitness_only:
+        return fit
 
     # Final force value
     input_values = [x_history[-1], dx_history[-1], theta_history[-1], dtheta_history[-1]]
@@ -262,7 +343,6 @@ def cart_pole_fitness(pop, **kwargs):
     fits = np.empty(len(pop))
     for i, node in enumerate(pop):
         fits[i] = simulate_cart_pole(node, fitness_only=True, **kwargs)
-    # fits = np.nan_to_num(fits, nan=0, posinf=0, neginf=0)
     return fits
 
 
@@ -457,11 +537,67 @@ def deep_split_mutation(root, **kwargs):
 #
 
 if __name__ == '__main__':
-    # pass
+    pass
 
-    y = koza_3(-0.5)
+    kwargs = {
+        'saves_path': '../../../saves/daggp/fix_pole',  # Save path relative to this file
+        'verbose': True,
+        'parallelize': True,
+        'checkpoint_interval': 500,
+        'update_timeout': 60,  # Time before a replicate fails if it cannot update the database
+        'save_formater_func': dag_to_save_str,  # Function to convert an individual into a savable string
+        'load_formater_func': dag_from_save_str,  # Function to load an individual from a saved string
+        ## Size ##
+        'num_reps': 10,
+        'num_gens': 10,
+        'pop_size': 10,
+        'max_height': 6,
+        ## Initialization ##
+        'init_individual_func': random_tree,  # Function used to generate a new organism
+        'init_max_height': 2,
+        'p_branch': 0.75,  # Probability of a node not being a terminal
+        'ops': ['+', '-', '*', '/', 'real', 'imag', 'exp'],
+        'terminals': ['x0', 'x1', 'x2', 'x3', 'i'],
+        ## Evaluation ##
+        # 'fitness_threshold': 300,
+        'fitness_func': cart_pole_fitness,
+        'gradual_fitness': True,
+        'timeout': 200,
+        'init_angle': np.pi,
+        'angle_boundary': 90 * np.pi / 180,
+        'position_boundary': 10,
+        'eval_method': None,
+        ## Selection ##
+        'minimize_fitness': False,
+        'keep_parents': 2,  # Elitism, must be even
+        'tournament_size': 2,  # Number of randomly chosen parents for each tournament
+        ## Repopulation ##
+        'subgraph_max_height': 2,
+        'recombination_funcs': [subgraph_crossover],
+        'recombination_probs': [0.25],
+        'mutation_funcs': [subgraph_mutation, pointer_mutation],
+        'mutation_probs': [0.25, 0.5],
+        ## Tests ##
+        'test_label': 'Field',  # Label to use when comparing all tests
+        'test_keys': ['test', 'terminals', 'ops'],  # Keys of each parameter to be changed for each test
+        'test_values': [  # Lists representing all values to change for each test
+            ['Real', ['x0', 'x1', 'x2', 'x3'], ['+', '-', '*', '/']],
+            ['Complex', ['x0', 'x1', 'x2', 'x3', 'i'], ['+', '-', '*', '/', 'real', 'imag']],
+            ['Irrational Complex', ['x0', 'x1', 'x2', 'x3', 'i'], ['+', '-', '*', '/', 'real', 'imag', 'exp']],
+        ],
+    }
+
+    x0 = Node('x0')
+    x1 = Node('x1')
+    x2 = Node('x2')
+    x3 = Node('x3')
+    y = x1 + (x0 * x3)
 
     print(y)
+
+    f = cart_pole_fitness([y], **kwargs)
+
+    print(f)
 
     # x = Node('x')
     # f = x + x
