@@ -56,7 +56,7 @@ def plot_nodes(nodes, labels=None, title=None, fits=None, figsize=None, dpi=None
     elif 'test_label' in kwargs:
         title = kwargs['test_label']
 
-    plt.ylim(-1,1)
+    # plt.ylim(-1,1)
 
     plt.title(title)
     plt.legend()
@@ -157,7 +157,7 @@ def plot_graph(node:Node, title=None, fit=None, layout='topo', scale=1, figsize=
     elif 'fitness_func' in kwargs:
         plt.legend(title=f'Fitness = {kwargs['fitness_func']([node], **kwargs)[0]}')
 
-    if save:
+    if save and 'plot_path' in kwargs:
         plt.savefig(f'{kwargs["plot_path"]}/{title} Graph.svg')
     if show:
         plt.show()
@@ -352,13 +352,15 @@ def plot_results(**kwargs):
         'save': True,
         'show': True,
         'scale': 1,
+        # 'domains': [list(np.linspace(
+        #     min(kwargs['domains'][0]),
+        #     max(kwargs['domains'][0]),
+        #     100))]
     }
 
-    # kwargs['domains'] = [list(np.linspace(-3,3,100))]
-
     # plot_all_reps(**kwargs)
-    # plot_fitness(**kwargs)
-    # plot_lens(**kwargs)
+    plot_fitness(**kwargs)
+    plot_lens(**kwargs)
     # plot_perfect_fits(**kwargs)
     # plot_dist(**kwargs)
 
@@ -380,7 +382,7 @@ def plot_results(**kwargs):
             plot_nodes([genotype], fits=[fit], labels=[test], **kwargs)
         else:
             plot_pole(genotype, fit=fit, title=test, **test_kwargs)
-            # animate_cart_pole(genotype, fit=fit, title=test, **test_kwargs)
+            animate_cart_pole(genotype, fit=fit, title=test, **test_kwargs)
 
 
 # Manually load and plot saved results
@@ -388,23 +390,61 @@ if __name__ == '__main__':
     # name = 'tuning'
     # name = 'real_dist'
     # name = 'pole_10_real_sign'
-    name = 'fix_pole'
+    name = 'fix_pole_success'
     kwargs = load_kwargs('../../../saves/daggp/' + name)
     # plot_results(**kwargs)
 
+    e = Node('e')
+    i = Node('i')
+    pi = Node('pi')
+    x = Node('x')
+    y = Node('y')
+    z = Node('z')
+
+
+    # a = x
+    # b = y + a
+    # c = z + a + b
+    # f = c
+
+    # f = Node.const(9-15j)#.to_tree()
+
+    f = Node.sin(x) #+ Node.cos(x)
+
+    # f = x + 2 + 2
+
+    f = f.limited()
+
+    # f = Node.const(2**9).to_tree()
+
+    # b.replace(e)
+
+    #
+    #
+    # g = 2 * x + 9
+    #
+    # f = g + g * 7
+    #
+    # g.replace(e)
+
+    # f = Node.sin(x) + Node.cos(x)
+    # f = Node(7j)
+    # f = f.limited(consts=True)
+    plot_graph(f)
+
 
     # Append plot kwargs
-    kwargs |= {
-        'figsize': (6.4, 4.8),
-        'dpi': 100,
-        'save': False,
-        'show': True,
-        'scale': 1,
-    }
-
-    x0 = Node('x0')
-    x1 = Node('x1')
-    x2 = Node('x2')
-    x3 = Node('x3')
-    y = x1 + (x0 * x3)
-    plot_pole(y, title='test', **kwargs)
+    # kwargs |= {
+    #     'figsize': (6.4, 4.8),
+    #     'dpi': 100,
+    #     'save': False,
+    #     'show': True,
+    #     'scale': 1,
+    # }
+    #
+    # x0 = Node('x0')
+    # x1 = Node('x1')
+    # x2 = Node('x2')
+    # x3 = Node('x3')
+    # y = x1 + (x0 * x3)
+    # plot_pole(y, title='test', **kwargs)

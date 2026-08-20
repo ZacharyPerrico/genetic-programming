@@ -39,7 +39,7 @@ def polynomial(x, **kwargs):
     return result
 
 def real_dist(x0,x1): return (x0**2 + x1**2)**.5
-def trig_sin(x): return np.sin(x)
+def trig_sin(x, **kwargs): return np.sin(x)
 
 def x2_4(x): return x**2 + 4
 

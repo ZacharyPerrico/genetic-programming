@@ -2,7 +2,6 @@ import math
 import numpy as np
 import sympy as sp
 
-
 class Node:
     """
     A basic class for genetic programming.
@@ -10,8 +9,10 @@ class Node:
     A graph of Nodes is used to represent a function in some form.
     """
 
-    # All possible values for a node and the number of children it can have
+    # All possible operations for a node and the number of children it must have
+    # Used when randomly generating graphs
     valid_ops = {
+        # Basic Operations
         'noop': 1,
         'neg': 1,
         '+': 2,
@@ -20,27 +21,37 @@ class Node:
         '/': 2,
         '**': 2,
         'abs': 1,
-        '==': 2,
-        'if_then_else': 3,
-        '&': 2,
-        '|': 2,
+        # Comparisons
+        'eq': 2,
         '<': 2,
         '>': 2,
         '<=': 2,
         '>=': 2,
         'min': 2,
         'max': 2,
-        '%': 2,
+        'if_then_else': 3,
+        # Trigonometry
         'sin': 1,
         'cos': 1,
-        'get_bits': 3,
+        # Logarithms
+        'exp': 1,
+        'ln': 1,
+        # Complex
         'real': 1,
         'imag': 1,
-        'exp': 1,
+        # Bit
+        '&': 2,
+        '|': 2,
+        '%': 2,
+        'get_bits': 3,
     }
 
+    #
+    # Construction
+    #
+
     def __init__(self, value, children=None):
-        self.parent = None
+        # self.parent = None
         self.parents = []
         # If the value is already a node use its value so that Nodes can be cast to a Node
         # This also allows for shallow copies of a Node to be made through casting
@@ -55,7 +66,7 @@ class Node:
         # Setting this to -1 and then resetting results in it being None
         self.temp_index = -1
         # Previously returned value used for semantic analysis
-        self.returned_value = -1
+        self.returned_value = None
         # If all descendants are in the simplest form
         self.is_limited = False
 
@@ -71,7 +82,7 @@ class Node:
     def children(self, children):
         """Setting a child also sets the parent of the child"""
         for child in children:
-            child.parent = self
+            # child.parent = self
             child.parents.append(self) #FIXME remove unused parents
         self._children = children
 
@@ -89,10 +100,13 @@ class Node:
 
     def index_in(self, l):
         """Returns the first index of this object in the given iterable. The `in` keyword and `index` method will not work for Nodes"""
-        for i,node in enumerate(l):
+        for i, node in enumerate(l):
             if node is self:
                 return i
         return -1
+
+    # def __eq__(self, other):
+
 
     def nodes(self, node_list=None):
         """Returns a list of all nodes"""
@@ -120,52 +134,38 @@ class Node:
             child.set_parents()
 
     #
-    # Utility
-    #
-
-    def reset_returned_value(self):
-        """Set the returned_value of all nodes to None"""
-        if self.returned_value is not None:
-            self.returned_value = None
-            for child in self.children:
-                child.reset_index()
-
-    def copy(self):
-        return Node.from_lists(*self.to_lists())
-
-    #
     # Information
     #
 
-    def height(self):
-        """Longest distance to a leaf"""
-        return max([0] + [1 + child.height() for child in self.children])
-
-    def depth(self):
-        """Longest distance to the root"""
-        return max([0] + [1 + parent.depth() for parent in self.parents])
-
     def root(self):
         """Returns the root Node of the graph"""
-        return self if self.parent is None else self.parent.root()
+        return self if len(self.parents) == 0 else self.parents[0].root()
 
     def size(self):
         """Returns the number of nodes"""
         return len(self.nodes())
 
-    def effective_code(self, a=None):
-        """The effective code of the last evaluation"""
-        init_call = a is None
-        a = [] if init_call else a
-        # Call recursively for each child
-        for child in self:
-            child.effective_code(a)
-            a.append(np.linalg.norm(self.returned_value - child.returned_value))
-        # Calculate the result from all semantic vectors
-        if init_call:
-            effective_code_value = np.sum(np.bool(a)) / (len(self.nodes()) - 1)
-            effective_code_value = np.nan_to_num(effective_code_value, nan=0)
-            return effective_code_value
+    def height(self):
+        """Returns the longest distance to a leaf"""
+        return max([0] + [1 + child.height() for child in self.children])
+
+    def depth(self):
+        """Returns the longest distance to the root"""
+        return max([0] + [1 + parent.depth() for parent in self.parents])
+
+    # def effective_code(self, a=None):
+    #     """The effective code of the last evaluation"""
+    #     init_call = a is None
+    #     a = [] if init_call else a
+    #     # Call recursively for each child
+    #     for child in self:
+    #         child.effective_code(a)
+    #         a.append(np.linalg.norm(self.returned_value - child.returned_value))
+    #     # Calculate the result from all semantic vectors
+    #     if init_call:
+    #         effective_code_value = np.sum(np.bool(a)) / (len(self.nodes()) - 1)
+    #         effective_code_value = np.nan_to_num(effective_code_value, nan=0)
+    #         return effective_code_value
 
     #
     # String Representation
@@ -174,10 +174,11 @@ class Node:
     def __str__(self):
         if len(self) == 0:
             return str(self.value)
-        # elif self.value in ['+','-','*','/','**','&','|','%','>>','<<','<','>','<=','>=','==']:
-        elif len(self.value) <= 2:
+        elif not self.value.isalpha():
+            # Infixed operation
             return f'({self[0]}{self.value}{self[1]})'
         else:
+            # Prefixed operation
             return self.value + '(' + ','.join([str(child) for child in self]) + ')'
 
     def __repr__(self):
@@ -206,10 +207,12 @@ class Node:
             self.children = new_node.children
         # Change all nodes pointing at this node to be pointing at the new node
         for parent in self.parents:
-            # Parent's index for self
-            self_index = self.index_in(parent)
-            # Replace the parent's reference to self
-            parent[self_index] = new_node
+            if self in parent:
+                # Parent's index for self
+                self_index = parent.children.index(self)
+                # self_index = self.index_in(parent)
+                # Replace the parent's reference to self
+                parent[self_index] = new_node
         # Recalculate all links_adj to parents
         # This is because the original structure may still point to descendants of the original
         root.reset_parents()
@@ -227,6 +230,7 @@ class Node:
 
     def to_lists(self, verts=None, edges=None):
         """Returns lists representing the vertices and edges. Used for saving and advanced plotting"""
+        # Initial call
         if verts is None:
             self.reset_index()
             verts, edges = [], []
@@ -247,12 +251,25 @@ class Node:
             nodes[edge[1]].parents.append(nodes[edge[0]])
         return nodes[0]
 
+    def copy(self):
+        return Node.from_lists(*self.to_lists())
+
     #
     # Evaluation
     #
 
+    def reset_returned_value(self):
+        """Set the returned_value of all nodes to None"""
+        if self.returned_value is not None:
+            self.returned_value = None
+            for child in self.children:
+                child.reset_returned_value()
+
     def __call__(self, *x, eval_method=None, **kwargs):
-        """Calling evaluates the value of the entire tree. Values of x can be numbers or ndarrays"""
+        """
+        Calling evaluates the value of the entire graph.
+        Input values can be numbers, ndarrays, or Sympy expressions.
+        """
 
         match eval_method:
 
@@ -302,7 +319,7 @@ class Node:
             # Default evaluation
             case _:
 
-                # Non strings can have values extracted
+                # Non strings are not operations and must have values extracted
                 if type(self.value) is not str:
                     if isinstance(x[0], sp.Expr):
                         return_value = sp.Number(self.value)
@@ -314,7 +331,7 @@ class Node:
                 else:
                     match self.value:
 
-                        # Operations
+                        # Basic Operations
                         case '+': return_value = self[0](*x, **kwargs) + self[1](*x, **kwargs)
                         case '-': return_value = self[0](*x, **kwargs) - self[1](*x, **kwargs)
                         case '*':
@@ -327,6 +344,7 @@ class Node:
                                 return_value =  s0 / s1
                             else:
                                 return_value = np.ones_like(s0, 'complex')
+                                return_value *= np.inf
                                 ind = s1 != 0
                                 np.true_divide(s0, s1, out=return_value, where=ind, dtype='complex')
                         case '**':
@@ -343,24 +361,20 @@ class Node:
                         case 'neg': return_value = -self[0](*x, **kwargs)
                         case '%':  return_value = self[0](*x, **kwargs) % self[1](*x, **kwargs)
                         case 'abs': return_value = abs(self[0](*x, **kwargs))
-                        case 'exp':
-                            s0 = self[0](*x, **kwargs)
-                            if isinstance(x[0], sp.Expr):
-                                return_value = sp.exp(s0)
-                            else:
-                                return_value = np.exp(s0)
 
                         # Comparisons
                         case '<': return_value = self[0](*x, **kwargs) < self[1](*x, **kwargs)
                         case '>': return_value = self[0](*x, **kwargs) > self[1](*x, **kwargs)
                         case '<=': return_value = self[0](*x, **kwargs) <= self[1](*x, **kwargs)
                         case '>=': return_value = self[0](*x, **kwargs) >= self[1](*x, **kwargs)
-                        case '==': return_value = self[0](*x, **kwargs) == self[1](*x, **kwargs)
+                        case 'eq': return_value = self[0](*x, **kwargs) == self[1](*x, **kwargs)
                         case 'min': return_value = min(self[0](*x, **kwargs), self[1](*x, **kwargs))
                         case 'max': return_value = max(self[0](*x, **kwargs), self[1](*x, **kwargs))
                         case 'if_then_else': return_value = self[1](*x, **kwargs) if self[0](*x, **kwargs) else self[2](*x, **kwargs)
 
                         # Trigonometry
+                        case 'pi':
+                            return_value = kwargs['pi'] if 'pi' in kwargs else np.pi * np.ones_like(x[0])
                         case 'sin':
                             s0 = self[0](*x, **kwargs)
                             if isinstance(x[0], sp.Expr):
@@ -374,7 +388,27 @@ class Node:
                             else:
                                 return_value = np.cos(s0)
 
+                        # Logarithms
+                        case 'e':
+                            return_value = kwargs['e'] if 'e' in kwargs else np.e * np.ones_like(x[0])
+                        case 'exp':
+                            s0 = self[0](*x, **kwargs)
+                            if isinstance(x[0], sp.Expr):
+                                return_value = sp.exp(s0)
+                            else:
+                                return_value = np.exp(s0)
+                        case 'ln':
+                            s0 = self[0](*x, **kwargs)
+                            if isinstance(x[0], sp.Expr):
+                                return_value = sp.ln(s0)
+                            else:
+                                return_value = np.log(s0)
+
                         # Complex
+                        case 'i':
+                            return_value = kwargs['i'] if 'i' in kwargs else 1j * np.ones_like(x[0])
+                        case 'inf':
+                            return_value = kwargs['inf'] if 'inf' in kwargs else np.inf * np.ones_like(x[0])
                         case 'real':
                             s0 = self[0](*x, **kwargs)
                             if isinstance(x[0], sp.Expr):
@@ -402,9 +436,6 @@ class Node:
                         case 'x': return_value = x[0]
                         case 'y': return_value = x[1]
                         case 'z': return_value = x[2]
-                        case 'e': return_value = kwargs['e'] if 'e' in kwargs else np.e * np.ones_like(x[0])
-                        case 'i': return_value = kwargs['i'] if 'i' in kwargs else 1j * np.ones_like(x[0])
-                        case 'pi': return_value = kwargs['pi'] if 'pi' in kwargs else np.pi * np.ones_like(x[0])
 
                         # Arbitrary Variable
                         # Convert string to int then use as an index
@@ -436,9 +467,6 @@ class Node:
                 operands[i] = Node(operands[i])
         # Create a new Node with the operands as the children
         new_node = Node(operation, operands)
-        # Maintain that the root node has the same attributes TODO: improve implementation
-        if hasattr(operands[0], 'prev_fit'):
-            new_node.prev_fit = operands[0].prev_fit
         return new_node
 
     def      __add__(self, other): return Node.op('+',  self, other)
@@ -456,7 +484,6 @@ class Node:
     def     __rand__(self, other): return Node.op('&',  other, self)
     def       __or__(self, other): return Node.op('|',  self, other)
     def      __ror__(self, other): return Node.op('|',  other, self)
-    def       __eq__(self, other): return Node.op('==', self, other)
     def      __abs__(self       ): return Node.op('abs',self       )
     def       __lt__(self, other): return Node.op('<',  self, other)
     def       __gt__(self, other): return Node.op('>',  self, other)
@@ -467,13 +494,15 @@ class Node:
     def      __mod__(self, other): return Node.op('%',  self, other)
 
     @staticmethod
-    def max(*args): return Node.op('max', *args)
+    def eq(*operands): return Node.op('eq', *operands)
     @staticmethod
-    def min(*args): return Node.op('min', *args)
+    def max(*operands): return Node.op('max', *operands)
     @staticmethod
-    def sin(arg): return Node.op('sin', arg)
+    def min(*operands): return Node.op('min', *operands)
     @staticmethod
-    def cos(arg): return Node.op('cos', arg)
+    def sin(*operands): return Node.op('sin', *operands)
+    @staticmethod
+    def cos(*operands): return Node.op('cos', *operands)
     @staticmethod
     def get_bits(f, start, length): return Node.op('get_bits', f, start, length)
     @staticmethod
@@ -481,10 +510,13 @@ class Node:
     @staticmethod
     def noop(*operands): return Node.op('noop', *operands)
     @staticmethod
-    def real(arg): return Node.op('real', arg)
+    def real(*operands): return Node.op('real', *operands)
     @staticmethod
-    def imag(arg): return Node.op('imag', arg)
-
+    def imag(*operands): return Node.op('imag', *operands)
+    @staticmethod
+    def ln(*operands): return Node.op('ln', *operands)
+    @staticmethod
+    def exp(*operands): return Node.op('exp', *operands)
 
     #
     # Limited Equivalence
@@ -492,27 +524,66 @@ class Node:
     #
 
     @staticmethod
-    def const(n):
+    def const(n, defined=None):
         """A basic implementation to convert integers into limited trees"""
-        x = Node('x')
+        if defined is None:
+            defined = {'x': Node('x')}
+        # Return the constant and define it to be used recursively
         if n == 0:
-            return x - x
+            if 0 not in defined:
+                defined[0] = defined['x'] - defined['x']
+            return defined[0]
         elif n == 1:
-            return x / x
+            if 1 not in defined:
+                defined[1] = defined['x'] / defined['x']
+            return defined[1]
         elif n == -1:
-            return Node.const(0) - Node.const(1)
+            if -1 not in defined:
+                defined[-1] = Node.const(0, defined) - Node.const(1, defined)
+            return defined[-1]
+        elif n == 1j:
+            if 1j not in defined:
+                return Node.const(-1, defined) ** (Node.const(1, defined) / Node.const(2, defined))
+            return defined[1j]
+        elif np.iscomplex(n):
+            return Node.const(np.real(n), defined) + Node.const(1j, defined) * Node.const(np.imag(n), defined)
         elif n < 0:
-            return Node.const(-1) * Node.const(-n)
-        else:
-            return sum([Node.const(1) for _ in range(n-1)], Node.const(1))
+            return Node.const(-1, defined) * Node.const(-n, defined)
 
-    def limited(self, consts=True):
+        elif np.log2(n).is_integer():
+            if n not in defined:
+                defined[n] = Node.const(n/2, defined) + Node.const(n/2, defined)
+            return defined[n]
+
+        else:
+            return_value = None
+            for i, bit in enumerate(bin(int(n))[:1:-1]):
+                if bit == '1':
+                    u = Node.const(2**i, defined)
+                    if return_value is None:
+                        return_value = u
+                    else:
+                        return_value = u + return_value
+            return return_value
+
+        # else:
+        #     c = Node.const(1, defined)
+        #     return sum([c for _ in range(int(n)-1)], c)
+
+
+
+
+    def limited(self, consts=True, defined=None):
+        """Returns the expression in terms of only the five basic operations"""
+        # Store pointers to all previously used constants
+        if defined is None:
+            defined = {'x': Node('x')}
         if self.is_limited:
             return self
         elif type(self.value) is not str:
             if consts:
                 # Return here to prevent recursive calls with return_value
-                return_value = Node.const(self.value)
+                return_value = Node.const(self.value, defined)
                 return_value.is_limited = True
                 return return_value
             else:
@@ -521,13 +592,13 @@ class Node:
         else:
             match self.value:
                 case '+' | '-' | '*' | '/' | '**':
-                    self.children = [child.limited(consts=consts) for child in self]
+                    self.children = [child.limited(consts=consts, defined=defined) for child in self]
                     self.is_limited = True
                     return self
                 case 'neg': return_value = 0 - self[0]
                 case '|': return_value = self[0] ** 0 ** self[1]
                 case '&': return_value = self[0] * self[1]
-                case '==': return_value = 0 / (self[0] - self[1])
+                case 'eq': return_value = 0 / (self[0] - self[1])
                 case 'abs': return_value = (self[0] * self[0]) ** (Node(1) / 2)
                 case '<': return_value = (1 - abs(self[0] - self[1]) / (self[0] - self[1])) / 2
                 case '>': return_value = (1 - abs(self[1] - self[0]) / (self[1] - self[0])) / 2
@@ -557,32 +628,69 @@ class Node:
                     e = Node('e')
                     i = Node('i')
                     return_value = (e ** (i * self[0]) + e ** (i * -self[0])) / 2
-                case 'get_bits': return_value = ((self[0] >> self[1].value) % (2 ** self[2].value))
-                case 'i': return_value = Node(-1) ** (Node(1) / Node(2))
-                case _: return self
+                case 'get_bits':
+                    return_value = ((self[0] >> self[1].value) % (2 ** self[2].value))
+                case 'i':
+                    return_value = Node.const(1j, defined)
+                case 'exp':
+                    e = Node('e')
+                    return_value = e ** self[0]
+                case _:
+                    if self.value in defined:
+                        return defined[self.value]
+                    else:
+                        return self
         # Recursively call limiting
-        return_value = return_value.limited(consts=consts)
+        return_value = return_value.limited(consts=consts, defined=defined)
         self.replace(return_value)
         return_value.is_limited = True
         return return_value
 
 
 
-e = Node('e')
-i = Node('i')
-pi = Node('pi')
-x = Node('x')
-y = Node('y')
-z = Node('z')
+
 
 
 if __name__ == '__main__':
 
-    f = x ** 2 + 1j
+    e = Node('e')
+    i = Node('i')
+    pi = Node('pi')
+    x = Node('x')
+    y = Node('y')
+    z = Node('z')
 
-    g = 2 * f + f
 
-    h = Node.real(g)
+    a = x
+    b = y
 
-    print(h.latex())
+    # b.replace(a)
 
+    b = Node.const(12)
+
+    print(b)
+
+    f = 2 * x
+
+    # p = x in [0,x,1]
+
+    # p = x.index_in(f)
+
+
+    f = Node.sin(x) + Node.cos(x)
+
+    # f = x << 2
+
+    f = f.limited(consts=not True)
+
+    print(f)
+
+    # a = [x,y]
+    #
+    # q = z in a
+
+    # print(q)
+
+    # f = (Node.ln((1+2))+(((0+((1*0)+(((1-0)/(1+2))/(((1-0)/(1+2))+Node.exp(2)))))+(2/1))/(Node.exp(2)/0)))
+
+    # print(p)

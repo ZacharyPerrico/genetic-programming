@@ -101,6 +101,7 @@ def dag_mse(pop, target_func, domains, **kwargs):
     for i,node in enumerate(pop):
         # Pass all test cases as a single numpy array so that a semantic vector can be formed if needed
         y_actual = node(*xs, eval_method=kwargs['eval_method'])
+        # y_actual = np.real(y_actual)
         fit = (sum((abs(y_target - y_actual)) ** 2) / len(xs)) ** (1/2)
         fits[i] = fit
     # args = [(id, node, xs, y_target) for id,node in enumerate(pop)]
@@ -108,6 +109,16 @@ def dag_mse(pop, target_func, domains, **kwargs):
     #     fits = pool.starmap(fitness_helper, args)
     fits = np.nan_to_num(fits, nan=np.inf, posinf=np.inf)
     return fits
+
+
+
+
+
+
+
+
+
+
 
 
 def correlation(pop, target_func, domains, is_final=False, **kwargs):
