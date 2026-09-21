@@ -100,7 +100,7 @@ def dag_mse(pop, target_func, domains, **kwargs):
     fits = np.empty(len(pop))
     for i,node in enumerate(pop):
         # Pass all test cases as a single numpy array so that a semantic vector can be formed if needed
-        y_actual = node(*xs, eval_method=kwargs['eval_method'])
+        y_actual = node(*xs)
         # y_actual = np.real(y_actual)
         fit = (sum((abs(y_target - y_actual)) ** 2) / len(xs)) ** (1/2)
         fits[i] = fit

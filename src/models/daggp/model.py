@@ -1,4 +1,3 @@
-import math
 import numpy as np
 import sympy as sp
 
@@ -14,12 +13,12 @@ class Node:
     valid_ops = {
         # Basic Operations
         'noop': 1,
-        'neg': 1,
         '+': 2,
         '-': 2,
         '*': 2,
         '/': 2,
         '**': 2,
+        'neg': 1,
         'abs': 1,
         # Comparisons
         'eq': 2,
@@ -210,7 +209,6 @@ class Node:
             if self in parent:
                 # Parent's index for self
                 self_index = parent.children.index(self)
-                # self_index = self.index_in(parent)
                 # Replace the parent's reference to self
                 parent[self_index] = new_node
         # Recalculate all links_adj to parents
@@ -325,7 +323,7 @@ class Node:
                         return_value = sp.Number(self.value)
                     else:
                         # A node with a number value should return in the shape of the inputs
-                        return_value = self.value * np.ones_like(x[0])
+                        return_value = self.value #np.array(x[0], self.value)
 
                 # Strings are matched to the operation they represent
                 else:
@@ -343,24 +341,37 @@ class Node:
                             if isinstance(x[0], sp.Expr):
                                 return_value =  s0 / s1
                             else:
-                                return_value = np.ones_like(s0, 'complex')
-                                return_value *= np.inf
-                                ind = s1 != 0
-                                np.true_divide(s0, s1, out=return_value, where=ind, dtype='complex')
+                                return_value = np.full_like(s0, np.inf,'complex')
+                                indices = s1 != 0
+                                np.true_divide(s0, s1, out=return_value, where=indices, dtype='complex')
+                                indices = (s0 == 0) & (s1 == 0)
+                                return_value[indices] = 1
+
                         case '**':
                             s0, s1 = self[0](*x, **kwargs), self[1](*x, **kwargs)
                             # Only return s0 ** s1 for symbolic expressions
                             if isinstance(x[0], sp.Expr):
                                 return_value = s0 ** s1
                             else:
+
                                 return_value = np.ones_like(s0, 'complex')
-                                # Valid where s0 is not zero or s1 is a positive real number
-                                ind = (s0 != 0) | (np.isreal(s1) & (np.real(s1) > 0))
+
+                                # Valid where s0 is not zero or s1 has a positive real part
+                                ind = (s0 != 0) | (np.real(s1) > 0)
                                 np.power(s0, s1, out=return_value, where=ind, dtype='complex')
+
+                                # 0 to a power with a zero real part
+                                indices = (s0 == 0) & (np.real(s1) == 0)
+                                return_value[indices] = 1
+
+                                # 0 to a power with a negative real part
+                                indices = (s0 == 0) & (np.real(s1) == 0)
+                                return_value[indices] = 1
+
                         case 'noop': return_value = self[0](*x, **kwargs)
                         case 'neg': return_value = -self[0](*x, **kwargs)
-                        case '%':  return_value = self[0](*x, **kwargs) % self[1](*x, **kwargs)
                         case 'abs': return_value = abs(self[0](*x, **kwargs))
+                        case '%':  return_value = self[0](*x, **kwargs) % self[1](*x, **kwargs)
 
                         # Comparisons
                         case '<': return_value = self[0](*x, **kwargs) < self[1](*x, **kwargs)
@@ -374,7 +385,7 @@ class Node:
 
                         # Trigonometry
                         case 'pi':
-                            return_value = kwargs['pi'] if 'pi' in kwargs else np.pi * np.ones_like(x[0])
+                            return_value = kwargs['pi'] if 'pi' in kwargs else np.pi #np.full_like(x[0], np.pi)
                         case 'sin':
                             s0 = self[0](*x, **kwargs)
                             if isinstance(x[0], sp.Expr):
@@ -390,7 +401,7 @@ class Node:
 
                         # Logarithms
                         case 'e':
-                            return_value = kwargs['e'] if 'e' in kwargs else np.e * np.ones_like(x[0])
+                            return_value = kwargs['e'] if 'e' in kwargs else np.e #np.full_like(x[0], np.e)
                         case 'exp':
                             s0 = self[0](*x, **kwargs)
                             if isinstance(x[0], sp.Expr):
@@ -406,9 +417,9 @@ class Node:
 
                         # Complex
                         case 'i':
-                            return_value = kwargs['i'] if 'i' in kwargs else 1j * np.ones_like(x[0])
+                            return_value = kwargs['i'] if 'i' in kwargs else 1j #np.full_like(x[0], 1j)
                         case 'inf':
-                            return_value = kwargs['inf'] if 'inf' in kwargs else np.inf * np.ones_like(x[0])
+                            return_value = kwargs['inf'] if 'inf' in kwargs else np.inf #np.full_like(x[0], np.inf)
                         case 'real':
                             s0 = self[0](*x, **kwargs)
                             if isinstance(x[0], sp.Expr):
@@ -433,6 +444,7 @@ class Node:
                             return_value = (np.int64(s0) >> np.int64(s1)) % np.int64(2.0 ** s2)
 
                         # Terminals and constants
+                        # x,y,z are alias for x0,x1,x2
                         case 'x': return_value = x[0]
                         case 'y': return_value = x[1]
                         case 'z': return_value = x[2]
@@ -440,7 +452,9 @@ class Node:
                         # Arbitrary Variable
                         # Convert string to int then use as an index
                         # This is how 'x1', 'x2', ... are supported
-                        case _: return_value = np.float64(x[int(''.join([s for s in self.value if s.isdigit()]))])
+                        case _:
+                            index = int(''.join([s for s in self.value if s.isdigit()]))
+                            return_value = np.float64(x[index])
 
                 # Store the last returned value for analysis if needed
                 self.returned_value = return_value
@@ -524,37 +538,42 @@ class Node:
     #
 
     @staticmethod
-    def const(n, defined=None):
+    def const(n, defined=None, expansion=0):
         """A basic implementation to convert integers into limited trees"""
+        # Store pointers to all previously limited subgraphs
         if defined is None:
             defined = {'x': Node('x')}
         # Return the constant and define it to be used recursively
-        if n == 0:
-            if 0 not in defined:
-                defined[0] = defined['x'] - defined['x']
-            return defined[0]
-        elif n == 1:
-            if 1 not in defined:
-                defined[1] = defined['x'] / defined['x']
-            return defined[1]
-        elif n == -1:
-            if -1 not in defined:
-                defined[-1] = Node.const(0, defined) - Node.const(1, defined)
-            return defined[-1]
-        elif n == 1j:
-            if 1j not in defined:
-                return Node.const(-1, defined) ** (Node.const(1, defined) / Node.const(2, defined))
-            return defined[1j]
-        elif np.iscomplex(n):
-            return Node.const(np.real(n), defined) + Node.const(1j, defined) * Node.const(np.imag(n), defined)
-        elif n < 0:
-            return Node.const(-1, defined) * Node.const(-n, defined)
-
-        elif np.log2(n).is_integer():
-            if n not in defined:
-                defined[n] = Node.const(n/2, defined) + Node.const(n/2, defined)
+        if n in defined:
             return defined[n]
-
+        elif n == 'e':
+            if expansion == 0:
+                return_value = 'e'
+            else:
+                # Limit form
+                return_value = (Node.const(1, defined) + Node.const(1, defined) / Node.const(expansion, defined)) ** Node.const(expansion, defined)
+                # Infinite series form
+                # return_value = Node.const(2, defined)
+                # prev_num = Node.const(1, defined)
+                # for _ in range(expansion):
+                #     next_num = prev_num + Node.const(1, defined)
+                #     return_value = return_value + Node.const(1, defined) / (prev_num * next_num)
+                #     prev_num = next_num
+        elif n == 0:
+            return_value = defined['x'] - defined['x']
+        elif n == 1:
+            return_value = defined['x'] / defined['x']
+        elif n == -1:
+            return_value = Node.const(0, defined) - Node.const(1, defined)
+        elif n == 1j:
+            # return_value = (Node.const(0, defined) - Node.const(1, defined)) ** (Node.const(1, defined) / Node.const(2, defined))
+            return_value = (Node.const(1, defined) - Node.const(2, defined)) ** (Node.const(1, defined) / Node.const(2, defined))
+        elif np.iscomplex(n):
+            return_value = Node.const(np.real(n), defined) + Node.const(1j, defined) * Node.const(np.imag(n), defined)
+        elif n < 0:
+            return_value = Node.const(-1, defined) * Node.const(-n, defined)
+        elif np.log2(n).is_integer():
+            return_value = Node.const(n/2, defined) + Node.const(n/2, defined)
         else:
             return_value = None
             for i, bit in enumerate(bin(int(n))[:1:-1]):
@@ -564,37 +583,41 @@ class Node:
                         return_value = u
                     else:
                         return_value = u + return_value
-            return return_value
-
-        # else:
-        #     c = Node.const(1, defined)
-        #     return sum([c for _ in range(int(n)-1)], c)
+        # Store
+        defined[n] = return_value
+        return return_value
 
 
-
-
-    def limited(self, consts=True, defined=None):
+    def limited(self, consts=True, defined=None, expansion=0):
         """Returns the expression in terms of only the five basic operations"""
-        # Store pointers to all previously used constants
+
+        # Store pointers to all previously limited subgraphs
         if defined is None:
             defined = {'x': Node('x')}
+
         if self.is_limited:
             return self
+
+        elif str(self) in defined:
+            return_value = defined[str(self)]
+            return_value.is_limited = True
+
+        # Constants are limited regardless of variable expansion
         elif type(self.value) is not str:
             if consts:
-                # Return here to prevent recursive calls with return_value
                 return_value = Node.const(self.value, defined)
-                return_value.is_limited = True
-                return return_value
             else:
-                self.is_limited = True
-                return self
+                return_value = self
+            return_value.is_limited = True
+
+        # Redefine operations in terms of limitable operations to be recursively limited
         else:
             match self.value:
                 case '+' | '-' | '*' | '/' | '**':
+                    # Atomic operations but operations must still be limited
                     self.children = [child.limited(consts=consts, defined=defined) for child in self]
-                    self.is_limited = True
-                    return self
+                    return_value = self
+                    return_value.is_limited = True
                 case 'neg': return_value = 0 - self[0]
                 case '|': return_value = self[0] ** 0 ** self[1]
                 case '&': return_value = self[0] * self[1]
@@ -618,32 +641,48 @@ class Node:
                     elif self[1].value == 2:
                         return_value = (1 - (-1) ** self[0]) / 2
                     else:
-                        k = int(math.log2(self[1].value))
+                        k = int(np.log2(self[1].value))
                         return_value = ((((self[0] >> k-1) % 2) << k-1) + (self[0] % 2**(k-1)))
                 case 'sin':
-                    e = Node('e')
                     i = Node('i')
-                    return_value = (e ** (i * self[0]) - e ** (i * -self[0])) / (2 * i)
+                    return_value = (Node.exp(i * self[0]) - Node.exp(-(i * self[0]))) / (2 * i)
                 case 'cos':
-                    e = Node('e')
                     i = Node('i')
-                    return_value = (e ** (i * self[0]) + e ** (i * -self[0])) / 2
+                    return_value = (Node.exp(i * self[0]) + Node.exp(-(i * self[0]))) / 2
                 case 'get_bits':
                     return_value = ((self[0] >> self[1].value) % (2 ** self[2].value))
                 case 'i':
-                    return_value = Node.const(1j, defined)
+                    return_value = Node(1j)
                 case 'exp':
                     e = Node('e')
                     return_value = e ** self[0]
+                case 'e':
+                    Node.const('e', defined, expansion=expansion)
                 case _:
-                    if self.value in defined:
-                        return defined[self.value]
-                    else:
-                        return self
+                    return_value = self
+                    return_value.is_limited = True
+
         # Recursively call limiting
-        return_value = return_value.limited(consts=consts, defined=defined)
+        if not return_value.is_limited:
+            return_value = return_value.limited(consts=consts, defined=defined)
+            return_value.is_limited = True
+
+        # Reuse the limited form if it has already exists in the graph
+        # Otherwise, store the limited form
+        if str(return_value) in defined:
+            return_value = defined[str(return_value)]
+        else:
+            defined[str(return_value)] = return_value
+
+        # Store the limited form with the non-limited form as the key
+        if str(self) not in defined:
+            defined[str(self)] = return_value
+
+        # Replace the current structure with the limited form
         self.replace(return_value)
-        return_value.is_limited = True
+
+        # print(defined)
+
         return return_value
 
 
@@ -660,30 +699,32 @@ if __name__ == '__main__':
     y = Node('y')
     z = Node('z')
 
+    # f = 2 * x
 
-    a = x
-    b = y
+    import sympy as sp
 
-    # b.replace(a)
+    x = sp.Symbol('x')
 
-    b = Node.const(12)
+    f = 2 * x + 1 + x + 7 + x
 
-    print(b)
+    print(f)
 
-    f = 2 * x
+    # f = 0 ** x
+    # f = x / 0
+    # f = f(np.array([0, 1, 2, 3]))
+    # print(f.limited())
 
     # p = x in [0,x,1]
 
     # p = x.index_in(f)
 
 
-    f = Node.sin(x) + Node.cos(x)
+    # f = Node.sin(x) + Node.cos(x)
 
     # f = x << 2
 
-    f = f.limited(consts=not True)
+    # f = f.limited(consts=not True)
 
-    print(f)
 
     # a = [x,y]
     #

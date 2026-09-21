@@ -32,6 +32,8 @@ from src.utils.utils import cartesian_prod
 # Target Functions (target_func)
 #
 
+def pow_x_y(x, y, **kwargs): return x**y
+
 def polynomial(x, **kwargs):
     result = 0
     for degree, coefficient in enumerate(kwargs['coefficients']):
