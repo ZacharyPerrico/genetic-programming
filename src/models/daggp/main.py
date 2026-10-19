@@ -1,4 +1,4 @@
-from models.abstract.methods import pow_x_y
+from models.abstract.methods import pow_x_y, koza_3, koza_2
 from models.daggp.methods import *
 from models.daggp.plot import plot_results
 from src.evolve import run_tests
@@ -47,55 +47,55 @@ from src.evolve import run_tests
 #     ],
 # }
 
-# kwargs = {
-#     'saves_path': '../../../saves/daggp/polynomial',  # Save path relative to this file
-#     'verbose': True,
-#     'parallelize': True,
-#     'checkpoint_interval': 500,
-#     'update_timeout': 60,  # Time before a replicate fails if it cannot update the database
-#     'save_formater_func': dag_to_save_str,  # Function to convert an individual into a savable string
-#     'load_formater_func': dag_from_save_str,  # Function to load an individual from a saved string
-#     ## Size ##
-#     'num_reps': 10,
-#     'num_gens': 1000,
-#     'pop_size': 100,
-#     'max_height': 10,
-#     ## Initialization ##
-#     'init_individual_func': random_tree,  # Function used to generate a new organism
-#     'init_max_height': 3,
-#     'p_branch': 0.75,  # Probability of a node not being a terminal
-#     'ops': ['+', '-', '*', '/', 'real', 'imag', 'exp'],
-#     'terminals': ['x','i'],
-#     ## Evaluation ##
-#     'eval_method': None,
-#     'fitness_func': dag_mse,
-#     # 'target_func': trig_sin,
-#     'target_func': polynomial,
-#     'coefficients': [0] + [1]*7,
-#     'domains': [list(np.linspace(-1,1,11))],
-#     ## Selection ##
-#     'minimize_fitness': True,
-#     'keep_parents': 2,  # Elitism, must be even
-#     'tournament_size': 2,  # Number of randomly chosen parents for each tournament
-#     ## Repopulation ##
-#     'subgraph_max_height': 2,
-#     'recombination_funcs': [subgraph_crossover],
-#     'recombination_probs': [0.25],
-#     'mutation_funcs': [subgraph_mutation, pointer_mutation],
-#     'mutation_probs': [0.25, 0.5],
-#     ## Tests ##
-#     'test_label': 'Field',  # Label to use when comparing all tests
-#     'test_keys': ['test', 'terminals', 'ops'],  # Keys of each parameter to be changed for each test
-#     'test_values': [  # Tuple of tuples representing all values to change for each test
-#         ['Real',                   ['x'],      ['+', '-', '*', '/']],
-#         ['Real Pow',               ['x', -1],      ['+', '-', '*', '/', '**']],
-#         # ['Complex',                ['x', 'i'], ['+', '-', '*', '/']],
-#         # ['Complex Pow',            ['x', 'i'], ['+', '-', '*', '/', '**']],
-#         ['Irrational Complex',     ['x', 'i', 'pi'], ['+', '-', '*', '/', 'exp']],
-#         # ['Irrational Complex Pow', ['x', 'i'], ['+', '-', '*', '/', '**', 'exp']],
-#         # ['Irrational', [0,1,2], ['+', '-', '*', '/', 'ln', 'exp']],
-#     ],
-# }
+kwargs = {
+    'saves_path': '../../../saves/daggp/polynomial',  # Save path relative to this file
+    'verbose': True,
+    'parallelize': True,
+    'checkpoint_interval': 500,
+    'update_timeout': 60,  # Time before a replicate fails if it cannot update the database
+    'save_formater_func': dag_to_save_str,  # Function to convert an individual into a savable string
+    'load_formater_func': dag_from_save_str,  # Function to load an individual from a saved string
+    ## Size ##
+    'num_reps': 10,
+    'num_gens': 1000,
+    'pop_size': 100,
+    'max_height': 10,
+    ## Initialization ##
+    'init_individual_func': random_tree,  # Function used to generate a new organism
+    'init_max_height': 3,
+    'p_branch': 0.75,  # Probability of a node not being a terminal
+    'ops': ['+', '-', '*', '/', 'real', 'imag', 'exp'],
+    'terminals': ['x','i'],
+    ## Evaluation ##
+    'eval_method': None,
+    'fitness_func': dag_mse,
+    'target_func': polynomial,
+    'coefficients': [],
+    'fitness_cases': [],
+    'domains': [list(np.linspace(-1,1,11))],
+    ## Selection ##
+    'minimize_fitness': True,
+    'keep_parents': 2,  # Elitism, must be even
+    'tournament_size': 2,  # Number of randomly chosen parents for each tournament
+    ## Repopulation ##
+    'subgraph_max_height': 2,
+    'recombination_funcs': [subgraph_crossover],
+    'recombination_probs': [0.25],
+    'mutation_funcs': [subgraph_mutation, pointer_mutation],
+    'mutation_probs': [0.25, 0.5],
+    ## Tests ##
+    'test_label': 'Field',  # Label to use when comparing all tests
+    'test_keys': ['test', 'terminals', 'ops'],  # Keys of each parameter to be changed for each test
+    'test_values': [  # Tuple of tuples representing all values to change for each test
+        ['Real',                   ['x'],      ['+', '-', '*', '/']],
+        ['Real Pow',               ['x', -1],      ['+', '-', '*', '/', '**']],
+        # ['Complex',                ['x', 'i'], ['+', '-', '*', '/']],
+        # ['Complex Pow',            ['x', 'i'], ['+', '-', '*', '/', '**']],
+        ['Irrational Complex',     ['x', 'i', 'pi'], ['+', '-', '*', '/', 'exp']],
+        # ['Irrational Complex Pow', ['x', 'i'], ['+', '-', '*', '/', '**', 'exp']],
+        # ['Irrational', [0,1,2], ['+', '-', '*', '/', 'ln', 'exp']],
+    ],
+}
 
 
 
@@ -151,55 +151,55 @@ from src.evolve import run_tests
 
 
 
-kwargs = {
-    'saves_path': '../../../saves/daggp/ln_to_pow',  # Save path relative to this file
-    'verbose': True,
-    'parallelize': True,
-    'checkpoint_interval': 500,
-    'update_timeout': 60,  # Time before a replicate fails if it cannot update the database
-    'save_formater_func': dag_to_save_str,  # Function to convert an individual into a savable string
-    'load_formater_func': dag_from_save_str,  # Function to load an individual from a saved string
-    ## Size ##
-    'num_reps': 30,
-    'num_gens': 200,
-    'pop_size': 100,
-    'max_height': 8,
-    ## Initialization ##
-    'init_individual_func': random_tree,  # Function used to generate a new organism
-        'init_max_height': 3,
-        'p_branch': 0.75,  # Probability of a node not being a terminal
-        'ops': ['+', '-', '*', '/'],
-        'terminals': ['x'],
-    ## Evaluation ##
-    'fitness_func': dag_mse,
-        'target_func': pow_x_y,
-        'domains': [
-            list(np.linspace(1, 3, 6)),
-            list(np.linspace(1, 3, 6)),
-        ],
-    ## Selection ##
-    'minimize_fitness': True,
-    'keep_parents': 2,
-    'tournament_size': 2,
-    ## Repopulation ##
-    'subgraph_max_height': 2,
-    'recombination_funcs': [subgraph_crossover],
-    'recombination_probs': [0.25],
-    'mutation_funcs': [subgraph_mutation, pointer_mutation],
-    'mutation_probs': [0.25, 0.5],
-    ## Tests ##
-    'test_label': 'Field',  # Label to use when comparing all tests
-    'test_keys': ['test', 'terminals', 'ops'],  # Keys of each parameter to be changed for each test
-    'test_values': [  # Tuple of tuples representing all values to change for each test
-        # ['Real',                   ['x', 'y'],      ['+', '-', '*', '/']],
-        # ['Real Pow',               ['x'],      ['+', '-', '*', '/', '**']],
-        # ['Complex',                ['x', 'i'], ['+', '-', '*', '/']],
-        # ['Complex Pow',            ['x', 'i'], ['+', '-', '*', '/', '**']],
-        # ['Irrational Complex',     ['x', 'i'], ['+', '-', '*', '/', 'exp']],
-        # ['Irrational Complex Pow', ['x', 'i'], ['+', '-', '*', '/', '**', 'exp']],
-        ['Irrational', ['x', 'y'], ['+', '-', '*', '/', 'ln', 'exp']],
-    ],
-}
+# kwargs = {
+#     'saves_path': '../../../saves/daggp/ln_to_pow',  # Save path relative to this file
+#     'verbose': True,
+#     'parallelize': True,
+#     'checkpoint_interval': 500,
+#     'update_timeout': 60,  # Time before a replicate fails if it cannot update the database
+#     'save_formater_func': dag_to_save_str,  # Function to convert an individual into a savable string
+#     'load_formater_func': dag_from_save_str,  # Function to load an individual from a saved string
+#     ## Size ##
+#     'num_reps': 30,
+#     'num_gens': 200,
+#     'pop_size': 100,
+#     'max_height': 8,
+#     ## Initialization ##
+#     'init_individual_func': random_tree,  # Function used to generate a new organism
+#         'init_max_height': 3,
+#         'p_branch': 0.75,  # Probability of a node not being a terminal
+#         'ops': ['+', '-', '*', '/'],
+#         'terminals': ['x'],
+#     ## Evaluation ##
+#     'fitness_func': dag_mse,
+#         'target_func': pow_x_y,
+#         'domains': [
+#             list(np.linspace(1, 3, 6)),
+#             list(np.linspace(1, 3, 6)),
+#         ],
+#     ## Selection ##
+#     'minimize_fitness': True,
+#     'keep_parents': 2,
+#     'tournament_size': 2,
+#     ## Repopulation ##
+#     'subgraph_max_height': 2,
+#     'recombination_funcs': [subgraph_crossover],
+#     'recombination_probs': [0.25],
+#     'mutation_funcs': [subgraph_mutation, pointer_mutation],
+#     'mutation_probs': [0.25, 0.5],
+#     ## Tests ##
+#     'test_label': 'Field',  # Label to use when comparing all tests
+#     'test_keys': ['test', 'terminals', 'ops'],  # Keys of each parameter to be changed for each test
+#     'test_values': [  # Tuple of tuples representing all values to change for each test
+#         # ['Real',                   ['x', 'y'],      ['+', '-', '*', '/']],
+#         # ['Real Pow',               ['x'],      ['+', '-', '*', '/', '**']],
+#         # ['Complex',                ['x', 'i'], ['+', '-', '*', '/']],
+#         # ['Complex Pow',            ['x', 'i'], ['+', '-', '*', '/', '**']],
+#         # ['Irrational Complex',     ['x', 'i'], ['+', '-', '*', '/', 'exp']],
+#         # ['Irrational Complex Pow', ['x', 'i'], ['+', '-', '*', '/', '**', 'exp']],
+#         ['Irrational', ['x', 'y'], ['+', '-', '*', '/', 'ln', 'exp']],
+#     ],
+# }
 
 
 
@@ -298,6 +298,57 @@ kwargs = {
 #         ['Real',               ['x0','x1','x2','x3'],     ['+', '-', '*', '/']],
 #         ['Complex',            ['x0','x1','x2','x3','i'], ['+', '-', '*', '/', 'real', 'imag']],
 #         ['Irrational Complex', ['x0','x1','x2','x3','i'], ['+', '-', '*', '/', 'real', 'imag', 'exp']],
+#     ],
+# }
+
+
+
+
+
+# kwargs = {
+#     'saves_path': '../../../saves/daggp/kwargs_test',  # Save path relative to this file
+#     'verbose': True,
+#     'parallelize': True,
+#     'checkpoint_interval': 500,
+#     'update_timeout': 60,  # Time before a replicate fails if it cannot update the database
+#     'save_formater_func': dag_to_save_str,  # Function to convert an individual into a savable string
+#     'load_formater_func': dag_from_save_str,  # Function to load an individual from a saved string
+#     ## Size ##
+#     'num_reps': 10,
+#     'num_gens': 200,
+#     'pop_size': 100,
+#     'max_height': 8,
+#     ## Initialization ##
+#     'init_individual_func': random_tree,  # Function used to generate a new organism
+#         'init_max_height': 3,
+#         'p_branch': 0.75,  # Probability of a node not being a terminal
+#         'ops': ['+', '-', '*', '/'],
+#         'terminals': ['x'],
+#     ## Evaluation ##
+#     'fitness_func': dag_mse,
+#         'target_func': koza_2,
+#         'domains': [
+#             list(np.linspace(-1, 1, 10)),
+#         ],
+#     ## Selection ##
+#     'minimize_fitness': True,
+#     'keep_parents': 2,
+#     'tournament_size': 2,
+#     ## Repopulation ##
+#     'subgraph_max_height': 2,
+#     'recombination_funcs': [subgraph_crossover],
+#     'recombination_probs': [0.25],
+#     'mutation_funcs': [subgraph_mutation, pointer_mutation],
+#     'mutation_probs': [0.25, 0.5],
+#     ## Tests ##
+#     'test_label': 'Field',  # Label to use when comparing all tests
+#     'test_keys': ['test', 'recombination_probs', 'mutation_probs'],  # Keys of each parameter to be changed for each test
+#     'test_values': [  # Tuple of tuples representing all values to change for each test
+#         [f'{r} {sm}-{pm}', [r], [sm,pm]]
+#             for r in [0, 0.25, 0.5, 0.75, 1]
+#             for sm in [0, 0.25, 0.5, 0.75, 1]
+#             for pm in [0, 0.25, 0.5, 0.75, 1]
+#             if sm + pm <= 1
 #     ],
 # }
 

@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 from matplotlib import pyplot as plt, animation
 
-from models.abstract.plot import get_best, plot_fitness, plot_sql_query
+from models.abstract.plot import get_best, plot_fitness, plot_sql_query, get_best_tests
 from models.daggp.methods import simulate_cart_pole
 from models.daggp.model import Node
 from src.utils.save import load_kwargs
@@ -41,7 +41,7 @@ def plot_nodes(nodes, labels=None, title=None, fits=None, figsize=None, dpi=None
             label += f' (Fitness = {kwargs['fitness_func']([node], **kwargs)[0]:f})'
 
         # Evaluate and plot real part and imaginary part if applicable
-        node_ys = [node(i, eval_method=kwargs['eval_method']) for i in xs]
+        node_ys = [node(i) for i in xs]
         plt.scatter(xs, np.real(node_ys), label=label)
         plt.plot(xs, np.real(node_ys))
         if np.iscomplex(node_ys).any():
@@ -303,66 +303,88 @@ def plot_lens(**kwargs):
 
 
 
+# def plot_perfect_fits(**kwargs):
+#     if 'fitness_threshold' in kwargs:
+#         target_fit = kwargs['fitness_threshold']
+#     else:
+#         target_fit = 0
+#     if kwargs['minimize_fitness']:
+#         inequal = '>='
+#     else:
+#         inequal = '<='
+#     plot_sql_query(f"""
+#         SELECT
+#             A.gen AS 'Generation',
+#             SUM(IFNULL(B.counts, 0)) AS 'Number of Perfect Fits',
+#             A.test AS 'Field'
+#         FROM (
+#             SELECT gen, test
+#             FROM data
+#             GROUP BY gen, test
+#         ) AS A
+#         LEFT JOIN (
+#             SELECT gen, test, COUNT() as counts
+#             FROM data
+#             WHERE {target_fit} {inequal} fit
+#             GROUP BY gen, test
+#         ) AS B
+#         ON A.gen = B.gen AND A.test = B.test
+#         GROUP BY A.gen, A.test
+#     """, **kwargs)
+
+
+
+
+# def plot_perfect_fits(**kwargs):
+#     if 'fitness_threshold' in kwargs:
+#         target_fit = kwargs['fitness_threshold']
+#     else:
+#         target_fit = 0
+#     if kwargs['minimize_fitness']:
+#         inequal = '<='
+#     else:
+#         inequal = '>='
+#     plot_sql_query(f"""
+#         SELECT
+#             A.gen AS 'Generation',
+#             SUM(IFNULL(B.counts, 0)) AS 'Number of Perfect Fits',
+#             A.test AS 'Test'
+#         FROM (
+#             SELECT gen, test
+#             FROM data
+#             GROUP BY gen, test
+#         ) AS A
+#         LEFT JOIN (
+#             SELECT gen, test, COUNT() as counts
+#             FROM data
+#             WHERE fit {inequal} {target_fit}
+#             GROUP BY gen, test
+#         ) AS B
+#         ON A.gen = B.gen AND A.test = B.test
+#         GROUP BY A.gen, A.test
+#     """, **kwargs)
+
+
+
 def plot_perfect_fits(**kwargs):
     if 'fitness_threshold' in kwargs:
         target_fit = kwargs['fitness_threshold']
     else:
         target_fit = 0
     if kwargs['minimize_fitness']:
-        inequal = '>='
-    else:
-        inequal = '<='
-    plot_sql_query(f"""
-        SELECT
-            A.gen AS 'Generation', 
-            SUM(IFNULL(B.counts, 0)) AS 'Number of Perfect Fits', 
-            A.test AS 'Field'
-        FROM (
-            SELECT gen, test
-            FROM data
-            GROUP BY gen, test
-        ) AS A
-        LEFT JOIN (
-            SELECT gen, test, COUNT() as counts
-            FROM data
-            WHERE {target_fit} {inequal} fit 
-            GROUP BY gen, test
-        ) AS B
-        ON A.gen = B.gen AND A.test = B.test
-        GROUP BY A.gen, A.test
-    """, **kwargs)
-
-
-
-
-def plot_perfect_fits(**kwargs):
-    if 'fitness_threshold' in kwargs:
-        target_fit = kwargs['fitness_threshold']
-    else:
-        target_fit = 0
-    if kwargs['minimize_fitness']:
         inequal = '<='
     else:
         inequal = '>='
     plot_sql_query(f"""
         SELECT
-            A.gen AS 'Generation', 
-            SUM(IFNULL(B.counts, 0)) AS 'Number of Perfect Fits', 
-            A.seed AS 'Field'
-        FROM (
-            SELECT gen, seed
-            FROM data
-            GROUP BY gen, seed
-        ) AS A
-        LEFT JOIN (
-            SELECT gen, seed, COUNT() as counts
-            FROM data
-            WHERE fit {inequal} {target_fit} 
-            GROUP BY gen, seed
-        ) AS B
-        ON A.gen = B.gen AND A.seed = B.seed
-        GROUP BY A.gen, A.seed
+            gen AS 'Generation',
+            COUNT() AS 'Number of Perfect Fits',
+            test AS 'Test'
+        FROM data
+        WHERE fit {inequal} {target_fit}
+        GROUP BY gen, test
     """, **kwargs)
+
 
 
 
@@ -390,16 +412,21 @@ def plot_dist(**kwargs):
     """, **kwargs)
 
 
-def plot_all_reps(**kwargs):
-    plot_sql_query("""
-        SELECT 
-            gen AS 'Generation', 
-            MAX(fit) AS 'Fitness',
-            test AS 'Field',
-            seed
-        FROM data
-        GROUP BY gen, test, seed
-    """, **kwargs)
+# def plot_all_reps(**kwargs):
+#     plot_sql_query("""
+#         SELECT
+#             gen AS 'Generation',
+#             MAX(fit) AS 'Fitness',
+#             test AS 'Field',
+#             seed
+#         FROM data
+#         GROUP BY gen, test, seed
+#     """, **kwargs)
+
+
+    
+
+
 
 
 
@@ -424,8 +451,12 @@ def plot_results(**kwargs):
         #     100))]
     }
 
+    # r = get_best_reps(**kwargs)
+    # print(r)
+    # quit()
+
     # plot_all_reps(**kwargs)
-    # plot_fitness(**kwargs)
+    plot_fitness(limit=None, **kwargs)
     # plot_lens(**kwargs)
     # plot_perfect_fits(**kwargs)
     # plot_dist(**kwargs)
@@ -434,6 +465,9 @@ def plot_results(**kwargs):
 
     # Plot best results of each test
     bests = get_best(**kwargs)
+
+
+    best_tests = get_best_tests(**kwargs)
 
     # Plot all the best results together
     tests, seeds, gens, ids, fits, genotypes, tests_kwargs = zip(*bests)
@@ -456,76 +490,7 @@ def plot_results(**kwargs):
 if __name__ == '__main__':
     # name = 'tuning'
     # name = 'real_dist'
-    name = 'fix_pole_success'
+    name = 'hyper'
     # name = 'ln_to_pow'
     kwargs = load_kwargs('../../../saves/daggp/' + name)
     plot_results(**kwargs)
-    quit()
-
-    e = Node('e')
-    i = Node('i')
-    pi = Node('pi')
-    x = Node('x')
-    y = Node('y')
-    z = Node('z')
-
-
-    # a = x
-    # b = y + a
-    # c = z + a + b
-    # f = c
-
-    # f = Node.const(9-15j)#.to_tree()
-
-    # f = Node(8) + 5 + 5 + 5
-
-    # f = Node.sin(x) #+ Node.cos(x)
-
-    # f = Node.const('e', expansion=5)
-
-    # f = f.to_tree()
-
-    # f = Node('i')
-
-    # f = 2 * x + 2 * x
-
-    # f = x + 2 + 2
-
-    # f = f.limited(~True, expansion=1)
-
-    # f = Node.const(2**9).to_tree()
-
-    # b.replace(e)
-
-    #
-    #
-    # g = 2 * x + 9
-    #
-    # f = g + g * 7
-    #
-    # g.replace(e)
-
-    # f = Node.sin(x) + Node.cos(x)
-    # f = Node(7j)
-    # f = f.limited(consts=True)
-
-    f = Node(12182001)
-    f = f.limited(consts=True)
-    plot_graph(f)
-
-
-    # Append plot kwargs
-    # kwargs |= {
-    #     'figsize': (6.4, 4.8),
-    #     'dpi': 100,
-    #     'save': False,
-    #     'show': True,
-    #     'scale': 1,
-    # }
-    #
-    # x0 = Node('x0')
-    # x1 = Node('x1')
-    # x2 = Node('x2')
-    # x3 = Node('x3')
-    # y = x1 + (x0 * x3)
-    # plot_pole(y, title='test', **kwargs)

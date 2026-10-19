@@ -151,13 +151,13 @@ def run_tests(**kwargs):
 
     # Generate the kwargs describing each test and use the first to generate the SQL table
     tests_kwargs = list(generate_tests(**kwargs))
-    create_kwarg_table(**tests_kwargs[0])
+    # create_kwarg_table(**tests_kwargs[0])
 
     # Generate kwargs unique to each replicate across all tests
     jobs_kwargs = []
     for test_kwargs in tests_kwargs:
         # Add a row for the test's kwargs
-        update_kwarg_table(**test_kwargs)
+        # update_kwarg_table(**test_kwargs)
         for rep_kwargs in generate_reps(**test_kwargs):
             jobs_kwargs.append([rep_kwargs])
 

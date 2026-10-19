@@ -214,13 +214,15 @@ def update_kwarg_table(**test_kwargs):
 
 
 if __name__ == '__main__':
-    kwargs = load_kwargs('../../saves/daggp/imag_roots')
+
+    # Manually load results to execute a SQL query
+    kwargs = load_kwargs('../../saves/daggp/hyper')
 
 
-
-    # for i in sql_query("""
-    #     SELECT seed, COUNT(seed) FROM data GROUP BY seed
-    # """, **kwargs): print(i)
+    for i in sql_query("""
+        SELECT count(distinct test)
+        FROM data
+    """, **kwargs): print(i)
 
     # for i in sql_query("""
     #     SELECT
@@ -278,16 +280,15 @@ if __name__ == '__main__':
     #     GROUP BY data.gen, data.test
     # """, **kwargs): print(i)
 
-    for i in sql_query("""
-        SELECT test, genotype 
-        FROM data
-        WHERE fit = 0
-        GROUP BY test, genotype
-    """, **kwargs):
-        i = list(i)
-        i[1] = dag_from_save_str(i[1])
-        print(i)
-
+    # for i in sql_query("""
+    #     SELECT test, genotype
+    #     FROM data
+    #     WHERE fit = 0
+    #     GROUP BY test, genotype
+    # """, **kwargs):
+    #     i = list(i)
+    #     i[1] = dag_from_save_str(i[1])
+    #     print(i)
 
 
     # Interactive SQL terminal
@@ -305,5 +306,3 @@ if __name__ == '__main__':
     # finally:
     #     con.close()
     #     print('EXITING')
-
-

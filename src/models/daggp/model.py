@@ -701,13 +701,13 @@ if __name__ == '__main__':
 
     # f = 2 * x
 
-    import sympy as sp
+    # import sympy as sp
 
-    x = sp.Symbol('x')
+    # x = sp.Symbol('x')
 
-    f = 2 * x + 1 + x + 7 + x
+    # f = 2 * x + 1 + x + 7 + Node.sin(x)
 
-    print(f)
+    # print(f)
 
     # f = 0 ** x
     # f = x / 0

@@ -36,6 +36,20 @@ def get_best(**kwargs):
     return bests
 
 
+def get_best_tests(limit=1, **kwargs):
+    """Returns the test_name of the top results"""
+    ordering_func = 'MIN'
+    result = sql_query(f"""
+        SELECT test AS score
+        FROM data
+        WHERE fit < 0.00001
+        GROUP BY test
+        ORDER BY score
+        LIMIT {limit}
+    """, **kwargs)
+    return [i[0] for i in result]
+
+
 def plot_grid(all_pops, all_fits, plot_func, title=None, save=True, show=True, **kwargs):
     """Plots a grid of plots over the test kwargs"""
     best = get_best(all_pops, all_fits, **kwargs)
@@ -126,8 +140,12 @@ def plot_sql_query(query, save=True, show=True, **kwargs):
     plt.close()
 
 
-def plot_fitness(figsize=None, dpi=None, save=True, show=True, **kwargs):
+def plot_fitness(figsize=None, dpi=None, save=True, show=True, limit=None, **kwargs):
     """Plot the average of the runs' minimum fitness for each test"""
+
+    # Limit the number of results
+    if limit is not None:
+        best_tests = get_best_tests(limit=limit, **kwargs)
 
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
@@ -135,6 +153,10 @@ def plot_fitness(figsize=None, dpi=None, save=True, show=True, **kwargs):
     for test_num, test_values in enumerate(kwargs['test_values']):
 
         test_name = test_values[0]
+
+        # Skip tests if not one of the top results
+        if limit is not None and test_name not in best_tests:
+            continue
 
         if kwargs['minimize_fitness']:
             ordering_func = 'MIN'
@@ -211,9 +233,12 @@ def plot_fitness(figsize=None, dpi=None, save=True, show=True, **kwargs):
     # plt.scatter(xx, yy, 0.1)
 
     ax.set_xlabel('Generation')
-    plt.legend(title=kwargs['test_label'])
+    # plt.legend(title=kwargs['test_label'])
     if save:
-        plt.savefig(f'{kwargs['plot_path']}Fitness.svg')
+        title = 'Fitness.svg'
+        if limit is not None:
+            title = f'Top {limit} {title}'
+        plt.savefig(f'{kwargs['plot_path']}{title}')
     if show:
         plt.show()
     plt.close()
